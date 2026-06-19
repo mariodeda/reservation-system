@@ -1,0 +1,529 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   GLOBAL (shared across all Stitch screens)
+   ============================================================ */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Window scrollbar theme (from Home Desktop) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #131313;
+}
+::-webkit-scrollbar-thumb {
+  background: #4d4635;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #f2ca50;
+}
+
+/* Admin light theme: flip scrollbars to a cream palette */
+[data-admin][data-theme="light"] ::-webkit-scrollbar-track {
+  background: #ece8dc;
+}
+[data-admin][data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #b5af9e;
+}
+[data-admin][data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #6b5c00;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ken-burns {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect reduced-motion: kill long/looping animations but keep content visible */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   PER-SCREEN SCOPED CSS  (ported verbatim from each Stitch screen,
+   prefixed with the screen wrapper class to avoid cross-screen
+   conflicts — e.g. .glass-card opacity differs per screen)
+   ============================================================ */
+
+/* ---- Home Desktop (.scr-home-d) ---- */
+.scr-home-d .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+}
+.scr-home-d .glass-nav {
+  background: rgba(19, 19, 19, 0.8);
+  backdrop-filter: blur(20px);
+}
+.scr-home-d .parallax-bg {
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+.scr-home-d .hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scr-home-d .hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ---- Home Mobile (.scr-home-m) ---- */
+.scr-home-m .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.scr-home-m .glass-card {
+  background: rgba(38, 38, 38, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.1);
+}
+.scr-home-m .animate-fade-up {
+  animation: fade-in 0.8s ease-out forwards;
+}
+
+/* ---- Menu Desktop (.scr-menu-d) ---- */
+.scr-menu-d .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.scr-menu-d .glass-card {
+  background: rgba(38, 38, 38, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.08);
+}
+.scr-menu-d .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scr-menu-d .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ---- Menu Mobile (.scr-menu-m) ---- */
+.scr-menu-m .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.scr-menu-m .hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scr-menu-m .hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scr-menu-m .menu-category-active {
+  color: #f2ca50;
+  border-bottom: 2px solid #f2ca50;
+}
+.scr-menu-m .glass-card {
+  background: rgba(38, 38, 38, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.05);
+}
+
+/* ---- Gallery Desktop (.scr-gallery-d) ---- */
+.scr-gallery-d .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.scr-gallery-d .glass-card {
+  background: rgba(38, 38, 38, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.1);
+}
+.scr-gallery-d .masonry {
+  column-count: 1;
+  column-gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .scr-gallery-d .masonry {
+    column-count: 2;
+  }
+}
+@media (min-width: 1024px) {
+  .scr-gallery-d .masonry {
+    column-count: 3;
+  }
+}
+.scr-gallery-d .masonry-item {
+  break-inside: avoid;
+  margin-bottom: 1.5rem;
+}
+.scr-gallery-d .reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.8s ease-out;
+}
+.scr-gallery-d .reveal.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- Gallery Mobile (.scr-gallery-m) ---- */
+.scr-gallery-m .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.scr-gallery-m .glass-card {
+  background: rgba(38, 38, 38, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.1);
+}
+.scr-gallery-m .text-shadow-sm {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Reservations Desktop (.scr-resv-d) ---- */
+.scr-resv-d .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+}
+.scr-resv-d .glass-panel {
+  background: rgba(38, 38, 38, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.1);
+}
+.scr-resv-d .custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.scr-resv-d .custom-scrollbar::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+.scr-resv-d .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d4af37;
+  border-radius: 10px;
+}
+.scr-resv-d input:focus,
+.scr-resv-d textarea:focus {
+  outline: none;
+  border-color: #d4af37 !important;
+}
+.scr-resv-d .step-active {
+  color: #f2ca50;
+}
+.scr-resv-d .step-inactive {
+  color: #4d4635;
+}
+
+/* ---- Reservations Mobile (.scr-resv-m) ---- */
+.scr-resv-m .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+}
+.scr-resv-m .glass-card {
+  background: rgba(38, 38, 38, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.1);
+}
+.scr-resv-m .step-transition {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.scr-resv-m .hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scr-resv-m .hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scr-resv-m input:focus,
+.scr-resv-m textarea:focus,
+.scr-resv-m select:focus {
+  outline: none;
+  border-color: #f2ca50 !important;
+}
+
+/* ============================================================
+   SHARED HEADER — neutralize each screen's original nav/header and
+   its standalone mobile drawer; the single <SiteHeader/> replaces them.
+   ============================================================ */
+.scr-home-d > nav:first-child,
+.scr-home-m > header:first-child,
+.scr-menu-d > nav:first-child,
+.scr-menu-m > nav:first-child,
+.scr-gallery-d > nav:first-child,
+.scr-gallery-m > nav:first-child,
+.scr-resv-d > header:first-child,
+.scr-resv-m > header:first-child,
+.scr-about-d > nav:first-child,
+.scr-about-m > nav:first-child {
+  display: none !important;
+}
+#mobile-drawer,
+#mobile-overlay,
+.scr-home-m #mobile-menu {
+  display: none !important;
+}
+
+/* ---- About Desktop (.scr-about-d) ---- */
+.scr-about-d .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+}
+.scr-about-d .glass-card {
+  background: rgba(38, 38, 38, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.1);
+}
+.scr-about-d .parallax-bg {
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* ---- About Mobile (.scr-about-m) ---- */
+.scr-about-m .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  display: inline-block;
+  vertical-align: middle;
+}
+.scr-about-m .glass-card {
+  background: rgba(38, 38, 38, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 245, 245, 0.1);
+}
+.scr-about-m .parallax-bg {
+  background-attachment: scroll;
+  background-position: center;
+  background-size: cover;
+}
+@media (min-width: 1024px) {
+  .scr-about-m .parallax-bg {
+    background-attachment: fixed;
+  }
+}
+
+/* ============================================================
+   INTERACTION ENHANCEMENTS (JS-driven; added to make every
+   control behave dynamically / production-ready)
+   ============================================================ */
+
+/* Menu rows slide on hover (Menu Desktop) */
+.scr-menu-d .group {
+  transition: transform 0.3s ease-out;
+}
+.scr-menu-d .group:hover {
+  transform: translateX(8px);
+}
+
+/* Single-select state for reservation pickers (date / service / time / party) */
+.scr-resv-d [data-managed],
+.scr-resv-m [data-managed] {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.scr-resv-d [data-managed].sel,
+.scr-resv-m [data-managed].sel {
+  border-color: #f2ca50 !important;
+  color: #f2ca50;
+  background-color: rgba(242, 202, 80, 0.12);
+  font-weight: 600;
+}
+/* Calendar day cells read better as a solid gold chip when selected */
+.scr-resv-d .grid-cols-7 [data-managed].sel,
+.scr-resv-m .grid-cols-7 [data-managed].sel {
+  background-color: #f2ca50;
+  color: #3c2f00;
+  border-radius: 9999px;
+}
+
+/* Center every button label across the app */
+[class*="scr-"] button,
+[data-site-header] button {
+  text-align: center;
+}
+
+/* Accessible keyboard focus ring (was missing — outline:none everywhere) */
+[class*="scr-"] a:focus-visible,
+[class*="scr-"] button:focus-visible,
+[class*="scr-"] input:focus-visible,
+[class*="scr-"] select:focus-visible,
+[class*="scr-"] textarea:focus-visible,
+[data-site-header] a:focus-visible,
+[data-site-header] button:focus-visible {
+  outline: 2px solid #f2ca50;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Admin: accessible keyboard focus rings */
+[data-admin] a:focus-visible,
+[data-admin] button:focus-visible,
+[data-admin] input:focus-visible,
+[data-admin] select:focus-visible,
+[data-admin] textarea:focus-visible {
+  outline: 2px solid #f2ca50;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Toast */
+#stitch-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  transform: translateX(-50%) translateY(0.5rem);
+  z-index: 200;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  background: #f2ca50;
+  color: #3c2f00;
+  font-family: var(--font-montserrat), sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+}
+#stitch-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================================
+   POLISH PASS (targeted UI fixes)
+   ============================================================ */
+
+/* #2 Signature dish cards: equal height + aligned descriptions */
+.scr-home-d #dish-scroll {
+  align-items: stretch;
+}
+.scr-home-d #dish-scroll > .group {
+  display: flex;
+  flex-direction: column;
+}
+.scr-home-d #dish-scroll .space-y-xs > p {
+  min-height: 2.6rem;
+}
+
+/* #4 + #5 Managed pickers (service / party): keep a neutral border when
+   unselected — a stripped active button was falling back to the white default */
+.scr-resv-d [data-managed]:not(.sel),
+.scr-resv-m [data-managed]:not(.sel) {
+  border-color: rgba(77, 70, 53, 0.35);
+}
+
+/* #8 Gallery filter: animate items in when the active tab changes */
+@keyframes filterIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.scr-gallery-d .masonry-item.filter-in {
+  animation: filterIn 0.35s ease both;
+}
+
+/* ============================================================
+   ADMIN LIGHT THEME
+   ============================================================ */
+
+/* Base rule: covers bg-background and text-on-surface applied to the root [data-admin] element itself */
+[data-admin][data-theme="light"] {
+  background-color: #f5f2ea;
+  color: #1c1b17;
+}
+
+[data-admin][data-theme="light"] .bg-background,
+[data-admin][data-theme="light"] .bg-surface,
+[data-admin][data-theme="light"] .bg-surface-dim { background-color: #f5f2ea; }
+
+[data-admin][data-theme="light"] .bg-surface-container { background-color: #ece8dc; }
+[data-admin][data-theme="light"] .bg-surface-container\/95 { background-color: rgba(236, 232, 220, 0.95); }
+[data-admin][data-theme="light"] .bg-surface-container-high { background-color: #e4dfd2; }
+[data-admin][data-theme="light"] .bg-surface-container-highest { background-color: #d9d3c5; }
+[data-admin][data-theme="light"] .bg-surface-container-lowest { background-color: #ffffff; }
+[data-admin][data-theme="light"] .hover\:bg-surface-container-high:hover { background-color: #e4dfd2; }
+
+/* primary tint variants — use dark-gold (#6b5c00) so tints are visible on cream */
+[data-admin][data-theme="light"] .bg-primary\/15 { background-color: rgba(107, 92, 0, 0.18); }
+[data-admin][data-theme="light"] .bg-primary\/10 { background-color: rgba(107, 92, 0, 0.10); }
+[data-admin][data-theme="light"] .bg-primary\/5  { background-color: rgba(107, 92, 0, 0.06); }
+[data-admin][data-theme="light"] .bg-primary\/20 { background-color: rgba(107, 92, 0, 0.20); }
+[data-admin][data-theme="light"] .hover\:bg-primary\/20:hover { background-color: rgba(107, 92, 0, 0.20); }
+[data-admin][data-theme="light"] .hover\:bg-primary\/5:hover  { background-color: rgba(107, 92, 0, 0.06); }
+[data-admin][data-theme="light"] .border-primary\/50 { border-color: rgba(107, 92, 0, 0.50); }
+[data-admin][data-theme="light"] .border-primary\/30 { border-color: rgba(107, 92, 0, 0.30); }
+[data-admin][data-theme="light"] .border-primary\/20 { border-color: rgba(107, 92, 0, 0.20); }
+[data-admin][data-theme="light"] .border-primary\/60 { border-color: rgba(107, 92, 0, 0.60); }
+[data-admin][data-theme="light"] .hover\:border-primary\/60:hover { border-color: rgba(107, 92, 0, 0.60); }
+[data-admin][data-theme="light"] .text-primary\/60 { color: rgba(107, 92, 0, 0.75); }
+[data-admin][data-theme="light"] .text-primary\/70 { color: rgba(107, 92, 0, 0.80); }
+[data-admin][data-theme="light"] .text-primary\/50 { color: rgba(107, 92, 0, 0.65); }
+[data-admin][data-theme="light"] .group:hover .group-hover\:text-primary\/70 { color: rgba(107, 92, 0, 0.80); }
+[data-admin][data-theme="light"] .group:hover .group-hover\:text-primary\/60 { color: rgba(107, 92, 0, 0.75); }
+[data-admin][data-theme="light"] .group:hover .group-hover\:border-primary\/20 { border-color: rgba(107, 92, 0, 0.20); }
+
+[data-admin][data-theme="light"] .text-on-surface { color: #1c1b17; }
+[data-admin][data-theme="light"] .text-on-surface-variant { color: #4b4639; }
+[data-admin][data-theme="light"] .text-on-surface-variant\/60 { color: rgba(75, 70, 57, 0.7); }
+[data-admin][data-theme="light"] .text-on-surface-variant\/50 { color: rgba(75, 70, 57, 0.65); }
+[data-admin][data-theme="light"] .text-on-surface-variant\/40 { color: rgba(75, 70, 57, 0.55); }
+[data-admin][data-theme="light"] .text-on-surface-variant\/30 { color: rgba(75, 70, 57, 0.45); }
+[data-admin][data-theme="light"] .text-primary { color: #6b5c00 !important; }
+[data-admin][data-theme="light"] .hover\:text-primary:hover { color: #6b5c00 !important; }
+[data-admin][data-theme="light"] .hover\:text-on-surface:hover { color: #1c1b17; }
+[data-admin][data-theme="light"] .text-on-primary { color: #1c1700; }
+[data-admin][data-theme="light"] .text-error { color: #b91c1c; }
+[data-admin][data-theme="light"] .text-rose-400 { color: #be123c; }
+[data-admin][data-theme="light"] .text-rose-300 { color: #9f1239; }
+[data-admin][data-theme="light"] .hover\:text-rose-300:hover { color: #9f1239; }
+
+[data-admin][data-theme="light"] .border-outline-variant { border-color: #b5af9e; }
+[data-admin][data-theme="light"] .border-outline-variant\/30 { border-color: rgba(100, 93, 75, 0.35); }
+[data-admin][data-theme="light"] .border-outline-variant\/40 { border-color: rgba(100, 93, 75, 0.45); }
+[data-admin][data-theme="light"] .border-outline-variant\/50 { border-color: rgba(100, 93, 75, 0.55); }
+[data-admin][data-theme="light"] .bg-error\/10 { background-color: rgba(185, 28, 28, 0.1); }
+[data-admin][data-theme="light"] .border-error\/30 { border-color: rgba(185, 28, 28, 0.3); }
+
+/* Status badge text — too faint on cream backgrounds */
+[data-admin][data-theme="light"] .text-amber-300 { color: #92400e; }
+[data-admin][data-theme="light"] .text-emerald-300 { color: #065f46; }
+[data-admin][data-theme="light"] .text-sky-300 { color: #0369a1; }
+[data-admin][data-theme="light"] .text-zinc-300 { color: #3f3f46; }
+
+/* Browser native form controls — switch to light color scheme */
+[data-admin][data-theme="light"] input,
+[data-admin][data-theme="light"] select,
+[data-admin][data-theme="light"] textarea { color-scheme: light; }
+[data-admin][data-theme="light"] .\[color-scheme\:dark\] { color-scheme: light; }
