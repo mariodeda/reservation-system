@@ -2,6 +2,17 @@ import mysql, { type Pool, type PoolOptions } from "mysql2/promise";
 
 let pool: Pool | null = null;
 
+/**
+ * Force IPv4 loopback. Node resolves "localhost" to IPv6 `::1` first, so a
+ * connection to a "localhost" MySQL arrives from `::1` — which is denied when
+ * the DB user is only granted for `'…'@'localhost'`/`'127.0.0.1'` (the default
+ * on most managed hosts, e.g. Hostinger). Pinning to 127.0.0.1 avoids the
+ * `Access denied for user … @'::1'` failure.
+ */
+export function normalizeHost(host: string | undefined): string | undefined {
+  return host === "localhost" ? "127.0.0.1" : host;
+}
+
 /** Try to percent-decode a credential segment; fall back to the raw value. */
 function decodeSegment(s: string): string {
   try {
@@ -69,7 +80,7 @@ export function parseDatabaseUrl(raw: string): PoolOptions | null {
   const database = dbPart ? decodeSegment(dbPart) : undefined;
 
   const opts: PoolOptions = {};
-  if (host) opts.host = host;
+  if (host) opts.host = normalizeHost(host);
   if (port) opts.port = port;
   if (user) opts.user = user;
   if (password !== undefined) opts.password = password;
@@ -118,7 +129,7 @@ export function getPool(): Pool {
   } else {
     pool = mysql.createPool({
       ...base,
-      host: process.env.MYSQL_HOST,
+      host: normalizeHost(process.env.MYSQL_HOST),
       port: Number(process.env.MYSQL_PORT || 3306),
       user: process.env.MYSQL_USER,
       password: process.env.MYSQL_PASSWORD,

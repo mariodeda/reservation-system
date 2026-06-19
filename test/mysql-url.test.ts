@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { parseDatabaseUrl } from "@/lib/reservations/mysql-pool";
+import { parseDatabaseUrl, normalizeHost } from "@/lib/reservations/mysql-pool";
+
+describe("normalizeHost", () => {
+  it("forces localhost to IPv4 loopback (avoids ::1 grant mismatch)", () => {
+    expect(normalizeHost("localhost")).toBe("127.0.0.1");
+  });
+  it("leaves other hosts untouched", () => {
+    expect(normalizeHost("127.0.0.1")).toBe("127.0.0.1");
+    expect(normalizeHost("db.host")).toBe("db.host");
+    expect(normalizeHost(undefined)).toBeUndefined();
+  });
+});
 
 describe("parseDatabaseUrl", () => {
   it("parses a plain URL", () => {
@@ -45,11 +56,15 @@ describe("parseDatabaseUrl", () => {
     expect(opts?.host).toBe("db.host");
   });
 
+  it("normalizes a localhost URL host to 127.0.0.1", () => {
+    expect(parseDatabaseUrl("mysql://user:pass@localhost:3306/db")?.host).toBe("127.0.0.1");
+  });
+
   it("handles a URL with no credentials", () => {
-    const opts = parseDatabaseUrl("mysql://localhost:3306/reservations");
+    const opts = parseDatabaseUrl("mysql://db.host:3306/reservations");
     expect(opts?.user).toBeUndefined();
     expect(opts?.password).toBeUndefined();
-    expect(opts?.host).toBe("localhost");
+    expect(opts?.host).toBe("db.host");
   });
 
   it("handles bracketed IPv6 hosts", () => {
