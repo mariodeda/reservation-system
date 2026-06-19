@@ -193,25 +193,13 @@ const MIGRATIONS: Migration[] = [
     },
   },
   {
-    // Seed the first platform admin account if none exists yet.
-    // Password is baked into the hash at migration time; change it via the
-    // platform console or the CLI after first login.
+    // No-op. This previously seeded a platform admin whose plaintext password
+    // was lost; seeding now lives in migration v12 with a documented password.
+    // Left in place (not deleted) so already-applied installs keep a stable
+    // version history. Existing DBs that ran this keep their seeded row; v12's
+    // empty-table guard then correctly skips them.
     version: 3,
-    run: async (pool) => {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        "SELECT 1 FROM platform_admins LIMIT 1",
-      );
-      if ((rows as RowDataPacket[]).length === 0) {
-        await pool.query(
-          "INSERT INTO platform_admins (username, password_hash, created_at) VALUES (?, ?, ?)",
-          [
-            "ops",
-            "scrypt$f8eba2baf8b216bcfc29d3939f1ce6f5$e59eede858d7da4e9c9f01c122d9a1da716010f9fa0c5bc30f2b25ea38d4d5d578340e38d970ec8844ebc41f0d1793524b3f39e717c982131e6ecec4e83cf297",
-            new Date().toISOString(),
-          ],
-        );
-      }
-    },
+    run: async () => {},
   },
   {
     // Multi-offering support: every reservation belongs to an offering. The
@@ -335,6 +323,28 @@ const MIGRATIONS: Migration[] = [
           "ALTER TABLE tenants ADD UNIQUE KEY uq_tenants_public_key (public_key)",
         );
       }
+    },
+  },
+  {
+    // Seed the first platform admin ("ops") with a KNOWN strong password —
+    // ONLY when no platform admin exists yet. Never overwrites an account an
+    // operator already created (or one seeded by the old v3). Password is baked
+    // as a scrypt hash; rotate it in the platform console or via
+    // `npm run platform -- set-password` after first sign-in.
+    version: 12,
+    run: async (pool) => {
+      const [rows] = await pool.query<RowDataPacket[]>(
+        "SELECT 1 FROM platform_admins LIMIT 1",
+      );
+      if ((rows as RowDataPacket[]).length > 0) return;
+      await pool.query(
+        "INSERT INTO platform_admins (username, password_hash, created_at) VALUES (?, ?, ?)",
+        [
+          "ops",
+          "scrypt$6ce781657b4c3a8287ae67462c033f5c$5e85457a0655cb509fa92a0a2a6ce12b2ee5610509fc3c2be4a55a56effca52a8a81767342e82cefc3aca743c2f3cca0c114a8019a9d6b662d67fde9e752f0d0",
+          new Date().toISOString(),
+        ],
+      );
     },
   },
 ];

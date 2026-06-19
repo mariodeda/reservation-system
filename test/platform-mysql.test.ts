@@ -18,6 +18,10 @@ let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route
 
 let cookie = "";
 
+// Strong password baked into migration v12 (mysql-schema.ts). Kept in sync here.
+const SEEDED_OPS_PASSWORD = "rWu2M!v8^ScjEs%cuCk+D_FM";
+let seededOpsLogin = false;
+
 beforeAll(async () => {
   db = await createDB({ version: "8.4.x" });
   process.env.MYSQL_HOST = "127.0.0.1";
@@ -41,6 +45,8 @@ beforeAll(async () => {
   const { ensureSchema } = await import("@/lib/reservations/mysql-schema");
   const { getPool } = await import("@/lib/reservations/mysql-pool");
   await ensureSchema();
+  // Capture the migration-seeded "ops" admin before wiping it for fixtures.
+  seededOpsLogin = await platformStore.getPlatformStore().verifyLogin("ops", SEEDED_OPS_PASSWORD);
   await getPool().query("TRUNCATE TABLE platform_admins");
   cookie = `${pauth.PLATFORM_COOKIE}=${await pauth.createPlatformSession("ops")}`;
 }, 180_000);
@@ -63,6 +69,10 @@ function req(url: string, opts: { method?: string; body?: unknown; cookie?: stri
 const authed = (url: string, opts: Parameters<typeof req>[1] = {}) => req(url, { ...opts, cookie });
 
 describe("platform-store admins", () => {
+  it("migration seeds the 'ops' admin with the documented strong password", () => {
+    expect(seededOpsLogin).toBe(true);
+  });
+
   it("creates, verifies and rotates an admin", async () => {
     const ps = platformStore.getPlatformStore();
     await ps.createAdmin("ops", "password123");
