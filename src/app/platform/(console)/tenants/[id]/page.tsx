@@ -44,6 +44,7 @@ export default function TenantDetail() {
   const [busy, setBusy] = useState(false);
   const [newHost, setNewHost] = useState("");
   const [newPass, setNewPass] = useState("");
+  const [mockBusy, setMockBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -141,6 +142,27 @@ export default function TenantDetail() {
     if (!confirm(`Delete ${view!.name}? This removes its login, hosts, config and all reservations. This cannot be undone.`)) return;
     const res = await platformFetch(`/api/platform/tenants/${id}`, { method: "DELETE" });
     if (res.ok) { toast("Restaurant deleted"); router.push("/platform"); } else toast("Could not delete.", "error");
+  }
+
+  async function mockRun(action: string, label: string, confirmMsg?: string) {
+    if (confirmMsg && !confirm(confirmMsg)) return;
+    setMockBusy(action);
+    try {
+      const res = await platformFetch(`/api/platform/tenants/${id}/mock`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(data.error || "Operation failed.", "error"); return; }
+      const summary = data.summary as Record<string, number> | undefined;
+      const detail = summary
+        ? Object.entries(summary).map(([k, v]) => `${v} ${k}`).join(", ")
+        : "";
+      toast(detail ? `${label}: ${detail}` : `${label} done`);
+    } catch {
+      toast("Network error.", "error");
+    } finally {
+      setMockBusy(null);
+    }
   }
 
   return (
@@ -273,13 +295,73 @@ export default function TenantDetail() {
       {/* Staff password */}
       <section className={card}>
         <h2 className="font-semibold">Staff login</h2>
-        <p className="text-xs text-on-surface-variant">Reset the password staff use at this restaurant's <code>/admin</code>.</p>
+        <p className="text-xs text-on-surface-variant">Reset the password staff use at this restaurant's <code>/admin/{view.slug}/login</code>.</p>
         <div className="flex gap-2">
           <input className={field} type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="New password (8+ chars)" />
           <button onClick={setPassword} className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary whitespace-nowrap">Set password</button>
         </div>
       </section>
+
+      {/* Debug — mock data */}
+      <section className={`${card} border-amber-500/30`}>
+        <div>
+          <h2 className="font-semibold">Debug — mock data</h2>
+          <p className="text-xs text-on-surface-variant">
+            Generate realistic test data for <strong>{view.name}</strong> to exercise every admin screen.
+            Generators are additive; use “Clear all data” to reset. For test tenants only.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <MockBtn busy={mockBusy} action="all" label="Generate everything"
+            onClick={() => mockRun("all", "Full dataset")} primary />
+          <MockBtn busy={mockBusy} action="tables" label="Tables (floor plan)"
+            onClick={() => mockRun("tables", "Tables")} />
+          <MockBtn busy={mockBusy} action="reservations-today" label="Reservations · today"
+            onClick={() => mockRun("reservations-today", "Today")} />
+          <MockBtn busy={mockBusy} action="reservations-upcoming" label="Reservations · upcoming"
+            onClick={() => mockRun("reservations-upcoming", "Upcoming")} />
+          <MockBtn busy={mockBusy} action="reservations-history" label="Reservations · history"
+            onClick={() => mockRun("reservations-history", "History")} />
+          <MockBtn busy={mockBusy} action="waitlist" label="Waitlist"
+            onClick={() => mockRun("waitlist", "Waitlist")} />
+          <MockBtn busy={mockBusy} action="customers" label="Customers (VIP/dietary)"
+            onClick={() => mockRun("customers", "Customers")} />
+          <MockBtn busy={mockBusy} action="feedback" label="Feedback (ratings)"
+            onClick={() => mockRun("feedback", "Feedback")} />
+        </div>
+        <div className="pt-1">
+          <button
+            disabled={!!mockBusy}
+            onClick={() => mockRun("clear", "Cleared",
+              `Delete ALL reservations, tables, waitlist, customers and feedback for ${view.name}? This cannot be undone.`)}
+            className="text-sm border border-rose-500/40 text-rose-300 rounded-lg px-3 py-1.5 hover:bg-rose-500/10 disabled:opacity-50"
+          >
+            {mockBusy === "clear" ? "Clearing…" : "Clear all data"}
+          </button>
+        </div>
+      </section>
     </div>
+  );
+}
+
+function MockBtn({
+  busy, action, label, onClick, primary,
+}: {
+  busy: string | null; action: string; label: string; onClick: () => void; primary?: boolean;
+}) {
+  const running = busy === action;
+  return (
+    <button
+      disabled={!!busy}
+      onClick={onClick}
+      className={`text-sm rounded-lg px-3 py-1.5 disabled:opacity-50 ${
+        primary
+          ? "bg-primary text-on-primary font-semibold hover:brightness-110"
+          : "bg-surface-container-high border border-outline-variant/30 hover:border-primary"
+      }`}
+    >
+      {running ? "Working…" : label}
+    </button>
   );
 }
 

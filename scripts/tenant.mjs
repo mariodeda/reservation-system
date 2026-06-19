@@ -167,10 +167,13 @@ async function cmdDisable(pool, args) {
 }
 
 async function cmdList(pool) {
-  const [tenants] = await pool.query("SELECT id, slug, name, status FROM tenants ORDER BY created_at");
+  const [tenants] = await pool.query(
+    "SELECT id, slug, name, status, admin_username FROM tenants ORDER BY created_at",
+  );
   for (const t of tenants) {
     const [domains] = await pool.query("SELECT host FROM tenant_domains WHERE tenant_id = ?", [t.id]);
     console.log(`${t.slug}  [${t.status}]  ${t.name}`);
+    console.log(`  staff login: /admin/${t.slug}/login  (username: ${t.admin_username})`);
     console.log(`  hosts: ${domains.map((d) => d.host).join(", ") || "(none)"}`);
   }
   if (tenants.length === 0) console.log("(no tenants)");
