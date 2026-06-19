@@ -102,6 +102,11 @@ describe("tenant provisioning (MySqlTenantStore)", () => {
     expect((await ts.getByHost("admin.acme.example.com"))?.id).toBe("acme-id");
     // unknown host resolves to nothing
     expect(await ts.getByHost("nobody.example.com")).toBeNull();
+
+    // resolves by slug (the staff-admin routing key on the shared domain)
+    expect((await ts.getBySlug("acme"))?.id).toBe("acme-id");
+    expect(await ts.getBySlug("nope")).toBeNull();
+    expect(await ts.getBySlug("")).toBeNull();
   });
 
   it("supports add-domain, set-password and disable", async () => {
@@ -139,23 +144,28 @@ describe("host resolution in the request pipeline", () => {
     if (!r.ok) expect(r.res.status).toBe(404);
   });
 
-  it("requireAdmin enforces host + matching session for a real tenant", async () => {
+  it("requireAdmin resolves the tenant from the session, independent of host", async () => {
     ctx.clearTenantCache();
     // no session -> 401
     const noSession = await ctx.requireAdmin(make("acme.example.com"));
     expect(noSession.ok).toBe(false);
     if (!noSession.ok) expect(noSession.res.status).toBe(401);
 
-    // session for the wrong tenant -> 403
-    const wrong = `${auth.SESSION_COOKIE}=${await auth.createSession("someone-else", "owner")}`;
-    const mismatch = await ctx.requireAdmin(make("acme.example.com", wrong));
-    expect(mismatch.ok).toBe(false);
-    if (!mismatch.ok) expect(mismatch.res.status).toBe(403);
+    // session whose tenant no longer exists -> 401 (treat as logged out)
+    const ghost = `${auth.SESSION_COOKIE}=${await auth.createSession("someone-else", "owner")}`;
+    const ghostRes = await ctx.requireAdmin(make("acme.example.com", ghost));
+    expect(ghostRes.ok).toBe(false);
+    if (!ghostRes.ok) expect(ghostRes.res.status).toBe(401);
 
-    // session for the right tenant -> ok
+    // a valid session resolves ITS tenant — the host is irrelevant on the
+    // shared staff domain (the session is the authority).
     const right = `${auth.SESSION_COOKIE}=${await auth.createSession("acme-id", "owner")}`;
-    const ok = await ctx.requireAdmin(make("acme.example.com", right));
-    expect(ok.ok).toBe(true);
-    if (ok.ok) expect(ok.tenant.id).toBe("acme-id");
+    const onOwnHost = await ctx.requireAdmin(make("acme.example.com", right));
+    expect(onOwnHost.ok).toBe(true);
+    if (onOwnHost.ok) expect(onOwnHost.tenant.id).toBe("acme-id");
+
+    const onForeignHost = await ctx.requireAdmin(make("ghost.example.com", right));
+    expect(onForeignHost.ok).toBe(true);
+    if (onForeignHost.ok) expect(onForeignHost.tenant.id).toBe("acme-id");
   });
 });

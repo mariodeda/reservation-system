@@ -12,7 +12,7 @@ const { adminFetch, adminJson, toast } = vi.hoisted(() => ({
 }));
 vi.mock("@/components/admin/api", () => ({ adminFetch, adminJson, toast }));
 
-import AvailabilityPage from "@/app/admin/(panel)/availability/page";
+import AvailabilityPage from "@/app/admin/[slug]/(panel)/availability/page";
 
 function config(): AvailabilityConfig {
   const weekly: AvailabilityConfig["weekly"] = {};

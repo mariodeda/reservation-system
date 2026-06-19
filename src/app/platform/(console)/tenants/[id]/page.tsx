@@ -11,7 +11,7 @@ const card = "rounded-xl border border-outline-variant/30 bg-surface-container p
 type Form = {
   name: string; url: string; contactEmail: string; contactPhone: string;
   locale: string; timezone: string; autoConfirm: boolean; emailEnabled: boolean; feedbackEnabled: boolean;
-  themePrimary: string; themeOnPrimary: string;
+  themePrimary: string; themeOnPrimary: string; logoUrl: string;
   allowedOrigins: string;
   smtpHost: string; smtpPort: string; smtpSecure: boolean; smtpUser: string; smtpFrom: string; smtpPass: string;
   confirmSubject: string; confirmText: string; confirmHtml: string;
@@ -27,6 +27,7 @@ function toForm(t: TenantView): Form {
     locale: s.locale, timezone: s.timezone, autoConfirm: s.autoConfirm, emailEnabled: s.emailEnabled,
     feedbackEnabled: s.feedbackEnabled ?? false,
     themePrimary: s.theme?.primary ?? "", themeOnPrimary: s.theme?.onPrimary ?? "",
+    logoUrl: s.logoUrl ?? "",
     allowedOrigins: (s.allowedOrigins ?? []).join("\n"),
     smtpHost: s.smtp?.host ?? "", smtpPort: String(s.smtp?.port ?? 587), smtpSecure: s.smtp?.secure ?? false,
     smtpUser: s.smtp?.user ?? "", smtpFrom: s.smtp?.from ?? "", smtpPass: "",
@@ -67,6 +68,7 @@ export default function TenantDetail() {
         locale: f.locale, timezone: f.timezone, autoConfirm: f.autoConfirm, emailEnabled: f.emailEnabled,
         feedbackEnabled: f.feedbackEnabled,
         theme: { primary: f.themePrimary || undefined, onPrimary: f.themeOnPrimary || undefined },
+        logoUrl: f.logoUrl || undefined,
         allowedOrigins: f.allowedOrigins.split(/[\n,]/).map((o) => o.trim()).filter(Boolean),
       };
       if (f.smtpHost.trim()) {
@@ -170,6 +172,7 @@ export default function TenantDetail() {
           <Field label="Timezone" v={f.timezone} on={(v) => set("timezone", v)} />
           <Field label="Theme primary (#hex)" v={f.themePrimary} on={(v) => set("themePrimary", v)} placeholder="#f2ca50" />
           <Field label="Theme on-primary (#hex)" v={f.themeOnPrimary} on={(v) => set("themeOnPrimary", v)} placeholder="#3c2f00" />
+          <Field label="Logo URL (login + admin header)" v={f.logoUrl} on={(v) => set("logoUrl", v)} placeholder="https://… or /logos/acme.png" />
         </div>
         <div className="flex gap-6 flex-wrap">
           <Check label="Auto-confirm web bookings" v={f.autoConfirm} on={(v) => set("autoConfirm", v)} />

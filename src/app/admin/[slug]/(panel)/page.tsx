@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { type AdminReservation, formatDateLong, todayInTz } from "@/components/admin/shared";
 import { am } from "@/i18n/admin";
 import ReservationRow from "@/components/admin/ReservationRow";
@@ -10,6 +11,7 @@ import { ACTIVE_STATUSES, type AvailabilityConfig } from "@/lib/reservations/typ
 import { offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
 
 export default function DashboardPage() {
+  const { slug } = useParams<{ slug: string }>();
   const [tz, setTz] = useState("Europe/Rome");
   const [offerings, setOfferings] = useState<OfferingServices[]>([]);
   const [items, setItems] = useState<AdminReservation[]>([]);
@@ -73,7 +75,7 @@ export default function DashboardPage() {
           <p className="text-on-surface-variant">{formatDateLong(today)}</p>
         </div>
         <Link
-          href="/admin/reservations"
+          href={`/admin/${slug}/reservations`}
           className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110"
         >
           {am.dashboard.allReservations}

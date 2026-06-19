@@ -6,24 +6,30 @@ import { usePathname, useRouter } from "next/navigation";
 import { am } from "@/i18n/admin";
 
 const NAV = [
-  { href: "/admin", label: am.nav.dashboard },
-  { href: "/admin/reservations", label: am.nav.reservations },
-  { href: "/admin/customers", label: am.nav.customers },
-  { href: "/admin/tables", label: am.nav.tables },
-  { href: "/admin/analytics", label: am.nav.analytics },
-  { href: "/admin/availability", label: am.nav.availability },
-  { href: "/admin/settings", label: am.nav.settings },
+  { seg: "", label: am.nav.dashboard },
+  { seg: "/reservations", label: am.nav.reservations },
+  { seg: "/customers", label: am.nav.customers },
+  { seg: "/tables", label: am.nav.tables },
+  { seg: "/analytics", label: am.nav.analytics },
+  { seg: "/availability", label: am.nav.availability },
+  { seg: "/settings", label: am.nav.settings },
 ];
 
 export default function AdminShell({
+  slug,
   brandName,
+  logoUrl,
   children,
 }: {
+  slug: string;
   brandName: string;
+  logoUrl?: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const base = `/admin/${slug}`;
+  const nav = NAV.map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
@@ -39,7 +45,7 @@ export default function AdminShell({
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/admin/login");
+    router.replace(`${base}/login`);
     router.refresh();
   }
 
@@ -48,12 +54,17 @@ export default function AdminShell({
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
         <div className="px-6 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-6 min-w-0">
-            <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate">
-              {brandName}
-            </span>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
+            ) : (
+              <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate">
+                {brandName}
+              </span>
+            )}
             <nav className="hidden sm:flex items-center gap-1">
-              {NAV.map((n) => {
-                const active = n.href === "/admin" ? pathname === n.href : pathname.startsWith(n.href);
+              {nav.map((n) => {
+                const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
                 return (
                   <Link
                     key={n.href}
@@ -89,8 +100,8 @@ export default function AdminShell({
         {/* mobile nav — horizontally scrollable; right fade hints there are more items */}
         <div className="sm:hidden relative">
           <nav className="flex items-center gap-1 px-4 pb-2 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
-            {NAV.map((n) => {
-              const active = n.href === "/admin" ? pathname === n.href : pathname.startsWith(n.href);
+            {nav.map((n) => {
+              const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
               return (
                 <Link
                   key={n.href}

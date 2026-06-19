@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import { type AdminReservation, formatDateLong, todayInTz } from "@/components/admin/shared";
 import { am } from "@/i18n/admin";
 import ReservationRow from "@/components/admin/ReservationRow";
@@ -34,6 +35,7 @@ const NAVBTN =
   "h-9 min-w-9 px-2 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant hover:text-primary transition";
 
 export default function ReservationsPage() {
+  const { slug } = useParams<{ slug: string }>();
   const initialDate = useRef(todayInTz());
   const [date, setDate] = useState(initialDate.current);
   const [items, setItems] = useState<AdminReservation[]>([]);
@@ -220,7 +222,7 @@ export default function ReservationsPage() {
                 {am.reservations.exportCsv}
               </button>
               <button
-                onClick={() => window.open(`/admin/print?date=${date}`, "_blank")}
+                onClick={() => window.open(`/admin/${slug}/print?date=${date}`, "_blank")}
                 className={`${NAVBTN} px-3 text-sm`}
               >
                 {am.reservations.print}

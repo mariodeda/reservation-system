@@ -2,12 +2,24 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { brand } from "@/reservation.config";
 import { am } from "@/i18n/admin";
 
-function LoginForm() {
+function Inner({
+  slug,
+  brandName,
+  logoUrl,
+  themePrimary,
+}: {
+  slug: string;
+  brandName: string;
+  logoUrl?: string;
+  themePrimary?: string;
+}) {
   const router = useRouter();
-  const next = useSearchParams().get("next") || "/admin";
+  const home = `/admin/${slug}`;
+  // Only honor a `next` that stays within THIS tenant's admin — no open redirect.
+  const rawNext = useSearchParams().get("next") || "";
+  const next = rawNext.startsWith(`${home}/`) || rawNext === home ? rawNext : home;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +33,7 @@ function LoginForm() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ slug, username, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -44,9 +56,17 @@ function LoginForm() {
         className="w-full max-w-sm bg-surface-container rounded-xl border border-outline-variant/30 p-8 shadow-2xl space-y-5"
       >
         <div className="text-center mb-2">
-          <div className="font-display-lg text-[22px] text-primary uppercase tracking-tighter">
-            {brand.name}
-          </div>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt={brandName} className="mx-auto h-12 w-auto max-w-[220px] object-contain" />
+          ) : (
+            <div
+              className="font-display-lg text-[22px] text-primary uppercase tracking-tighter"
+              style={themePrimary ? { color: themePrimary } : undefined}
+            >
+              {brandName}
+            </div>
+          )}
           <p className="text-on-surface-variant text-sm mt-1">{am.login.staffSignIn}</p>
         </div>
 
@@ -89,10 +109,15 @@ function LoginForm() {
   );
 }
 
-export default function AdminLoginPage() {
+export default function LoginForm(props: {
+  slug: string;
+  brandName: string;
+  logoUrl?: string;
+  themePrimary?: string;
+}) {
   return (
     <Suspense>
-      <LoginForm />
+      <Inner {...props} />
     </Suspense>
   );
 }

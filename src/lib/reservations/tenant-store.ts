@@ -21,6 +21,7 @@ export interface NewTenantInput {
 
 export interface TenantStore {
   getByHost(host: string): Promise<Tenant | null>;
+  getBySlug(slug: string): Promise<Tenant | null>;
   getByPublicKey(key: string): Promise<Tenant | null>;
   getById(id: string): Promise<Tenant | null>;
   list(): Promise<Tenant[]>;
@@ -75,6 +76,16 @@ class MySqlTenantStore implements TenantStore {
       `SELECT ${TENANT_COLS} FROM tenants
        WHERE id = (SELECT tenant_id FROM tenant_domains WHERE host = ?) AND status = 'active'`,
       [host],
+    );
+    return rows.length ? toTenant(rows[0]) : null;
+  }
+
+  async getBySlug(slug: string): Promise<Tenant | null> {
+    await ensureSchema();
+    if (!slug) return null;
+    const [rows] = await getPool().query<TenantRow[]>(
+      `SELECT ${TENANT_COLS} FROM tenants WHERE slug = ? AND status = 'active'`,
+      [slug],
     );
     return rows.length ? toTenant(rows[0]) : null;
   }

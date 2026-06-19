@@ -80,11 +80,11 @@ describe("hostOf", () => {
   });
 });
 
-describe("requireAdmin cross-tenant guard", () => {
-  it("403s a session minted for a different tenant", async () => {
-    // requireAdmin checks session.tid === host's tenant. A session minted for
-    // "tenant-a" must be rejected on "tenant-b" even without a DB lookup
-    // (the proxy already verified the cookie is well-formed; this tests tid binding).
+describe("session tenant binding", () => {
+  it("mints distinct tids per tenant (the session is the admin tenancy authority)", async () => {
+    // Admin tenancy is resolved from the session's tid (see requireAdmin), so a
+    // session minted for "tenant-a" can only ever act on tenant-a. This checks
+    // the tid is bound into the token and differs per tenant.
     const tokenForA = await createSession("tenant-a", "staff");
     // Decode and verify the payload carries the right tid (unit-level check).
     const { verifySession } = await import("@/lib/reservations/auth");

@@ -15,12 +15,16 @@ public API.
   Marketing sites select their tenant with `?tenant=<publicKey>` (falls back to the
   Host header). Cross-origin access is allowed only from each tenant's configured
   origins.
-- **Staff admin** `/admin` — per-restaurant: reservations, tables, waitlist,
-  customers, availability, analytics, settings. Gated by a per-tenant session.
+- **Staff admin** `/admin/<slug>` — per-restaurant: reservations, tables,
+  waitlist, customers, availability, analytics, settings. Staff sign in at
+  `/admin/<slug>/login` (branded with the tenant's logo). Gated by a per-tenant
+  session; the slug selects the tenant on the shared staff domain.
 - **Platform console** `/platform` — operators manage tenants (create, branding,
   SMTP, public key, allowed origins, domains). Gated by a platform session.
-- **Tenancy** is host-routed for admin and key-or-host for the public API. Schema
-  migrations run automatically on startup (`src/instrumentation.ts`).
+- **Tenancy**: staff admin is **slug-routed** (`/admin/<slug>`), and admin API
+  routes resolve the tenant from the session (the session is the authority — a
+  staff member only ever acts on their own tenant). The public API is key-or-host.
+  Schema migrations run automatically on startup (`src/instrumentation.ts`).
 
 ## Setup
 

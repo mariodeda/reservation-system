@@ -32,10 +32,21 @@ export async function proxy(req: NextRequest) {
   }
 
   // ---- Per-restaurant staff admin: gated by the tenant session ----
-  if (pathname === "/admin/login" || pathname === "/api/admin/login") {
+  // Public admin paths (no session needed): the slug-scoped login screen
+  // (/admin/<slug>/login), the login API, and the bare /admin landing.
+  const slug = pathname.match(/^\/admin\/([^/]+)(?:\/|$)/)?.[1];
+  const isLoginPage = !!slug && pathname === `/admin/${slug}/login`;
+  if (
+    isLoginPage ||
+    pathname === "/api/admin/login" ||
+    pathname === "/admin" ||
+    pathname === "/admin/"
+  ) {
     return noindex(NextResponse.next());
   }
 
+  // The edge can't reach the DB, so it only verifies the session cookie's HMAC.
+  // The slug<->session binding is enforced server-side (resolveAdminPage).
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
   if (session) return noindex(NextResponse.next());
 
@@ -43,7 +54,10 @@ export async function proxy(req: NextRequest) {
     return noindex(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
   }
   const url = req.nextUrl.clone();
-  url.pathname = "/admin/login";
-  url.searchParams.set("next", pathname);
+  // Send unauthenticated staff to their tenant's login when we can derive it,
+  // else to the landing page.
+  url.pathname = slug ? `/admin/${slug}/login` : "/admin";
+  url.search = "";
+  if (slug) url.searchParams.set("next", pathname);
   return noindex(NextResponse.redirect(url));
 }

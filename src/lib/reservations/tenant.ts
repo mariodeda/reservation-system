@@ -47,6 +47,12 @@ export interface TenantSettings {
   emailFrom?: string;
   /** Brand accent colors injected as CSS variables on the reservation page. */
   theme?: { primary?: string; onPrimary?: string };
+  /**
+   * Optional brand logo shown on the staff login screen and admin header.
+   * An absolute https?:// URL or a root-relative path (/…). Falls back to the
+   * tenant name wordmark when unset.
+   */
+  logoUrl?: string;
   /** Per-tenant SMTP. If absent, confirmation emails are skipped. */
   smtp?: TenantSmtp;
   /** Optional per-tenant templates; falls back to the platform default. */

@@ -15,8 +15,10 @@ MySQL); emails via `nodemailer`. No global mail env — SMTP is per-tenant.
 - **Public booking API** — CORS-gated, per-tenant: `/api/availability`,
   `/api/reservations`, `/api/reservations/lookup`, `/api/tenant`, `/api/feedback/*`.
   Marketing sites are separate apps that call this with `?tenant=<publicKey>`.
-- **Staff admin** `/admin` — per-restaurant: reservations, tables, waitlist,
-  customers, availability, analytics, settings. Gated by a per-tenant session.
+- **Staff admin** `/admin/<slug>` — per-restaurant: reservations, tables,
+  waitlist, customers, availability, analytics, settings. Slug-routed on a shared
+  domain; staff sign in at `/admin/<slug>/login` (branded per tenant). Gated by a
+  per-tenant session.
 - **Platform console** `/platform` — operators manage tenants (create, branding,
   SMTP, public key, allowed origins, domains). Gated by a platform session.
 
@@ -26,11 +28,14 @@ MySQL); emails via `nodemailer`. No global mail env — SMTP is per-tenant.
   reach MySQL. All tenant resolution + DB work happens on the Node runtime in
   route handlers / server components. Never import `node:crypto` password hashing
   or the stores from proxy.
-- **Tenancy** (`src/lib/reservations/tenant-context.ts`): admin resolves tenant by
-  **Host header**; public API prefers **`?tenant=<publicKey>`**, falls back to Host.
-  Use the guards — `requireAdmin` (host + session bound to THAT tenant → 403 on
-  mismatch, the cross-tenant guard), `requirePlatform`, `requireTenant`. 30s
-  tenant cache.
+- **Tenancy** (`src/lib/reservations/tenant-context.ts`): the staff admin is
+  **slug-routed** (`/admin/<slug>/…`). Admin API routes resolve the tenant from
+  the **session** (`requireAdmin` → `getById(session.tid)`) — the session is the
+  authority, so a staff member can only ever act on their own tenant regardless
+  of slug/host. Server pages/layouts use `resolveAdminPage(slug, token)`, which
+  also enforces the slug↔session match (the cross-tenant guard, redirects to that
+  slug's login on mismatch). Public API prefers **`?tenant=<publicKey>`**, falls
+  back to Host. Also: `tenantBySlug`, `requirePlatform`, `requireTenant`. 30s cache.
 - **Storage** goes through the `ReservationStore` interface in `store.ts`
   (`MySqlStore` impl). Use `createReservationChecked` for capacity-sensitive
   writes — it closes the read-then-write race. Schema auto-migrates on startup

@@ -243,11 +243,16 @@ describe("GET /api/availability", () => {
 describe("admin auth routes", () => {
   it("logs in with correct credentials and sets a verifiable session cookie", async () => {
     vi.useRealTimers();
-    const res = await routes.login.POST(req("/api/admin/login", { method: "POST", body: { username: "staff", password: "s3cret" } }));
+    const res = await routes.login.POST(req("/api/admin/login", { method: "POST", body: { slug: "test-restaurant", username: "staff", password: "s3cret" } }));
     expect(res.status).toBe(200);
     const token = res.cookies.get(routes.auth.SESSION_COOKIE)?.value;
     expect(token).toBeTruthy();
     expect((await routes.auth.verifySession(token))?.u).toBe("staff");
+  });
+  it("404s when the login slug matches no tenant", async () => {
+    const res = await routes.login.POST(req("/api/admin/login", { method: "POST", body: { slug: "does-not-exist", username: "staff", password: "s3cret" } }));
+    expect(res.status).toBe(404);
+    expect(res.cookies.get(routes.auth.SESSION_COOKIE)?.value).toBeFalsy();
   });
   it("400s on an invalid JSON login body", async () => {
     const res = await routes.login.POST(req("/api/admin/login", { method: "POST", body: "{bad", headers: { "content-type": "application/json" } }));
@@ -255,7 +260,7 @@ describe("admin auth routes", () => {
   });
   it("rejects wrong credentials with 401 and no cookie", async () => {
     vi.useRealTimers();
-    const res = await routes.login.POST(req("/api/admin/login", { method: "POST", body: { username: "staff", password: "nope" } }));
+    const res = await routes.login.POST(req("/api/admin/login", { method: "POST", body: { slug: "test-restaurant", username: "staff", password: "nope" } }));
     expect(res.status).toBe(401);
     expect(res.cookies.get(routes.auth.SESSION_COOKIE)?.value).toBeFalsy();
   });
@@ -264,7 +269,7 @@ describe("admin auth routes", () => {
     const ip = "203.0.113.9";
     const codes: number[] = [];
     for (let i = 0; i < 12; i++) {
-      const r = await routes.login.POST(req("/api/admin/login", { method: "POST", body: { username: "x", password: "y" }, ip }));
+      const r = await routes.login.POST(req("/api/admin/login", { method: "POST", body: { slug: "test-restaurant", username: "x", password: "y" }, ip }));
       codes.push(r.status);
     }
     expect(codes.filter((c) => c === 429).length).toBeGreaterThan(0);
@@ -376,21 +381,27 @@ describe("admin reservations routes", () => {
 /* ----------------------------- proxy (auth gate) ----------------------------- */
 
 describe("proxy auth gate", () => {
-  it("lets the login endpoints through unauthenticated", async () => {
-    const res = await routes.proxy.proxy(req("/admin/login"));
+  it("lets the slug login page + login API through unauthenticated", async () => {
+    const page = await routes.proxy.proxy(req("/admin/test-restaurant/login"));
+    expect(page.status).toBe(200);
+    expect(page.headers.get("X-Robots-Tag")).toContain("noindex");
+    const api = await routes.proxy.proxy(req("/api/admin/login", { method: "POST" }));
+    expect(api.status).toBe(200);
+  });
+  it("lets the bare /admin landing through unauthenticated", async () => {
+    const res = await routes.proxy.proxy(req("/admin"));
     expect(res.status).toBe(200);
-    expect(res.headers.get("X-Robots-Tag")).toContain("noindex");
   });
   it("401s an unauthenticated admin API request", async () => {
     const res = await routes.proxy.proxy(req("/api/admin/reservations"));
     expect(res.status).toBe(401);
   });
-  it("redirects an unauthenticated admin page to /admin/login with a next param", async () => {
-    const res = await routes.proxy.proxy(req("/admin/reservations"));
+  it("redirects an unauthenticated admin page to the tenant's login with a next param", async () => {
+    const res = await routes.proxy.proxy(req("/admin/test-restaurant/reservations"));
     expect([307, 308]).toContain(res.status);
     const loc = res.headers.get("location") ?? "";
-    expect(loc).toContain("/admin/login");
-    expect(loc).toContain("next=%2Fadmin%2Freservations");
+    expect(loc).toContain("/admin/test-restaurant/login");
+    expect(loc).toContain("next=%2Fadmin%2Ftest-restaurant%2Freservations");
   });
   it("allows access with a valid session cookie", async () => {
     const token = await routes.auth.createSession(tenantId, "staff");
@@ -398,7 +409,7 @@ describe("proxy auth gate", () => {
     expect(res.status).toBe(200);
   });
   it("rejects a tampered session cookie on an admin page", async () => {
-    const res = await routes.proxy.proxy(req("/admin/reservations", { headers: { cookie: `${routes.auth.SESSION_COOKIE}=forged.token` } }));
+    const res = await routes.proxy.proxy(req("/admin/test-restaurant/reservations", { headers: { cookie: `${routes.auth.SESSION_COOKIE}=forged.token` } }));
     expect([307, 308]).toContain(res.status);
   });
 });

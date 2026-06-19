@@ -1,15 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/reservations/auth";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
-import { resolveTenant } from "@/lib/reservations/tenant-context";
+import { tenantBySlug } from "@/lib/reservations/tenant-context";
 import { verifyTenantLogin } from "@/lib/reservations/tenant";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const tenant = await resolveTenant(req);
+  let body: { slug?: string; username?: string; password?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  // On the shared staff domain the tenant is selected by its URL slug (sent by
+  // the per-tenant login screen), not by the host.
+  const slug = String(body.slug ?? "").slice(0, 64);
+  const tenant = await tenantBySlug(slug);
   if (!tenant) {
-    return NextResponse.json({ error: "Unknown tenant for this host." }, { status: 404 });
+    return NextResponse.json({ error: "Unknown restaurant." }, { status: 404 });
   }
 
   // throttle credential stuffing / brute force — 5 attempts per 15 minutes per tenant+IP
@@ -20,12 +30,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { username?: string; password?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
   const username = String(body.username ?? "").slice(0, 200);
   const password = String(body.password ?? "").slice(0, 200);
 

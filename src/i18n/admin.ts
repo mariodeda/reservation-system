@@ -106,6 +106,12 @@ export const am = {
     loginFailed: "Login failed.",
     networkError: "Network error. Please try again.",
   },
+  landing: {
+    title: "Staff sign in",
+    subtitle: "Enter your restaurant code to continue",
+    code: "Restaurant code",
+    continue: "Continue",
+  },
   theme: {
     toggleLight: "Switch to light mode",
     toggleDark: "Switch to dark mode",

@@ -33,11 +33,11 @@ describe("proxy platform gating", () => {
   });
 
   it("does not accept a platform session on the tenant admin, nor vice-versa", async () => {
-    // platform cookie on /admin -> tenant gate rejects (redirect to /admin/login)
+    // platform cookie on /admin -> tenant gate rejects (redirect to the slug login)
     const platformCookie = `${PLATFORM_COOKIE}=${await createPlatformSession("ops")}`;
-    const a = await proxy(make("/admin/reservations", platformCookie));
+    const a = await proxy(make("/admin/acme/reservations", platformCookie));
     expect([307, 308]).toContain(a.status);
-    expect(a.headers.get("location") ?? "").toContain("/admin/login");
+    expect(a.headers.get("location") ?? "").toContain("/admin/acme/login");
 
     // tenant cookie on /api/platform -> platform gate rejects (401)
     const tenantCookie = `${SESSION_COOKIE}=${await createSession("acme", "staff")}`;

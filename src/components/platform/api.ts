@@ -41,6 +41,7 @@ export interface TenantView {
     feedbackEnabled?: boolean;
     emailFrom?: string;
     theme?: { primary?: string; onPrimary?: string };
+    logoUrl?: string;
     allowedOrigins?: string[];
     smtp?: { host: string; port: number; secure: boolean; user?: string; from?: string };
     smtpPassSet: boolean;

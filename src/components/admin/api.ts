@@ -8,8 +8,11 @@
 export async function adminFetch(input: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(input, { cache: "no-store", ...init });
   if (res.status === 401 && typeof window !== "undefined") {
+    // Bounce to the current tenant's login (/admin/<slug>/login), inferred from
+    // the path we're on. Fall back to the bare /admin landing if absent.
+    const slug = window.location.pathname.match(/^\/admin\/([^/]+)/)?.[1];
     const next = encodeURIComponent(window.location.pathname);
-    window.location.href = `/admin/login?next=${next}`;
+    window.location.href = slug ? `/admin/${slug}/login?next=${next}` : "/admin";
     throw new Error("Session expired");
   }
   return res;

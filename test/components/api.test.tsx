@@ -17,7 +17,7 @@ describe("adminFetch", () => {
   beforeEach(() => {
     // jsdom won't navigate; provide a writable location stub.
     Object.defineProperty(window, "location", {
-      value: { pathname: "/admin/reservations", href: "" },
+      value: { pathname: "/admin/acme/reservations", href: "" },
       writable: true,
       configurable: true,
     });
@@ -29,10 +29,10 @@ describe("adminFetch", () => {
     expect(res.status).toBe(200);
   });
 
-  it("redirects to login and throws on 401", async () => {
+  it("redirects to the tenant's login and throws on 401", async () => {
     vi.stubGlobal("fetch", mockFetch(401));
     await expect(adminFetch("/api/admin/reservations")).rejects.toThrow(/session expired/i);
-    expect(window.location.href).toBe("/admin/login?next=%2Fadmin%2Freservations");
+    expect(window.location.href).toBe("/admin/acme/login?next=%2Fadmin%2Facme%2Freservations");
   });
 });
 

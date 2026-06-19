@@ -7,10 +7,12 @@ import userEvent from "@testing-library/user-event";
 const { replace, refresh } = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace, refresh }),
-  useSearchParams: () => new URLSearchParams("next=/admin/reservations"),
+  useSearchParams: () => new URLSearchParams("next=/admin/acme/reservations"),
 }));
 
-import AdminLoginPage from "@/app/admin/login/page";
+import LoginForm from "@/app/admin/[slug]/login/LoginForm";
+
+const AdminLoginPage = () => <LoginForm slug="acme" brandName="Acme" />;
 
 beforeEach(() => {
   replace.mockReset();
@@ -31,8 +33,8 @@ describe("AdminLoginPage", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/login", expect.objectContaining({ method: "POST" }));
     const body = JSON.parse((fetchMock.mock.calls[0][1]?.body ?? "{}") as string);
-    expect(body).toEqual({ username: "staff", password: "s3cret" });
-    expect(replace).toHaveBeenCalledWith("/admin/reservations");
+    expect(body).toEqual({ slug: "acme", username: "staff", password: "s3cret" });
+    expect(replace).toHaveBeenCalledWith("/admin/acme/reservations");
     expect(refresh).toHaveBeenCalled();
   });
 

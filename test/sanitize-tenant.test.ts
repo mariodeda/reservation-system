@@ -37,6 +37,18 @@ describe("sanitizeTenantSettings", () => {
     expect(sanitizeTenantSettings({ allowedOrigins: many }).allowedOrigins).toHaveLength(20);
   });
 
+  it("accepts an http(s) URL or root-relative path as logoUrl; rejects others", () => {
+    expect(sanitizeTenantSettings({ logoUrl: "https://cdn.example/acme.png" }).logoUrl).toBe("https://cdn.example/acme.png");
+    expect(sanitizeTenantSettings({ logoUrl: "/logos/acme.png" }).logoUrl).toBe("/logos/acme.png");
+    expect(sanitizeTenantSettings({ logoUrl: "  https://x/y.png  " }).logoUrl).toBe("https://x/y.png");
+    // rejected: javascript:, protocol-relative, bare strings, empty
+    expect(sanitizeTenantSettings({ logoUrl: "javascript:alert(1)" }).logoUrl).toBeUndefined();
+    expect(sanitizeTenantSettings({ logoUrl: "//evil.com/x.png" }).logoUrl).toBeUndefined();
+    expect(sanitizeTenantSettings({ logoUrl: "acme.png" }).logoUrl).toBeUndefined();
+    expect(sanitizeTenantSettings({ logoUrl: "" }).logoUrl).toBeUndefined();
+    expect(sanitizeTenantSettings({}).logoUrl).toBeUndefined();
+  });
+
   it("keeps only valid hex theme colors", () => {
     expect(sanitizeTenantSettings({ theme: { primary: "#f2ca50", onPrimary: "nope" } }).theme).toEqual({ primary: "#f2ca50" });
     expect(sanitizeTenantSettings({ theme: { primary: "red" } }).theme).toBeUndefined();
