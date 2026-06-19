@@ -326,26 +326,12 @@ const MIGRATIONS: Migration[] = [
     },
   },
   {
-    // Seed the first platform admin ("ops") with a KNOWN strong password —
-    // ONLY when no platform admin exists yet. Never overwrites an account an
-    // operator already created (or one seeded by the old v3). Password is baked
-    // as a scrypt hash; rotate it in the platform console or via
-    // `npm run platform -- set-password` after first sign-in.
+    // No-op. Seeding the default platform admin moved to a boot-time bootstrap
+    // (src/lib/reservations/bootstrap.ts) so it self-heals when the table is
+    // emptied — a one-shot migration cannot, since the runner records it as
+    // applied even when its guard inserts nothing.
     version: 12,
-    run: async (pool) => {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        "SELECT 1 FROM platform_admins LIMIT 1",
-      );
-      if ((rows as RowDataPacket[]).length > 0) return;
-      await pool.query(
-        "INSERT INTO platform_admins (username, password_hash, created_at) VALUES (?, ?, ?)",
-        [
-          "ops",
-          "scrypt$6ce781657b4c3a8287ae67462c033f5c$5e85457a0655cb509fa92a0a2a6ce12b2ee5610509fc3c2be4a55a56effca52a8a81767342e82cefc3aca743c2f3cca0c114a8019a9d6b662d67fde9e752f0d0",
-          new Date().toISOString(),
-        ],
-      );
-    },
+    run: async () => {},
   },
 ];
 

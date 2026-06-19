@@ -18,9 +18,11 @@ let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route
 
 let cookie = "";
 
-// Strong password baked into migration v12 (mysql-schema.ts). Kept in sync here.
+// Strong password baked into the boot bootstrap (bootstrap.ts). Kept in sync here.
 const SEEDED_OPS_PASSWORD = "rWu2M!v8^ScjEs%cuCk+D_FM";
 let seededOpsLogin = false;
+let seededOpsCreated = false;
+let seededOpsSecondRun = true;
 
 beforeAll(async () => {
   db = await createDB({ version: "8.4.x" });
@@ -44,9 +46,14 @@ beforeAll(async () => {
   // can create its own fixtures with known credentials.
   const { ensureSchema } = await import("@/lib/reservations/mysql-schema");
   const { getPool } = await import("@/lib/reservations/mysql-pool");
+  const { ensureBootstrapPlatformAdmin } = await import("@/lib/reservations/bootstrap");
   await ensureSchema();
-  // Capture the migration-seeded "ops" admin before wiping it for fixtures.
+  // The boot bootstrap seeds "ops" on an empty table; capture that before wiping
+  // for fixtures, and confirm a second call is a no-op (idempotent / self-healing).
+  await getPool().query("TRUNCATE TABLE platform_admins");
+  seededOpsCreated = (await ensureBootstrapPlatformAdmin()).created;
   seededOpsLogin = await platformStore.getPlatformStore().verifyLogin("ops", SEEDED_OPS_PASSWORD);
+  seededOpsSecondRun = (await ensureBootstrapPlatformAdmin()).created;
   await getPool().query("TRUNCATE TABLE platform_admins");
   cookie = `${pauth.PLATFORM_COOKIE}=${await pauth.createPlatformSession("ops")}`;
 }, 180_000);
@@ -69,8 +76,10 @@ function req(url: string, opts: { method?: string; body?: unknown; cookie?: stri
 const authed = (url: string, opts: Parameters<typeof req>[1] = {}) => req(url, { ...opts, cookie });
 
 describe("platform-store admins", () => {
-  it("migration seeds the 'ops' admin with the documented strong password", () => {
-    expect(seededOpsLogin).toBe(true);
+  it("bootstrap seeds the 'ops' admin with the documented password, idempotently", () => {
+    expect(seededOpsCreated).toBe(true);   // created on empty table
+    expect(seededOpsLogin).toBe(true);     // and the documented password works
+    expect(seededOpsSecondRun).toBe(false); // second call is a no-op
   });
 
   it("creates, verifies and rotates an admin", async () => {
