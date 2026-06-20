@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { adminJson, toast } from "@/components/admin/api";
+import { am } from "@/i18n/admin";
 
 const field =
   "w-full bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-2 text-sm focus:border-primary outline-none";
@@ -16,8 +17,8 @@ export default function SettingsPage() {
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (next.length < 8) { setError("New password must be at least 8 characters."); return; }
-    if (next !== confirm) { setError("Passwords do not match."); return; }
+    if (next.length < 8) { setError(am.settings.passwordTooShort); return; }
+    if (next !== confirm) { setError(am.settings.passwordMismatch); return; }
     setSaving(true);
     try {
       await adminJson("/api/admin/settings/password", {
@@ -25,12 +26,12 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword: current, newPassword: next }),
       });
-      toast("Password updated successfully.");
+      toast(am.settings.passwordUpdated);
       setCurrent("");
       setNext("");
       setConfirm("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update password.");
+      setError(err instanceof Error ? err.message : am.settings.passwordError);
     } finally {
       setSaving(false);
     }
@@ -38,15 +39,15 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-md">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+      <h1 className="text-2xl font-semibold">{am.settings.title}</h1>
 
       <section className="rounded-xl border border-outline-variant/30 bg-surface-container p-5 space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant">
-          Change password
+          {am.settings.changePassword}
         </h2>
         <form onSubmit={changePassword} className="space-y-3">
           <div>
-            <label className="text-xs text-on-surface-variant block mb-1">Current password</label>
+            <label className="text-xs text-on-surface-variant block mb-1">{am.settings.currentPassword}</label>
             <input
               type="password"
               value={current}
@@ -57,7 +58,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant block mb-1">New password</label>
+            <label className="text-xs text-on-surface-variant block mb-1">{am.settings.newPassword}</label>
             <input
               type="password"
               value={next}
@@ -69,7 +70,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant block mb-1">Confirm new password</label>
+            <label className="text-xs text-on-surface-variant block mb-1">{am.settings.confirmPassword}</label>
             <input
               type="password"
               value={confirm}
@@ -85,7 +86,7 @@ export default function SettingsPage() {
             disabled={saving}
             className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Update password"}
+            {saving ? am.settings.saving : am.settings.updatePassword}
           </button>
         </form>
       </section>

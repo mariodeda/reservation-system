@@ -308,7 +308,7 @@ export default function TenantDetail() {
           <h2 className="font-semibold">Debug — mock data</h2>
           <p className="text-xs text-on-surface-variant">
             Generate realistic test data for <strong>{view.name}</strong> to exercise every admin screen.
-            Generators are additive; use “Clear all data” to reset. For test tenants only.
+            Generators are additive; use "Clear all data" to reset. For test tenants only.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

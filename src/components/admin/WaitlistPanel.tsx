@@ -294,7 +294,7 @@ function SeatForm({
       <label className="space-y-1">
         <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{am.waitlist.service}</span>
         <select value={service} onChange={(e) => setService(e.target.value)} className={field}>
-          {services.length === 0 && <option value="dinner">Dinner</option>}
+          {services.length === 0 && <option value="dinner">{am.reservations.defaultService}</option>}
           {services.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </label>

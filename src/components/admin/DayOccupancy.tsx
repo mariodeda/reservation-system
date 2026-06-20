@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DayAvailability } from "@/lib/reservations/types";
 import { adminJson } from "./api";
+import { am } from "@/i18n/admin";
 
 /**
  * Compact per-service capacity view for a date: total covers booked vs capacity,
@@ -41,7 +42,7 @@ export default function DayOccupancy({
 
   if (error) return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 text-sm text-on-surface-variant/60">
-      Could not load availability for this date.
+      {am.availability.dayError}
     </div>
   );
   if (!day) return <div className="h-16 rounded-xl bg-surface-container animate-pulse" />;
@@ -53,14 +54,14 @@ export default function DayOccupancy({
   if (day.closed) {
     return (
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 text-sm text-on-surface-variant">
-        {Heading}Closed on this date.
+        {Heading}{am.availability.dayClosed}
       </div>
     );
   }
   if (day.services.length === 0) {
     return (
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 text-sm text-on-surface-variant">
-        {Heading}No service configured for this date.
+        {Heading}{am.availability.dayNoService}
       </div>
     );
   }
@@ -76,7 +77,7 @@ export default function DayOccupancy({
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-sm font-semibold">{svc.label}</span>
               <span className="text-xs text-on-surface-variant tabular-nums">
-                {booked}/{capacity} covers
+                {am.availability.covers(booked, capacity)}
               </span>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -91,10 +92,10 @@ export default function DayOccupancy({
                       ? "bg-amber-400/15 text-amber-300 border-amber-400/30" // nearly full
                       : "bg-emerald-400/10 text-emerald-300 border-emerald-400/30"; // open
                 const title = full
-                  ? "Fully booked"
+                  ? am.availability.fullyBooked
                   : !s.available
-                    ? "Unavailable (past, too soon, or blocked)"
-                    : `${s.booked}/${s.capacity} covers booked · ${s.remaining} left`;
+                    ? am.availability.slotUnavailable
+                    : am.availability.slotStatus(s.booked, s.capacity, s.remaining);
                 return (
                   <button
                     key={s.time}

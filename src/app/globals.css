@@ -527,3 +527,36 @@ html {
 [data-admin][data-theme="light"] select,
 [data-admin][data-theme="light"] textarea { color-scheme: light; }
 [data-admin][data-theme="light"] .\[color-scheme\:dark\] { color-scheme: light; }
+
+/* ---- Light theme: targeted surface fixes ---- */
+
+/* Alternating table rows (customers history, etc.) — barely-visible stripe on cream */
+[data-admin][data-theme="light"] .bg-surface-container\/50 { background-color: rgba(216, 210, 196, 0.18); }
+
+/* Availability: service-editor panel — don't darken against the card background */
+[data-admin][data-theme="light"] .bg-surface-container-high\/30 { background-color: rgba(228, 223, 210, 0.1); }
+
+/* Softer inner dividers — light theme doesn't need heavy outlines */
+[data-admin][data-theme="light"] .border-outline-variant\/10 { border-color: rgba(100, 93, 75, 0.08); }
+[data-admin][data-theme="light"] .border-outline-variant\/20 { border-color: rgba(100, 93, 75, 0.14); }
+
+/* Emerald / amber / sky status text — keep readable on cream */
+[data-admin][data-theme="light"] .text-emerald-400 { color: #047857; }
+[data-admin][data-theme="light"] .text-amber-400  { color: #92400e; }
+[data-admin][data-theme="light"] .text-sky-400    { color: #0369a1; }
+[data-admin][data-theme="light"] .text-sky-300    { color: #0284c7; }
+
+/* Avatar bg tints on cream — keep vivid enough to read */
+[data-admin][data-theme="light"] .bg-amber-400\/20 { background-color: rgba(180, 120, 0, 0.14); }
+[data-admin][data-theme="light"] .text-amber-300  { color: #92400e; }
+[data-admin][data-theme="light"] .bg-emerald-400\/20 { background-color: rgba(4, 120, 87, 0.12); }
+[data-admin][data-theme="light"] .text-emerald-300 { color: #065f46; }
+[data-admin][data-theme="light"] .bg-sky-400\/20   { background-color: rgba(3, 105, 161, 0.12); }
+[data-admin][data-theme="light"] .bg-violet-400\/20 { background-color: rgba(109, 40, 217, 0.10); }
+[data-admin][data-theme="light"] .text-violet-300  { color: #6d28d9; }
+[data-admin][data-theme="light"] .bg-rose-400\/20  { background-color: rgba(190, 18, 60, 0.10); }
+[data-admin][data-theme="light"] .text-rose-300   { color: #9f1239; }
+
+/* border-amber / emerald / sky tints for badges */
+[data-admin][data-theme="light"] .border-amber-400\/30  { border-color: rgba(180, 120, 0, 0.25); }
+[data-admin][data-theme="light"] .border-amber-400\/30  { border-color: rgba(180, 120, 0, 0.25); }

@@ -436,7 +436,7 @@ function FreeTextTableAssign({
       <div className="group flex items-center gap-0 w-full rounded-lg border border-primary/50 bg-primary/10 hover:border-primary transition-colors h-9 overflow-hidden">
         <button
           onClick={startEdit}
-          title="Click to reassign table"
+          title={am.row.tableReassign}
           className="flex items-center gap-0 flex-1 h-full hover:bg-primary/10 transition-colors min-w-0"
         >
           <span className="flex items-center gap-1.5 pl-3 pr-2.5 h-full text-xs font-semibold text-primary uppercase tracking-widest border-r border-primary/30 shrink-0">
@@ -465,7 +465,7 @@ function FreeTextTableAssign({
               setSaving(false);
             }
           }}
-          title="Clear table assignment"
+          title={am.row.tableClear}
           disabled={saving}
           className="w-8 h-full flex items-center justify-center text-on-surface-variant/40 hover:text-rose-400 border-l border-primary/20 transition-colors shrink-0 disabled:opacity-50"
         >
@@ -579,17 +579,17 @@ function EditForm({
         ))}
       </select>
       <input type="number" min={1} max={1000} step="1" value={f.partySize} onChange={(e) => set("partySize", Number(e.target.value))} className={field} />
-      <input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Name" className={`${field} col-span-2`} />
-      <input value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Phone" className={field} />
-      <input value={f.email} onChange={(e) => set("email", e.target.value)} placeholder="Email" className={field} />
+      <input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={am.row.name} className={`${field} col-span-2`} />
+      <input value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder={am.row.phone} className={field} />
+      <input value={f.email} onChange={(e) => set("email", e.target.value)} placeholder={am.row.email} className={field} />
       <select value={f.status} onChange={(e) => set("status", e.target.value as ReservationStatus)} className={field}>
         {RESERVATION_STATUSES.map((s) => (
           <option key={s} value={s}>{STATUS_META[s].label}</option>
         ))}
       </select>
-      <input value={f.occasion} onChange={(e) => set("occasion", e.target.value)} placeholder="Occasion" className={field} />
-      <input value={f.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Notes" className={`${field} col-span-2`} />
-      <input value={f.tableLabel} onChange={(e) => set("tableLabel", e.target.value)} placeholder="Table (e.g. 4, Terrace 2)" className={field} />
+      <input value={f.occasion} onChange={(e) => set("occasion", e.target.value)} placeholder={am.row.occasion} className={field} />
+      <input value={f.notes} onChange={(e) => set("notes", e.target.value)} placeholder={am.row.notes} className={`${field} col-span-2`} />
+      <input value={f.tableLabel} onChange={(e) => set("tableLabel", e.target.value)} placeholder={am.row.tablePlaceholder} className={field} />
       <div className="col-span-2 flex gap-2">
         <button onClick={save} disabled={busy} className="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
           {busy ? am.row.saving : am.row.save}

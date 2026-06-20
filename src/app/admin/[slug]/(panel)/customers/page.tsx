@@ -438,7 +438,7 @@ function ReservationTable({
               {reservations.map((r, i) => (
                 <tr
                   key={r.id}
-                  className={`border-b border-outline-variant/20 last:border-0 ${i % 2 === 0 ? "" : "bg-surface-container/50"}`}
+                  className={`border-b border-outline-variant/20 last:border-0 ${i % 2 === 0 ? "" : "bg-outline-variant/5"}`}
                 >
                   <td className="px-3 py-2 tabular-nums whitespace-nowrap">
                     {formatDateLong(r.date).replace(/, \d{4}$/, "")}

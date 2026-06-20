@@ -10,6 +10,7 @@ import {
 } from "@/lib/reservations/types";
 import { getOfferings } from "@/lib/reservations/offerings";
 import { adminFetch, adminJson, toast } from "@/components/admin/api";
+import { am } from "@/i18n/admin";
 
 const defaultService = (): ServiceWindow => ({
   id: `service-${Date.now()}`,
@@ -74,7 +75,7 @@ export default function AvailabilityPage() {
         setConfig(cfg);
         setActiveId(cfg.offerings![0].id);
       })
-      .catch(() => toast("Could not load configuration.", "error"));
+      .catch(() => toast(am.availability.couldNotLoad, "error"));
   }, []);
 
   function update(fn: (c: AvailabilityConfig) => void) {
@@ -123,16 +124,16 @@ export default function AvailabilityPage() {
         setActiveId(restored.id);
       }
       setSaved(true);
-      toast("Availability saved");
+      toast(am.availability.saved);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not save changes.", "error");
+      toast(err instanceof Error ? err.message : am.availability.couldNotSave, "error");
     } finally {
       setSaving(false);
     }
   }
 
-  if (!config) return <p className="text-on-surface-variant">Loading…</p>;
+  if (!config) return <p className="text-on-surface-variant">{am.availability.loading}</p>;
 
   const offerings = config.offerings ?? [];
   const active = offerings.find((o) => o.id === activeId) ?? offerings[0];
@@ -140,15 +141,15 @@ export default function AvailabilityPage() {
   return (
     <div className="space-y-6 pb-24">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-semibold">Availability</h1>
+        <h1 className="text-2xl font-semibold">{am.availability.title}</h1>
         <div className="flex items-center gap-3">
-          {saved && <span className="text-emerald-400 text-sm">✓ Saved</span>}
+          {saved && <span className="text-emerald-400 text-sm">{am.availability.savedIndicator}</span>}
           <button
             onClick={save}
             disabled={saving}
             className="bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? am.availability.saving : am.availability.saveChanges}
           </button>
         </div>
       </div>
@@ -179,15 +180,15 @@ export default function AvailabilityPage() {
 
       {/* Booking rules */}
       <section className="bg-surface-container border border-outline-variant/30 rounded-xl p-4">
-        <h2 className="font-semibold mb-3">Booking rules</h2>
+        <h2 className="font-semibold mb-3">{am.availability.bookingRules}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Num label="Min party" value={config.minPartySize} min={1} onChange={(v) => update((c) => (c.minPartySize = v))} />
-          <Num label="Max party" value={config.maxPartySize} min={1} onChange={(v) => update((c) => (c.maxPartySize = v))} />
-          <Num label="Booking window (days)" value={config.bookingWindowDays} min={1} onChange={(v) => update((c) => (c.bookingWindowDays = v))} />
-          <Num label="Lead time (min)" value={config.leadMinutes} min={0} onChange={(v) => update((c) => (c.leadMinutes = v))} />
+          <Num label={am.availability.minParty} value={config.minPartySize} min={1} onChange={(v) => update((c) => (c.minPartySize = v))} />
+          <Num label={am.availability.maxParty} value={config.maxPartySize} min={1} onChange={(v) => update((c) => (c.maxPartySize = v))} />
+          <Num label={am.availability.bookingWindow} value={config.bookingWindowDays} min={1} onChange={(v) => update((c) => (c.bookingWindowDays = v))} />
+          <Num label={am.availability.leadTime} value={config.leadMinutes} min={0} onChange={(v) => update((c) => (c.leadMinutes = v))} />
         </div>
         <p className="text-xs text-on-surface-variant mt-2">
-          Lead time = guests can’t book a slot starting within this many minutes from now.
+          {am.availability.leadHint}
         </p>
       </section>
 
@@ -195,10 +196,10 @@ export default function AvailabilityPage() {
         {/* Weekly schedule — for the selected offering */}
         <section className="bg-surface-container border border-outline-variant/30 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-outline-variant/20">
-            <h2 className="font-semibold">Weekly hours</h2>
+            <h2 className="font-semibold">{am.availability.weeklyHours}</h2>
             {offerings.length > 1 && (
               <p className="text-xs text-on-surface-variant mt-0.5">
-                Editing <span className="text-primary font-medium">{active.label}</span>
+                {am.availability.editingPrefix} <span className="text-primary font-medium">{active.label}</span>
               </p>
             )}
           </div>
@@ -226,7 +227,7 @@ export default function AvailabilityPage() {
                     <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${isOpen ? "left-[18px]" : "left-0.5"}`} />
                   </button>
                   <span className={`text-xs w-10 shrink-0 ${isOpen ? "text-emerald-400" : "text-on-surface-variant"}`}>
-                    {isOpen ? "Open" : "Closed"}
+                    {isOpen ? am.availability.open : am.availability.closed}
                   </span>
                   {/* Compact service summary when open */}
                   {isOpen && day.services.length > 0 && (
@@ -237,7 +238,7 @@ export default function AvailabilityPage() {
                 </div>
                 {/* Service editor — shown below when open */}
                 {isOpen && (
-                  <div className="px-4 pb-4 border-t border-outline-variant/10 bg-surface-container-high/30">
+                  <div className="px-4 pb-4 border-t border-outline-variant/10 bg-primary/5">
                     <DayServicesEditor
                       services={day.services}
                       mutate={(fn) => updateOffering((o) => fn((o.weekly[i] ??= { closed: false, services: [] })))}
@@ -254,14 +255,14 @@ export default function AvailabilityPage() {
 
         {/* Special dates (one-off hours) */}
         <section className="bg-surface-container border border-outline-variant/30 rounded-xl p-4">
-        <h2 className="font-semibold mb-1">Special dates</h2>
+        <h2 className="font-semibold mb-1">{am.availability.specialDates}</h2>
         <p className="text-xs text-on-surface-variant mb-3">
-          One-off hours for a single date (holidays, special events) — these replace the normal weekly hours for that day only.
+          {am.availability.specialDatesHint}
         </p>
 
         <div className="space-y-3 mb-3">
           {Object.keys(active.dateOverrides).length === 0 && (
-            <span className="text-on-surface-variant text-sm">None.</span>
+            <span className="text-on-surface-variant text-sm">{am.availability.none}</span>
           )}
           {Object.entries(active.dateOverrides)
             .sort(([a], [b]) => a.localeCompare(b))
@@ -282,14 +283,14 @@ export default function AvailabilityPage() {
                           })
                         }
                       />
-                      {sched.closed ? <span className="text-on-surface-variant">Closed</span> : <span className="text-emerald-400">Open</span>}
+                      {sched.closed ? <span className="text-on-surface-variant">{am.availability.closed}</span> : <span className="text-emerald-400">{am.availability.open}</span>}
                     </label>
                   </div>
                   <button
                     onClick={() => updateOffering((o) => delete o.dateOverrides[date])}
                     className="text-rose-400 hover:text-rose-300 text-sm"
                   >
-                    Remove
+                    {am.availability.remove}
                   </button>
                 </div>
                 {!sched.closed && (
@@ -308,7 +309,7 @@ export default function AvailabilityPage() {
             onClick={() => {
               if (!overrideDate) return;
               if (active.dateOverrides[overrideDate]) {
-                toast("That date already has special hours.", "error");
+                toast(am.availability.dateAlreadyExists, "error");
                 return;
               }
               updateOffering((o) => {
@@ -318,20 +319,20 @@ export default function AvailabilityPage() {
             }}
             className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary"
           >
-            Add special date
+            {am.availability.addSpecialDate}
           </button>
         </div>
       </section>
 
       {/* Closures */}
       <section className="bg-surface-container border border-outline-variant/30 rounded-xl p-4">
-        <h2 className="font-semibold mb-1">Closed days</h2>
+        <h2 className="font-semibold mb-1">{am.availability.closedDays}</h2>
         <p className="text-xs text-on-surface-variant mb-3">
-          Holidays / days off. These dates are fully blocked on the public site.
+          {am.availability.closedDaysHint}
         </p>
         <div className="flex flex-wrap gap-2 mb-3">
           {config.closures.length === 0 && (
-            <span className="text-on-surface-variant text-sm">None.</span>
+            <span className="text-on-surface-variant text-sm">{am.availability.none}</span>
           )}
           {[...config.closures].sort().map((d) => (
             <span key={d} className="flex items-center gap-2 bg-surface-container-high border border-outline-variant/30 rounded-full pl-3 pr-1 py-1 text-sm">
@@ -356,20 +357,20 @@ export default function AvailabilityPage() {
             }}
             className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary"
           >
-            Add closed day
+            {am.availability.addClosedDay}
           </button>
         </div>
       </section>
 
       {/* Blocked slots */}
       <section className="bg-surface-container border border-outline-variant/30 rounded-xl p-4">
-        <h2 className="font-semibold mb-1">Blocked time slots</h2>
+        <h2 className="font-semibold mb-1">{am.availability.blockedSlotsTitle}</h2>
         <p className="text-xs text-on-surface-variant mb-3">
-          Block individual times on a specific date (e.g. a private event) without closing the whole day.
+          {am.availability.blockedSlotsHint}
         </p>
         <div className="space-y-2 mb-3">
           {Object.entries(active.blockedSlots).filter(([, t]) => t.length).length === 0 && (
-            <span className="text-on-surface-variant text-sm">None.</span>
+            <span className="text-on-surface-variant text-sm">{am.availability.none}</span>
           )}
           {Object.entries(active.blockedSlots)
             .filter(([, times]) => times.length)
@@ -412,7 +413,7 @@ export default function AvailabilityPage() {
             }}
             className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary"
           >
-            Block slot
+            {am.availability.blockSlot}
           </button>
         </div>
       </section>
@@ -448,20 +449,16 @@ function OfferingsBar({
     return (
       <section className="bg-surface-container border border-outline-variant/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h2 className="font-semibold">Offerings</h2>
+          <h2 className="font-semibold">{am.availability.offerings}</h2>
           <p className="text-xs text-on-surface-variant mt-0.5">
-            {only ? (
-              <>This venue takes bookings for one offering. Add another (e.g. Cocktails, Events) to manage its schedule and capacity separately.</>
-            ) : (
-              <>Add an offering to start taking bookings.</>
-            )}
+            {only ? am.availability.offeringsHint : am.availability.offeringsHintEmpty}
           </p>
         </div>
         <button
           onClick={onAdd}
           className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-2 text-sm hover:border-primary shrink-0"
         >
-          + Add offering
+          {am.availability.addOffering}
         </button>
       </section>
     );
@@ -471,12 +468,12 @@ function OfferingsBar({
   return (
     <section className="bg-surface-container border border-outline-variant/30 rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-semibold">Offerings</h2>
+        <h2 className="font-semibold">{am.availability.offerings}</h2>
         <button
           onClick={onAdd}
           className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm hover:border-primary"
         >
-          + Add offering
+          {am.availability.addOffering}
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -500,7 +497,7 @@ function OfferingsBar({
       {/* Inline editor for the selected offering */}
       <div className="flex items-end gap-2 flex-wrap border-t border-outline-variant/20 pt-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">Name</span>
+          <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{am.availability.offeringName}</span>
           <input
             value={active.label}
             onChange={(e) => onRename(active.id, e.target.value)}
@@ -510,13 +507,13 @@ function OfferingsBar({
         </label>
         <button
           onClick={() => {
-            if (confirm(`Remove the “${active.label}” offering? Its schedule will be deleted. Existing reservations are kept.`)) {
+            if (confirm(am.availability.removeOfferingConfirm(active.label))) {
               onRemove(active.id);
             }
           }}
           className="text-rose-400 hover:text-rose-300 text-sm h-9 px-2"
         >
-          Remove offering
+          {am.availability.removeOffering}
         </button>
       </div>
     </section>
@@ -539,16 +536,16 @@ function DayServicesEditor({
     <div className="space-y-2">
       {services.map((s, si) => (
         <div key={si} className="flex items-end gap-2 flex-wrap">
-          <Inp label="Name" value={s.label} w="w-28" onChange={(v) => mutate((d) => (d.services[si].label = v))} />
-          <Inp label="From" type="time" value={s.start} w="w-28" onChange={(v) => mutate((d) => (d.services[si].start = v))} />
-          <Inp label="To" type="time" value={s.end} w="w-28" onChange={(v) => mutate((d) => (d.services[si].end = v))} />
-          <NumInp label="Every (min)" value={s.interval} w="w-24" min={5} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
-          <NumInp label="Capacity" value={s.capacity} w="w-24" min={1} onChange={(v) => mutate((d) => (d.services[si].capacity = v))} />
+          <Inp label={am.availability.serviceName} value={s.label} w="w-28" onChange={(v) => mutate((d) => (d.services[si].label = v))} />
+          <Inp label={am.availability.serviceFrom} type="time" value={s.start} w="w-28" onChange={(v) => mutate((d) => (d.services[si].start = v))} />
+          <Inp label={am.availability.serviceTo} type="time" value={s.end} w="w-28" onChange={(v) => mutate((d) => (d.services[si].end = v))} />
+          <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-24" min={5} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
+          <NumInp label={am.availability.serviceCapacity} value={s.capacity} w="w-24" min={1} onChange={(v) => mutate((d) => (d.services[si].capacity = v))} />
           <button
             onClick={() => mutate((d) => d.services.splice(si, 1))}
             className="text-rose-400 hover:text-rose-300 text-sm h-9 px-2"
           >
-            Remove
+            {am.availability.remove}
           </button>
         </div>
       ))}
@@ -556,7 +553,7 @@ function DayServicesEditor({
         onClick={() => mutate((d) => d.services.push(defaultService()))}
         className="text-sm text-primary hover:underline"
       >
-        + Add service
+        {am.availability.addService}
       </button>
     </div>
   );

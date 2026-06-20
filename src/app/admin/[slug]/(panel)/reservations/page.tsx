@@ -247,6 +247,8 @@ export default function ReservationsPage() {
             ))}
           </div>
 
+          {hasTables && <TableTimelineView date={date} refreshKey={refreshKey} />}
+
           {hasTables && <FloorView date={date} refreshKey={refreshKey} />}
 
           <WaitlistPanel
@@ -275,7 +277,7 @@ export default function ReservationsPage() {
       {/* offering filter (only when more than one offering) */}
       {multiOffering && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs uppercase tracking-widest text-on-surface-variant mr-1">Offering</span>
+          <span className="text-xs uppercase tracking-widest text-on-surface-variant mr-1">{am.reservations.offeringLabel}</span>
           <Chip active={offeringFilter === "all"} onClick={() => setOfferingFilter("all")}>
             {am.reservations.all}
           </Chip>
@@ -399,7 +401,7 @@ function SearchResultsView({
               onClick={() => onJumpToDate(d)}
               className="text-xs text-primary hover:underline"
             >
-              View day →
+              {am.reservations.viewDay}
             </button>
           </div>
           {rows.map((r) => (
@@ -541,6 +543,121 @@ function WalkInForm({
       </div>
       {error && <p className="text-sm text-rose-400">{error}</p>}
     </form>
+  );
+}
+
+const TIMELINE_STATUS: Record<string, string> = {
+  seated:    "bg-sky-400/55 border border-sky-400/40",
+  confirmed: "bg-amber-400/55 border border-amber-400/40",
+  pending:   "bg-amber-400/40 border border-amber-400/30",
+  completed: "bg-emerald-400/35 border border-emerald-400/25",
+  cancelled: "bg-zinc-500/25 border border-zinc-500/20",
+  no_show:   "bg-rose-400/30 border border-rose-400/20",
+};
+
+/** Horizontal per-table timeline showing bookings across the day. */
+function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: number }) {
+  const [floor, setFloor] = useState<FloorEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    adminJson<{ floor: FloorEntry[] }>(`/api/admin/tables?date=${date}`)
+      .then((d) => setFloor(d.floor ?? []))
+      .catch(() => setFloor([]))
+      .finally(() => setLoading(false));
+  }, [date, refreshKey]);
+
+  if (loading) return <div className="h-28 rounded-xl bg-surface-container animate-pulse" />;
+
+  const activeTables = floor.filter((f) => f.table.active);
+  if (activeTables.length === 0) return null;
+
+  const toMins = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  const fmtTime = (mins: number) => {
+    const h = Math.floor(mins / 60).toString().padStart(2, "0");
+    const m = (mins % 60).toString().padStart(2, "0");
+    return `${h}:${m}`;
+  };
+
+  const allTimes = activeTables.flatMap((f) => f.reservations.map((r) => r.time));
+  const SLOT = 30;
+  let startMins: number;
+  let endMins: number;
+  if (allTimes.length > 0) {
+    const mins = allTimes.map(toMins);
+    startMins = Math.floor((Math.min(...mins) - SLOT) / SLOT) * SLOT;
+    endMins = Math.ceil((Math.max(...mins) + 90) / SLOT) * SLOT;
+  } else {
+    startMins = 11 * 60;
+    endMins = 23 * 60;
+  }
+  startMins = Math.max(0, startMins);
+  endMins = Math.min(24 * 60, endMins);
+
+  const slots: string[] = [];
+  for (let m = startMins; m < endMins; m += SLOT) slots.push(fmtTime(m));
+
+  return (
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-outline-variant/20 flex items-center gap-3 flex-wrap">
+        <span className="text-sm font-semibold">{am.floor.title} · {am.reservations.calendarTitle}</span>
+        <div className="ml-auto flex items-center gap-4 text-[11px] text-on-surface-variant">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-amber-400/55" /> {am.floor.reserved}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-sky-400/55" /> {am.floor.seated}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-surface-container-high border border-outline-variant/30" /> {am.floor.free}
+          </span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="p-3" style={{ minWidth: `${6 + slots.length * 2.75}rem` }}>
+          {/* Time header */}
+          <div className="flex items-center mb-1.5 pl-24">
+            {slots.map((t, i) => (
+              <div key={t} className="w-10 shrink-0 text-[9px] tabular-nums text-center text-on-surface-variant/60">
+                {i % 2 === 0 ? t : ""}
+              </div>
+            ))}
+          </div>
+
+          {/* Table rows */}
+          {activeTables.map(({ table, reservations }) => {
+            const resMap = new Map(reservations.map((r) => [r.time, r]));
+            return (
+              <div key={table.id} className="flex items-center mb-1 group">
+                <div className="w-24 shrink-0 text-xs font-medium truncate pr-2 text-on-surface-variant group-hover:text-on-surface transition-colors">
+                  {table.label}
+                </div>
+                <div className="flex gap-0.5">
+                  {slots.map((t) => {
+                    const res = resMap.get(t);
+                    const cls = res
+                      ? (TIMELINE_STATUS[res.status] ?? "bg-primary/35 border border-primary/25")
+                      : "bg-surface-container-high/60";
+                    return (
+                      <div
+                        key={t}
+                        className={`w-10 h-7 rounded-sm ${cls}`}
+                        title={res ? `${t} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · free`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -735,7 +852,7 @@ function NewReservationForm({
       )}
       <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className={field} />
       <select value={form.service} onChange={(e) => set("service", e.target.value)} className={field}>
-        {services.length === 0 && <option value="dinner">Dinner</option>}
+        {services.length === 0 && <option value="dinner">{am.reservations.defaultService}</option>}
         {services.map((s) => (
           <option key={s.id} value={s.id}>
             {s.label}
@@ -754,7 +871,7 @@ function NewReservationForm({
       ) : (
         <input type="time" value={form.time} onChange={(e) => set("time", e.target.value)} className={field} />
       )}
-      <input type="number" min={1} value={form.partySize} onChange={(e) => set("partySize", Number(e.target.value))} placeholder="Guests" className={field} />
+      <input type="number" min={1} value={form.partySize} onChange={(e) => set("partySize", Number(e.target.value))} placeholder={am.reservations.guests} className={field} />
 
       <label className="col-span-2 sm:col-span-4 flex items-center gap-2 text-xs text-on-surface-variant -mt-1">
         <input type="checkbox" checked={customTime} onChange={(e) => setCustomTime(e.target.checked)} />
@@ -762,11 +879,11 @@ function NewReservationForm({
       </label>
 
       <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={am.reservations.guestNamePlaceholder} className={`${field} col-span-2`} />
-      <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Phone" className={field} />
-      <input value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="Email" className={field} />
+      <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder={am.reservations.phone} className={field} />
+      <input value={form.email} onChange={(e) => set("email", e.target.value)} placeholder={am.reservations.email} className={field} />
       <input value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder={am.reservations.notesPlaceholder} className={`${field} col-span-2 sm:col-span-3`} />
       <button type="submit" disabled={busy} className="bg-primary text-on-primary rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
-        {busy ? "Saving…" : "Add"}
+        {busy ? am.row.saving : am.reservations.add}
       </button>
       {error && <p className="col-span-full text-sm text-rose-400">{error}</p>}
     </form>

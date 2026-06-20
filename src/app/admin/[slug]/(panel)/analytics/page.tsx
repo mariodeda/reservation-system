@@ -213,12 +213,13 @@ function BarList({ rows }: { rows: { key: string; label: string; value: number; 
   );
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function StatCard({ label, value, sub, hint }: { label: string; value: string; sub?: string; hint?: string }) {
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-4">
-      <div className="text-2xl font-semibold tabular-nums">{value}</div>
-      <div className="text-xs uppercase tracking-widest text-on-surface-variant mt-0.5">{label}</div>
-      {sub && <div className="text-xs text-on-surface-variant/60 mt-1">{sub}</div>}
+      <div className="text-2xl font-semibold tabular-nums leading-none">{value}</div>
+      <div className="text-xs uppercase tracking-widest text-on-surface-variant mt-2">{label}</div>
+      {hint && <div className="text-[11px] text-on-surface-variant/70 mt-1.5 leading-snug">{hint}</div>}
+      {sub && <div className="text-[11px] text-on-surface-variant/50 mt-0.5 tabular-nums">{sub}</div>}
     </div>
   );
 }
@@ -310,35 +311,52 @@ export default function AnalyticsPage() {
       ) : !data ? null : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <StatCard label={am.analytics.reservations} value={String(totalReservations)} />
-            <StatCard label={am.analytics.covers} value={String(totalCovers)} />
-            <StatCard
-              label={am.analytics.avgParty}
-              value={data.avgPartySize ? data.avgPartySize.toFixed(1) : "—"}
-            />
-            <StatCard
-              label={am.analytics.avgLead}
-              value={data.avgLeadDays ? `${Math.round(data.avgLeadDays)}` : "—"}
-              sub={am.analytics.avgLeadUnit}
-            />
-            <StatCard
-              label={am.analytics.noShowRate}
-              value={data.rates ? `${data.rates.noShowRate}%` : "—"}
-              sub={data.rates ? `${data.rates.noShow} of ${data.rates.total}` : undefined}
-            />
-            <StatCard
-              label={am.analytics.cancelRate}
-              value={data.rates ? `${data.rates.cancelledRate}%` : "—"}
-              sub={data.rates ? `${data.rates.cancelled} of ${data.rates.total}` : undefined}
-            />
-          </div>
+          {(() => {
+            const periodDays = parseInt(period);
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <StatCard
+                  label={am.analytics.reservations}
+                  value={String(totalReservations)}
+                  hint={totalReservations > 0 ? am.analytics.hintAvgPerDay((totalReservations / periodDays).toFixed(1)) : am.analytics.hintNoBookings}
+                />
+                <StatCard
+                  label={am.analytics.covers}
+                  value={String(totalCovers)}
+                  hint={totalCovers > 0 ? am.analytics.hintAvgGuestsPerDay((totalCovers / periodDays).toFixed(1)) : undefined}
+                />
+                <StatCard
+                  label={am.analytics.avgParty}
+                  value={data.avgPartySize ? data.avgPartySize.toFixed(1) : "—"}
+                  hint={am.analytics.hintAvgParty}
+                />
+                <StatCard
+                  label={am.analytics.avgLead}
+                  value={data.avgLeadDays ? `${Math.round(data.avgLeadDays)}` : "—"}
+                  hint={am.analytics.hintAvgLead}
+                  sub={am.analytics.avgLeadUnit}
+                />
+                <StatCard
+                  label={am.analytics.noShowRate}
+                  value={data.rates ? `${data.rates.noShowRate}%` : "—"}
+                  hint={am.analytics.hintNoShow}
+                  sub={data.rates ? `${data.rates.noShow} no-shows of ${data.rates.total}` : undefined}
+                />
+                <StatCard
+                  label={am.analytics.cancelRate}
+                  value={data.rates ? `${data.rates.cancelledRate}%` : "—"}
+                  hint={am.analytics.hintCancelRate}
+                  sub={data.rates ? `${data.rates.cancelled} cancellations of ${data.rates.total}` : undefined}
+                />
+              </div>
+            );
+          })()}
 
           {/* Daily bar chart */}
           <div className={section}>
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant">
-                {metric === "covers" ? am.analytics.covers : am.analytics.reservations} by day
+                {metric === "covers" ? am.analytics.covers : am.analytics.reservations} {am.analytics.byDay}
               </h2>
               <div className="flex gap-1">
                 {(["covers", "reservations"] as const).map((m) => (
@@ -409,11 +427,11 @@ export default function AnalyticsPage() {
           {/* Feedback — always shown so staff know the feature exists */}
           <div className={section}>
             <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant mb-2">
-              Guest feedback
+              {am.analytics.feedbackTitle}
             </h2>
             {data.feedback.sent === 0 ? (
               <p className="text-sm text-on-surface-variant/60">
-                No feedback requests sent in this period. Send feedback links from completed reservations to start collecting ratings.
+                {am.analytics.feedbackNone}
               </p>
             ) : (
               <>
@@ -422,12 +440,16 @@ export default function AnalyticsPage() {
                     <div className="text-2xl font-bold text-primary">
                       {data.feedback.avgRating != null ? `★ ${data.feedback.avgRating.toFixed(1)}` : "—"}
                     </div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">avg rating</div>
+                    <div className="text-xs text-on-surface-variant mt-0.5">{am.analytics.avgRating}</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold">{data.feedback.filled}</div>
                     <div className="text-xs text-on-surface-variant mt-0.5">
-                      responses · {Math.round((data.feedback.filled / data.feedback.sent) * 100)}% of {data.feedback.sent} sent
+                      {am.analytics.feedbackResponses(
+                        data.feedback.filled,
+                        Math.round((data.feedback.filled / data.feedback.sent) * 100),
+                        data.feedback.sent,
+                      )}
                     </div>
                   </div>
                 </div>
@@ -454,7 +476,7 @@ export default function AnalyticsPage() {
           {multiOffering && data.byOffering && data.byOffering.length > 0 && (
             <div className={section}>
               <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant mb-1">
-                By offering
+                {am.analytics.byOffering}
               </h2>
               <div className="space-y-2">
                 {data.byOffering.map((o) => {

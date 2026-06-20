@@ -52,7 +52,7 @@ export default function TablesPage() {
   const totalSeats = tables.filter((t) => t.active).reduce((s, t) => s + t.capacity, 0);
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{am.tables.title}</h1>
@@ -98,15 +98,17 @@ export default function TablesPage() {
               {zone && (
                 <h2 className="text-xs uppercase tracking-widest text-on-surface-variant">{zone}</h2>
               )}
-              {list.map((t) => (
-                <TableCard
-                  key={t.id}
-                  table={t}
-                  offerings={offerings}
-                  multiOffering={multiOffering}
-                  onChanged={load}
-                />
-              ))}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                {list.map((t) => (
+                  <TableCard
+                    key={t.id}
+                    table={t}
+                    offerings={offerings}
+                    multiOffering={multiOffering}
+                    onChanged={load}
+                  />
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -173,40 +175,55 @@ function TableCard({
     );
   }
 
+  // Short visual identifier for the avatar chip
+  const abbrev = (() => {
+    if (table.label.length <= 4) return table.label;
+    const parts = table.label.trim().split(/\s+/);
+    if (parts.length > 1) {
+      const num = parts.find((p) => /^\d+$/.test(p));
+      return num ? `${parts[0][0].toUpperCase()}${num}` : `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return table.label.substring(0, 3).toUpperCase();
+  })();
+
   return (
     <div className={`flex items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface-container p-3 ${table.active ? "" : "opacity-50"}`}>
-      <div className="w-12 h-12 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-semibold shrink-0">
-        {table.label}
+      {/* Avatar chip — short abbreviation, never overflows */}
+      <div className="w-10 h-10 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-bold shrink-0 text-xs text-center leading-tight overflow-hidden">
+        {abbrev}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold">{am.tables.seatsN(table.capacity)}</span>
+        {/* Full label — single line, truncated on overflow */}
+        <span className="font-semibold text-sm block truncate">{table.label}</span>
+        {/* Secondary meta — no wrap, shrink-proof */}
+        <div className="flex items-center gap-1.5 mt-0.5 overflow-hidden">
+          <span className="text-xs text-on-surface-variant whitespace-nowrap">{am.tables.seatsN(table.capacity)}</span>
           {table.minParty > 1 && (
-            <span className="text-xs text-on-surface-variant">· {am.tables.minParty} {table.minParty}</span>
+            <span className="text-[10px] text-on-surface-variant whitespace-nowrap">· {am.tables.minParty} {table.minParty}</span>
           )}
           {table.joinable && (
-            <span className="text-[10px] uppercase tracking-widest text-sky-300">{am.tables.joinable}</span>
+            <span className="text-[10px] uppercase tracking-widest text-sky-300 whitespace-nowrap">{am.tables.joinable}</span>
           )}
           {multiOffering && offeringLabel && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/15 text-primary border border-primary/30 uppercase tracking-widest">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/15 text-primary border border-primary/30 uppercase tracking-widest whitespace-nowrap shrink-0">
               {offeringLabel}
             </span>
           )}
           {!table.active && (
-            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.tables.inactive}</span>
+            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60 whitespace-nowrap">{am.tables.inactive}</span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
-        <button onClick={() => setEditing(true)} className="text-primary hover:underline text-xs">
+        <button onClick={() => setEditing(true)} className="text-primary hover:underline text-xs whitespace-nowrap">
           {am.tables.edit}
         </button>
         {table.active ? (
-          <button onClick={deactivate} disabled={busy} className="text-rose-400 hover:text-rose-300 text-xs disabled:opacity-50">
+          <button onClick={deactivate} disabled={busy} className="text-rose-400 hover:text-rose-300 text-xs disabled:opacity-50 whitespace-nowrap">
             {am.tables.deactivate}
           </button>
         ) : (
-          <button onClick={reactivate} disabled={busy} className="text-emerald-400 hover:text-emerald-300 text-xs disabled:opacity-50">
+          <button onClick={reactivate} disabled={busy} className="text-emerald-400 hover:text-emerald-300 text-xs disabled:opacity-50 whitespace-nowrap">
             {am.tables.active}
           </button>
         )}
