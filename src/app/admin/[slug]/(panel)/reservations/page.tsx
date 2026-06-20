@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { type AdminReservation, formatDateLong, todayInTz } from "@/components/admin/shared";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 import ReservationRow from "@/components/admin/ReservationRow";
 import DayOccupancy from "@/components/admin/DayOccupancy";
 import WaitlistPanel from "@/components/admin/WaitlistPanel";

@@ -1,5 +1,5 @@
 import type { ReservationStatus } from "@/lib/reservations/types";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 
 export interface AdminReservation {
   id: string;

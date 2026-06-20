@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import SystemLogo from "@/components/SystemLogo";
 
 function LoginForm() {
   const router = useRouter();
@@ -42,7 +43,8 @@ function LoginForm() {
         className="w-full max-w-sm bg-surface-container rounded-xl border border-outline-variant/30 p-8 shadow-2xl space-y-5"
       >
         <div className="text-center mb-2">
-          <div className="font-display-lg text-[22px] text-primary uppercase tracking-tighter">
+          <SystemLogo className="mx-auto h-14 w-14 text-primary" />
+          <div className="font-display-lg text-[18px] text-primary uppercase tracking-tighter mt-2">
             Reservations Platform
           </div>
           <p className="text-on-surface-variant text-sm mt-1">Operator sign in</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 import { adminJson, adminFetch, toast } from "@/components/admin/api";
 import type { CustomerProfile, Reservation } from "@/lib/reservations/types";
 import { STATUS_META, formatDateLong } from "@/components/admin/shared";

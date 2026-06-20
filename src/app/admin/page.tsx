@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 
 export default function AdminLanding() {
   const router = useRouter();

@@ -11,7 +11,7 @@ import {
   STATUS_META,
   StatusBadge,
 } from "./shared";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 import { adminFetch, adminJson, toast } from "./api";
 
 const field =

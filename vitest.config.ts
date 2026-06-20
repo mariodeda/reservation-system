@@ -12,6 +12,7 @@ export default defineConfig({
     globals: true,
     // Default to node; DOM test files opt in via `// @vitest-environment jsdom`.
     environment: "node",
+    setupFiles: ["test/setup-locale.ts"],
     include: ["test/**/*.test.{ts,tsx}"],
     // MySQL integration tests download/boot a real mysqld on first run.
     testTimeout: 30_000,

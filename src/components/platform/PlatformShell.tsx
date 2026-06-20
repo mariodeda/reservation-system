@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import SystemLogo from "@/components/SystemLogo";
 
 export default function PlatformShell({
   username,
@@ -21,8 +22,11 @@ export default function PlatformShell({
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-6 min-w-0">
-            <Link href="/platform" className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate">
-              Reservations Platform
+            <Link href="/platform" className="flex items-center gap-2 text-primary">
+              <SystemLogo className="h-7 w-7" />
+              <span className="font-display-lg text-[16px] uppercase tracking-tighter truncate hidden sm:inline">
+                Reservations Platform
+              </span>
             </Link>
           </div>
           <div className="flex items-center gap-3">

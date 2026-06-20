@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { am } from "@/i18n/admin";
+import { am, getLocale, setLocale, type Locale } from "@/i18n";
+import SystemLogo from "@/components/SystemLogo";
 
 const NAV = [
   { seg: "", label: am.nav.dashboard },
@@ -31,10 +32,12 @@ export default function AdminShell({
   const base = `/admin/${slug}`;
   const nav = NAV.map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [locale, setLocaleState] = useState<Locale>("it");
 
   useEffect(() => {
     const saved = localStorage.getItem("admin-theme");
     if (saved === "light") setTheme("light");
+    setLocaleState(getLocale());
   }, []);
 
   function toggleTheme() {
@@ -58,9 +61,12 @@ export default function AdminShell({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
             ) : (
-              <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate">
-                {brandName}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <SystemLogo className="h-7 w-7 text-primary" />
+                <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate hidden sm:inline">
+                  {brandName}
+                </span>
+              </div>
             )}
             <nav className="hidden sm:flex items-center gap-1">
               {nav.map((n) => {
@@ -89,6 +95,22 @@ export default function AdminShell({
             >
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
             </button>
+            <div className="flex items-center rounded-lg border border-outline-variant/40 overflow-hidden">
+              {(["it", "en"] as Locale[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => { if (locale !== l) setLocale(l); }}
+                  title={l === "it" ? "Italiano" : "English"}
+                  className={`px-2 py-1 text-sm leading-none transition ${
+                    locale === l
+                      ? "bg-primary/15 text-primary font-medium"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                  }`}
+                >
+                  {l === "it" ? "🇮🇹" : "🇬🇧"}
+                </button>
+              ))}
+            </div>
             <button
               onClick={logout}
               className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition"

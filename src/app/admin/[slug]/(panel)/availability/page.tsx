@@ -10,7 +10,7 @@ import {
 } from "@/lib/reservations/types";
 import { getOfferings } from "@/lib/reservations/offerings";
 import { adminFetch, adminJson, toast } from "@/components/admin/api";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 
 const defaultService = (): ServiceWindow => ({
   id: `service-${Date.now()}`,

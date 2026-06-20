@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { adminJson, toast } from "@/components/admin/api";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 
 const field =
   "w-full bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-2 text-sm focus:border-primary outline-none";

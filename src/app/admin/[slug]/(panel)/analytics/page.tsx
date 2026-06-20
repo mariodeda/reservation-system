@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 import { adminJson, toast } from "@/components/admin/api";
 
 type Period = "7d" | "30d" | "90d" | "365d";
@@ -45,6 +45,29 @@ const STATUS_COLORS: Record<string, string> = {
   no_show: "#f43f5e",
 };
 
+// ── Tooltip ──────────────────────────────────────────────────────────────────
+
+type TipState = { x: number; y: number; title: string; lines: string[] } | null;
+
+function Tip({ tip }: { tip: NonNullable<TipState> }) {
+  const safeX =
+    typeof window !== "undefined"
+      ? Math.min(tip.x + 14, window.innerWidth - 224)
+      : tip.x + 14;
+  return (
+    <div className="fixed z-50 pointer-events-none" style={{ left: safeX, top: tip.y }}>
+      <div className="-translate-y-full rounded-lg border border-outline-variant/40 bg-surface-container shadow-xl px-3 py-2 text-xs space-y-0.5">
+        <div className="font-semibold text-on-surface whitespace-nowrap">{tip.title}</div>
+        {tip.lines.map((l, i) => (
+          <div key={i} className="text-on-surface-variant whitespace-nowrap">{l}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── BarChart ─────────────────────────────────────────────────────────────────
+
 function BarChart({
   data,
   metric,
@@ -52,49 +75,151 @@ function BarChart({
   data: { date: string; reservations: number; covers: number }[];
   metric: "covers" | "reservations";
 }) {
-  if (!data.length) return <p className="text-on-surface-variant text-sm py-8 text-center">{am.analytics.noData}</p>;
+  const [tip, setTip] = useState<TipState>(null);
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+
+  if (!data.length)
+    return (
+      <p className="text-on-surface-variant text-sm py-8 text-center">
+        {am.analytics.noData}
+      </p>
+    );
+
   const values = data.map((d) => d[metric]);
   const max = Math.max(...values, 1);
   const W = 600;
   const H = 120;
   const barW = Math.max(2, Math.floor((W - data.length * 2) / data.length));
   const gap = Math.floor((W - barW * data.length) / Math.max(data.length - 1, 1));
+  const showLabels = data.length <= 31;
 
-  function formatDate(d: string) {
+  function fmtShort(d: string) {
     const dt = new Date(`${d}T00:00:00Z`);
     return `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`;
   }
+  function fmtFull(d: string) {
+    const dt = new Date(`${d}T00:00:00Z`);
+    return dt.toLocaleDateString("en-US", {
+      timeZone: "UTC",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  }
 
-  const showLabels = data.length <= 31;
+  const otherMetric = metric === "covers" ? "reservations" : "covers";
 
   return (
-    <svg viewBox={`0 0 ${W} ${H + (showLabels ? 20 : 4)}`} className="w-full" aria-label={`${metric} bar chart`}>
-      {data.map((d, i) => {
-        const v = d[metric];
-        const h = Math.max(2, Math.round((v / max) * H));
-        const x = i * (barW + gap);
-        const y = H - h;
-        return (
-          <g key={d.date}>
-            <rect x={x} y={y} width={barW} height={h} rx="1" className="fill-primary opacity-80" />
-            {showLabels && i % Math.ceil(data.length / 14) === 0 && (
-              <text x={x + barW / 2} y={H + 14} textAnchor="middle" fontSize="9" className="fill-on-surface-variant opacity-70">
-                {formatDate(d.date)}
-              </text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${W} ${H + (showLabels ? 20 : 4)}`}
+        className="w-full cursor-crosshair"
+        aria-label={`${metric} bar chart`}
+        onMouseLeave={() => {
+          setTip(null);
+          setHoveredDate(null);
+        }}
+      >
+        {data.map((d, i) => {
+          const v = d[metric];
+          const otherV = d[otherMetric];
+          const h = Math.max(2, Math.round((v / max) * H));
+          const x = i * (barW + gap);
+          const y = H - h;
+          const isHovered = hoveredDate === d.date;
+          const dimmed = hoveredDate !== null && !isHovered;
+
+          return (
+            <g
+              key={d.date}
+              onMouseEnter={(e) => {
+                setHoveredDate(d.date);
+                setTip({
+                  x: e.clientX,
+                  y: e.clientY,
+                  title: fmtFull(d.date),
+                  lines: [
+                    `${v} ${metric}`,
+                    `${otherV} ${otherMetric}`,
+                  ],
+                });
+              }}
+              onMouseMove={(e) =>
+                setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))
+              }
+            >
+              {/* Full-height transparent hit area for easy hovering */}
+              <rect
+                x={x}
+                y={0}
+                width={barW + (i < data.length - 1 ? gap : 0)}
+                height={H}
+                fill="transparent"
+              />
+              {/* Actual bar */}
+              <rect
+                x={x}
+                y={y}
+                width={barW}
+                height={h}
+                rx="1"
+                className="fill-primary"
+                style={{ opacity: dimmed ? 0.3 : isHovered ? 1 : 0.8 }}
+              />
+              {/* Hover indicator line */}
+              {isHovered && h > 2 && (
+                <line
+                  x1={x + barW / 2}
+                  y1={0}
+                  x2={x + barW / 2}
+                  y2={y - 2}
+                  stroke="var(--brand-primary, #f2ca50)"
+                  strokeWidth="1"
+                  strokeDasharray="2 2"
+                  opacity={0.5}
+                />
+              )}
+              {showLabels && i % Math.ceil(data.length / 14) === 0 && (
+                <text
+                  x={x + barW / 2}
+                  y={H + 14}
+                  textAnchor="middle"
+                  fontSize="9"
+                  className="fill-on-surface-variant opacity-70"
+                >
+                  {fmtShort(d.date)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      {tip && <Tip tip={tip} />}
+    </div>
   );
 }
 
-function DonutChart({ slices }: { slices: { label: string; value: number; color: string }[] }) {
+// ── DonutChart ────────────────────────────────────────────────────────────────
+
+function DonutChart({
+  slices,
+}: {
+  slices: { label: string; value: number; color: string }[];
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [tip, setTip] = useState<TipState>(null);
+
   const total = slices.reduce((s, x) => s + x.value, 0);
-  if (!total) return <p className="text-on-surface-variant text-sm">{am.analytics.noData}</p>;
-  const cx = 50, cy = 50, r = 38, inner = 22;
+  if (!total)
+    return <p className="text-on-surface-variant text-sm">{am.analytics.noData}</p>;
+
+  const cx = 50,
+    cy = 50,
+    r = 38,
+    inner = 22;
   let angle = -Math.PI / 2;
-  const paths: { d: string; color: string; label: string; pct: number }[] = [];
+  const paths: { d: string; color: string; label: string; value: number; pct: number }[] =
+    [];
 
   for (const s of slices) {
     if (!s.value) continue;
@@ -112,37 +237,95 @@ function DonutChart({ slices }: { slices: { label: string; value: number; color:
       d: `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${inner} ${inner} 0 ${large} 0 ${ix1} ${iy1} Z`,
       color: s.color,
       label: s.label,
+      value: s.value,
       pct: Math.round((s.value / total) * 100),
     });
     angle += sweep;
   }
 
   return (
-    <div className="flex items-center gap-4 flex-wrap">
+    <div
+      className="flex items-center gap-4 flex-wrap"
+      onMouseLeave={() => {
+        setHoveredIdx(null);
+        setTip(null);
+      }}
+    >
       <svg viewBox="0 0 100 100" className="w-24 h-24 shrink-0">
-        {paths.map((p) => (
-          <path key={p.label} d={p.d} fill={p.color} />
+        {paths.map((p, i) => (
+          <path
+            key={p.label}
+            d={p.d}
+            fill={p.color}
+            className="cursor-pointer transition-opacity"
+            style={{ opacity: hoveredIdx !== null && hoveredIdx !== i ? 0.35 : 1 }}
+            onMouseEnter={(e) => {
+              setHoveredIdx(i);
+              setTip({
+                x: e.clientX,
+                y: e.clientY,
+                title: p.label.replace("_", "-"),
+                lines: [`${p.value}`, `${p.pct}%`],
+              });
+            }}
+            onMouseMove={(e) =>
+              setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))
+            }
+          />
         ))}
+        {/* Centre hole */}
+        <circle cx={cx} cy={cy} r={inner} fill="transparent" />
       </svg>
       <div className="space-y-1 text-xs">
-        {paths.map((p) => (
-          <div key={p.label} className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: p.color }} />
-            <span className="text-on-surface-variant capitalize">{p.label.replace("_", "-")}</span>
+        {paths.map((p, i) => (
+          <div
+            key={p.label}
+            className="flex items-center gap-2 transition-opacity"
+            style={{ opacity: hoveredIdx !== null && hoveredIdx !== i ? 0.35 : 1 }}
+            onMouseEnter={(e) => {
+              setHoveredIdx(i);
+              setTip({
+                x: e.clientX,
+                y: e.clientY,
+                title: p.label.replace("_", "-"),
+                lines: [`${p.value}`, `${p.pct}%`],
+              });
+            }}
+            onMouseMove={(e) =>
+              setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))
+            }
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ background: p.color }}
+            />
+            <span className="text-on-surface-variant capitalize">
+              {p.label.replace("_", "-")}
+            </span>
             <span className="font-semibold tabular-nums ml-auto pl-2">{p.pct}%</span>
           </div>
         ))}
       </div>
+      {tip && <Tip tip={tip} />}
     </div>
   );
 }
 
+// ── Heatmap ───────────────────────────────────────────────────────────────────
+
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-// API weekday is 0=Sun…6=Sat; display Mon-first.
 const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: number }[] }) {
-  if (!cells.length) return <p className="text-on-surface-variant text-sm py-6 text-center">{am.analytics.noData}</p>;
+  const [tip, setTip] = useState<TipState>(null);
+
+  if (!cells.length)
+    return (
+      <p className="text-on-surface-variant text-sm py-6 text-center">
+        {am.analytics.noData}
+      </p>
+    );
+
   const hours = cells.map((c) => c.hour);
   const minH = Math.min(...hours);
   const maxH = Math.max(...hours);
@@ -153,13 +336,16 @@ function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: nu
   for (const c of cells) lookup.set(`${c.weekday}:${c.hour}`, c.covers);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" onMouseLeave={() => setTip(null)}>
       <table className="border-separate border-spacing-1">
         <thead>
           <tr>
             <th />
             {hourRange.map((h) => (
-              <th key={h} className="text-[9px] font-normal text-on-surface-variant/70 tabular-nums w-6 text-center">
+              <th
+                key={h}
+                className="text-[9px] font-normal text-on-surface-variant/70 tabular-nums w-6 text-center"
+              >
                 {h}
               </th>
             ))}
@@ -168,20 +354,41 @@ function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: nu
         <tbody>
           {DISPLAY_ORDER.map((wd, i) => (
             <tr key={wd}>
-              <td className="text-[10px] text-on-surface-variant pr-1 whitespace-nowrap">{WEEKDAY_LABELS[i]}</td>
+              <td className="text-[10px] text-on-surface-variant pr-1 whitespace-nowrap">
+                {WEEKDAY_LABELS[i]}
+              </td>
               {hourRange.map((h) => {
                 const v = lookup.get(`${wd}:${h}`) ?? 0;
                 const intensity = v / max;
                 return (
                   <td key={h}>
                     <div
-                      className="w-6 h-6 rounded-sm"
-                      title={v ? `${WEEKDAY_LABELS[i]} ${h}:00 — ${v} ${am.analytics.covers.toLowerCase()}` : undefined}
+                      className={`w-6 h-6 rounded-sm transition-opacity ${v ? "cursor-pointer" : ""}`}
                       style={{
                         backgroundColor: v
                           ? `color-mix(in srgb, var(--brand-primary, #f2ca50) ${Math.round(20 + intensity * 80)}%, transparent)`
                           : "var(--md-surface-container-high, rgba(255,255,255,0.04))",
                       }}
+                      onMouseEnter={
+                        v
+                          ? (e) =>
+                              setTip({
+                                x: e.clientX,
+                                y: e.clientY,
+                                title: `${WEEKDAY_LABELS[i]} ${h}:00`,
+                                lines: [`${v} ${am.analytics.covers.toLowerCase()}`],
+                              })
+                          : undefined
+                      }
+                      onMouseMove={
+                        v
+                          ? (e) =>
+                              setTip((t) =>
+                                t ? { ...t, x: e.clientX, y: e.clientY } : null,
+                              )
+                          : undefined
+                      }
+                      onMouseLeave={() => setTip(null)}
                     />
                   </td>
                 );
@@ -190,41 +397,158 @@ function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: nu
           ))}
         </tbody>
       </table>
+      {tip && <Tip tip={tip} />}
     </div>
   );
 }
 
-/** Simple horizontal bar list keyed by a label + value. */
-function BarList({ rows }: { rows: { key: string; label: string; value: number; sub?: string }[] }) {
-  if (!rows.length) return <p className="text-on-surface-variant text-sm">{am.analytics.noData}</p>;
+// ── BarList ───────────────────────────────────────────────────────────────────
+
+function BarList({
+  rows,
+}: {
+  rows: { key: string; label: string; value: number; sub?: string }[];
+}) {
+  const [tip, setTip] = useState<TipState>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+  if (!rows.length)
+    return <p className="text-on-surface-variant text-sm">{am.analytics.noData}</p>;
+
   const max = Math.max(...rows.map((r) => r.value), 1);
+
   return (
-    <div className="space-y-2">
-      {rows.map((r) => (
-        <div key={r.key} className="flex items-center gap-3">
-          <span className="w-28 text-sm shrink-0 truncate">{r.label}</span>
-          <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
-            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.round((r.value / max) * 100)}%` }} />
+    <div
+      className="space-y-2"
+      onMouseLeave={() => {
+        setTip(null);
+        setHoveredKey(null);
+      }}
+    >
+      {rows.map((r) => {
+        const pct = Math.round((r.value / max) * 100);
+        const dimmed = hoveredKey !== null && hoveredKey !== r.key;
+        return (
+          <div
+            key={r.key}
+            className="flex items-center gap-3 transition-opacity"
+            style={{ opacity: dimmed ? 0.35 : 1 }}
+            onMouseEnter={(e) => {
+              setHoveredKey(r.key);
+              setTip({
+                x: e.clientX,
+                y: e.clientY,
+                title: r.label,
+                lines: r.sub
+                  ? [r.sub, `${pct}% of peak`]
+                  : [`${r.value}`, `${pct}% of peak`],
+              });
+            }}
+            onMouseMove={(e) =>
+              setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))
+            }
+          >
+            <span className="w-28 text-sm shrink-0 truncate">{r.label}</span>
+            <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="text-xs text-on-surface-variant tabular-nums w-24 text-right">
+              {r.sub ?? r.value}
+            </span>
           </div>
-          <span className="text-xs text-on-surface-variant tabular-nums w-24 text-right">{r.sub ?? r.value}</span>
-        </div>
-      ))}
+        );
+      })}
+      {tip && <Tip tip={tip} />}
     </div>
   );
 }
 
-function StatCard({ label, value, sub, hint }: { label: string; value: string; sub?: string; hint?: string }) {
+// ── StatCard ──────────────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  sub,
+  hint,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-4">
       <div className="text-2xl font-semibold tabular-nums leading-none">{value}</div>
-      <div className="text-xs uppercase tracking-widest text-on-surface-variant mt-2">{label}</div>
-      {hint && <div className="text-[11px] text-on-surface-variant/70 mt-1.5 leading-snug">{hint}</div>}
-      {sub && <div className="text-[11px] text-on-surface-variant/50 mt-0.5 tabular-nums">{sub}</div>}
+      <div className="text-xs uppercase tracking-widest text-on-surface-variant mt-2">
+        {label}
+      </div>
+      {hint && (
+        <div className="text-[11px] text-on-surface-variant/70 mt-1.5 leading-snug">
+          {hint}
+        </div>
+      )}
+      {sub && (
+        <div className="text-[11px] text-on-surface-variant/50 mt-0.5 tabular-nums">
+          {sub}
+        </div>
+      )}
     </div>
   );
 }
 
-const section = "rounded-xl border border-outline-variant/30 bg-surface-container p-5 space-y-3";
+// ── HoverableBarRow ────────────────────────────────────────────────────────────
+
+function HoverableBarRow({
+  label,
+  pct,
+  detail,
+  tipTitle,
+  tipLines,
+  dimmed,
+  onEnter,
+  onMove,
+  onLeave,
+}: {
+  label: string;
+  pct: number;
+  detail: string;
+  tipTitle: string;
+  tipLines: string[];
+  dimmed: boolean;
+  onEnter: (e: React.MouseEvent) => void;
+  onMove: (e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
+  void tipTitle; void tipLines; // consumed by parent via onEnter
+  return (
+    <div
+      className="flex items-center gap-3 transition-opacity"
+      style={{ opacity: dimmed ? 0.35 : 1 }}
+      onMouseEnter={onEnter}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+    >
+      <span className="w-28 text-sm shrink-0 truncate">{label}</span>
+      <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
+        <div
+          className="h-full bg-primary rounded-full transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs text-on-surface-variant tabular-nums w-24 text-right">
+        {detail}
+      </span>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+const section =
+  "rounded-xl border border-outline-variant/30 bg-surface-container p-5 space-y-3";
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>("30d");
@@ -232,6 +556,10 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [metric, setMetric] = useState<"covers" | "reservations">("covers");
   const [offeringLabels, setOfferingLabels] = useState<Record<string, string>>({});
+
+  // Page-level tooltip for inline bar rows (offering, service, feedback)
+  const [pageTip, setPageTip] = useState<TipState>(null);
+  const [pageHovered, setPageHovered] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -245,17 +573,18 @@ export default function AnalyticsPage() {
     }
   }, [period]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  // Resolve offering ids → labels for the per-offering breakdown.
   useEffect(() => {
     adminJson<{ offerings: { id: string; label: string }[] }>("/api/availability?offerings=1")
-      .then((d) => setOfferingLabels(Object.fromEntries(d.offerings.map((o) => [o.id, o.label]))))
+      .then((d) =>
+        setOfferingLabels(Object.fromEntries(d.offerings.map((o) => [o.id, o.label]))),
+      )
       .catch(() => {});
   }, []);
 
-  // Derive multi-offering from the actual data, not the (cosmetic) label fetch —
-  // a transient label-fetch failure must not collapse the per-offering breakdown.
   const multiOffering = (data?.byOffering?.length ?? 0) > 1;
   const offeringName = (id?: string) => offeringLabels[id || "main"] ?? (id || "main");
 
@@ -280,6 +609,23 @@ export default function AnalyticsPage() {
     { label: am.analytics.newGuests, value: nvr?.new ?? 0, color: "#34d399" },
     { label: am.analytics.returningGuests, value: nvr?.returning ?? 0, color: "#818cf8" },
   ];
+
+  function inlineBarEnter(
+    e: React.MouseEvent,
+    key: string,
+    title: string,
+    lines: string[],
+  ) {
+    setPageHovered(key);
+    setPageTip({ x: e.clientX, y: e.clientY, title, lines });
+  }
+  function inlineBarMove(e: React.MouseEvent) {
+    setPageTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null));
+  }
+  function inlineBarLeave() {
+    setPageHovered(null);
+    setPageTip(null);
+  }
 
   return (
     <div className="space-y-6">
@@ -318,12 +664,24 @@ export default function AnalyticsPage() {
                 <StatCard
                   label={am.analytics.reservations}
                   value={String(totalReservations)}
-                  hint={totalReservations > 0 ? am.analytics.hintAvgPerDay((totalReservations / periodDays).toFixed(1)) : am.analytics.hintNoBookings}
+                  hint={
+                    totalReservations > 0
+                      ? am.analytics.hintAvgPerDay(
+                          (totalReservations / periodDays).toFixed(1),
+                        )
+                      : am.analytics.hintNoBookings
+                  }
                 />
                 <StatCard
                   label={am.analytics.covers}
                   value={String(totalCovers)}
-                  hint={totalCovers > 0 ? am.analytics.hintAvgGuestsPerDay((totalCovers / periodDays).toFixed(1)) : undefined}
+                  hint={
+                    totalCovers > 0
+                      ? am.analytics.hintAvgGuestsPerDay(
+                          (totalCovers / periodDays).toFixed(1),
+                        )
+                      : undefined
+                  }
                 />
                 <StatCard
                   label={am.analytics.avgParty}
@@ -340,13 +698,21 @@ export default function AnalyticsPage() {
                   label={am.analytics.noShowRate}
                   value={data.rates ? `${data.rates.noShowRate}%` : "—"}
                   hint={am.analytics.hintNoShow}
-                  sub={data.rates ? `${data.rates.noShow} no-shows of ${data.rates.total}` : undefined}
+                  sub={
+                    data.rates
+                      ? `${data.rates.noShow} no-shows of ${data.rates.total}`
+                      : undefined
+                  }
                 />
                 <StatCard
                   label={am.analytics.cancelRate}
                   value={data.rates ? `${data.rates.cancelledRate}%` : "—"}
                   hint={am.analytics.hintCancelRate}
-                  sub={data.rates ? `${data.rates.cancelled} cancellations of ${data.rates.total}` : undefined}
+                  sub={
+                    data.rates
+                      ? `${data.rates.cancelled} cancellations of ${data.rates.total}`
+                      : undefined
+                  }
                 />
               </div>
             );
@@ -356,7 +722,8 @@ export default function AnalyticsPage() {
           <div className={section}>
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant">
-                {metric === "covers" ? am.analytics.covers : am.analytics.reservations} {am.analytics.byDay}
+                {metric === "covers" ? am.analytics.covers : am.analytics.reservations}{" "}
+                {am.analytics.byDay}
               </h2>
               <div className="flex gap-1">
                 {(["covers", "reservations"] as const).map((m) => (
@@ -384,7 +751,9 @@ export default function AnalyticsPage() {
                 <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant">
                   {am.analytics.peakDemand}
                 </h2>
-                <span className="text-xs text-on-surface-variant/60">{am.analytics.peakHint}</span>
+                <span className="text-xs text-on-surface-variant/60">
+                  {am.analytics.peakHint}
+                </span>
               </div>
               <Heatmap cells={data.heatmap} />
             </div>
@@ -424,7 +793,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Feedback — always shown so staff know the feature exists */}
+          {/* Feedback */}
           <div className={section}>
             <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant mb-2">
               {am.analytics.feedbackTitle}
@@ -438,32 +807,64 @@ export default function AnalyticsPage() {
                 <div className="flex flex-wrap gap-6 mb-4">
                   <div>
                     <div className="text-2xl font-bold text-primary">
-                      {data.feedback.avgRating != null ? `★ ${data.feedback.avgRating.toFixed(1)}` : "—"}
+                      {data.feedback.avgRating != null
+                        ? `★ ${data.feedback.avgRating.toFixed(1)}`
+                        : "—"}
                     </div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">{am.analytics.avgRating}</div>
+                    <div className="text-xs text-on-surface-variant mt-0.5">
+                      {am.analytics.avgRating}
+                    </div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold">{data.feedback.filled}</div>
                     <div className="text-xs text-on-surface-variant mt-0.5">
                       {am.analytics.feedbackResponses(
                         data.feedback.filled,
-                        Math.round((data.feedback.filled / data.feedback.sent) * 100),
+                        Math.round(
+                          (data.feedback.filled / data.feedback.sent) * 100,
+                        ),
                         data.feedback.sent,
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="space-y-1.5">
+                <div
+                  className="space-y-1.5"
+                  onMouseLeave={inlineBarLeave}
+                >
                   {[5, 4, 3, 2, 1].map((s) => {
                     const count = data.feedback.byRating[s - 1] ?? 0;
-                    const pct = data.feedback.filled > 0 ? Math.round((count / data.feedback.filled) * 100) : 0;
+                    const pct =
+                      data.feedback.filled > 0
+                        ? Math.round((count / data.feedback.filled) * 100)
+                        : 0;
+                    const key = `rating-${s}`;
+                    const dimmed = pageHovered !== null && pageHovered !== key;
                     return (
-                      <div key={s} className="flex items-center gap-2 text-xs">
-                        <span className="w-4 text-on-surface-variant text-right tabular-nums">{s}★</span>
+                      <div
+                        key={s}
+                        className="flex items-center gap-2 text-xs transition-opacity"
+                        style={{ opacity: dimmed ? 0.35 : 1 }}
+                        onMouseEnter={(e) =>
+                          inlineBarEnter(e, key, `${s} stars`, [
+                            `${count} ${count === 1 ? "response" : "responses"}`,
+                            `${pct}%`,
+                          ])
+                        }
+                        onMouseMove={inlineBarMove}
+                      >
+                        <span className="w-4 text-on-surface-variant text-right tabular-nums">
+                          {s}★
+                        </span>
                         <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
-                          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
-                        <span className="w-8 text-on-surface-variant text-right tabular-nums">{count}</span>
+                        <span className="w-8 text-on-surface-variant text-right tabular-nums">
+                          {count}
+                        </span>
                       </div>
                     );
                   })}
@@ -472,26 +873,41 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* By offering (only when more than one offering) */}
+          {/* By offering */}
           {multiOffering && data.byOffering && data.byOffering.length > 0 && (
             <div className={section}>
               <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant mb-1">
                 {am.analytics.byOffering}
               </h2>
-              <div className="space-y-2">
+              <div className="space-y-2" onMouseLeave={inlineBarLeave}>
                 {data.byOffering.map((o) => {
-                  const maxCovers = Math.max(...data.byOffering!.map((x) => x.covers), 1);
+                  const maxCovers = Math.max(
+                    ...data.byOffering!.map((x) => x.covers),
+                    1,
+                  );
                   const pct = Math.round((o.covers / maxCovers) * 100);
+                  const key = `offering-${o.offering}`;
                   return (
-                    <div key={o.offering} className="flex items-center gap-3">
-                      <span className="w-28 text-sm shrink-0 truncate">{offeringName(o.offering)}</span>
-                      <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-on-surface-variant tabular-nums w-24 text-right">
-                        {o.reservations} res · {o.covers} cov
-                      </span>
-                    </div>
+                    <HoverableBarRow
+                      key={o.offering}
+                      label={offeringName(o.offering)}
+                      pct={pct}
+                      detail={`${o.reservations} res · ${o.covers} cov`}
+                      tipTitle={offeringName(o.offering)}
+                      tipLines={[
+                        `${o.reservations} reservations`,
+                        `${o.covers} covers`,
+                      ]}
+                      dimmed={pageHovered !== null && pageHovered !== key}
+                      onEnter={(e) =>
+                        inlineBarEnter(e, key, offeringName(o.offering), [
+                          `${o.reservations} reservations`,
+                          `${o.covers} covers`,
+                        ])
+                      }
+                      onMove={inlineBarMove}
+                      onLeave={inlineBarLeave}
+                    />
                   );
                 })}
               </div>
@@ -504,25 +920,38 @@ export default function AnalyticsPage() {
               <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant mb-1">
                 {am.analytics.byService}
               </h2>
-              <div className="space-y-2">
+              <div className="space-y-2" onMouseLeave={inlineBarLeave}>
                 {data.byService.map((s) => {
-                  const maxCovers = Math.max(...data.byService.map((x) => x.covers), 1);
+                  const maxCovers = Math.max(
+                    ...data.byService.map((x) => x.covers),
+                    1,
+                  );
                   const pct = Math.round((s.covers / maxCovers) * 100);
+                  const key = `service-${s.offering || "main"}-${s.service}`;
+                  const label = multiOffering
+                    ? `${offeringName(s.offering)} · ${s.service}`
+                    : s.service;
                   return (
-                    <div key={`${s.offering || "main"}:${s.service}`} className="flex items-center gap-3">
-                      <span className="w-32 text-sm capitalize shrink-0 truncate">
-                        {multiOffering ? `${offeringName(s.offering)} · ${s.service}` : s.service}
-                      </span>
-                      <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-on-surface-variant tabular-nums w-24 text-right">
-                        {s.reservations} res · {s.covers} cov
-                      </span>
-                    </div>
+                    <HoverableBarRow
+                      key={key}
+                      label={label}
+                      pct={pct}
+                      detail={`${s.reservations} res · ${s.covers} cov`}
+                      tipTitle={label}
+                      tipLines={[
+                        `${s.reservations} reservations`,
+                        `${s.covers} covers`,
+                      ]}
+                      dimmed={pageHovered !== null && pageHovered !== key}
+                      onEnter={(e) =>
+                        inlineBarEnter(e, key, label, [
+                          `${s.reservations} reservations`,
+                          `${s.covers} covers`,
+                        ])
+                      }
+                      onMove={inlineBarMove}
+                      onLeave={inlineBarLeave}
+                    />
                   );
                 })}
               </div>
@@ -546,14 +975,16 @@ export default function AnalyticsPage() {
               </div>
             )}
 
-            {/* Table utilization (Phase 1) */}
+            {/* Table utilization */}
             {data.tableUtilization && data.tableUtilization.length > 0 && (
               <div className={section}>
                 <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
                   <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant">
                     {am.analytics.tableUtilization}
                   </h2>
-                  <span className="text-xs text-on-surface-variant/60">{am.analytics.tableUtilHint}</span>
+                  <span className="text-xs text-on-surface-variant/60">
+                    {am.analytics.tableUtilHint}
+                  </span>
                 </div>
                 <BarList
                   rows={data.tableUtilization.map((t) => ({
@@ -567,30 +998,51 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* Waitlist summary (Phase 2) */}
+          {/* Waitlist summary */}
           {data.waitlist && data.waitlist.total > 0 && (
             <div className={section}>
               <div className="flex items-baseline justify-between gap-3 flex-wrap">
                 <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant">
                   {am.analytics.waitlistTitle}
                 </h2>
-                <span className="text-xs text-on-surface-variant/60">{am.analytics.waitlistHint}</span>
+                <span className="text-xs text-on-surface-variant/60">
+                  {am.analytics.waitlistHint}
+                </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
-                <StatCard label={am.analytics.wlTotal} value={String(data.waitlist.total)} />
-                <StatCard label={am.analytics.wlSeated} value={String(data.waitlist.seated)} />
-                <StatCard label={am.analytics.wlLeft} value={String(data.waitlist.left)} />
-                <StatCard label={am.analytics.wlConversion} value={`${data.waitlist.conversionRate}%`} />
+                <StatCard
+                  label={am.analytics.wlTotal}
+                  value={String(data.waitlist.total)}
+                />
+                <StatCard
+                  label={am.analytics.wlSeated}
+                  value={String(data.waitlist.seated)}
+                />
+                <StatCard
+                  label={am.analytics.wlLeft}
+                  value={String(data.waitlist.left)}
+                />
+                <StatCard
+                  label={am.analytics.wlConversion}
+                  value={`${data.waitlist.conversionRate}%`}
+                />
                 <StatCard
                   label={am.analytics.wlAvgWait}
-                  value={data.waitlist.avgQuotedWait ? `${data.waitlist.avgQuotedWait}` : "—"}
-                  sub={data.waitlist.avgQuotedWait ? am.analytics.minUnit : undefined}
+                  value={
+                    data.waitlist.avgQuotedWait ? `${data.waitlist.avgQuotedWait}` : "—"
+                  }
+                  sub={
+                    data.waitlist.avgQuotedWait ? am.analytics.minUnit : undefined
+                  }
                 />
               </div>
             </div>
           )}
         </>
       )}
+
+      {/* Page-level tooltip for inline bar rows */}
+      {pageTip && <Tip tip={pageTip} />}
     </div>
   );
 }

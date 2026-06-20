@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
+import SystemLogo from "@/components/SystemLogo";
 
 function Inner({
   slug,
@@ -60,11 +61,11 @@ function Inner({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt={brandName} className="mx-auto h-12 w-auto max-w-[220px] object-contain" />
           ) : (
-            <div
-              className="font-display-lg text-[22px] text-primary uppercase tracking-tighter"
-              style={themePrimary ? { color: themePrimary } : undefined}
-            >
-              {brandName}
+            <div style={themePrimary ? { color: themePrimary } : undefined}>
+              <SystemLogo className="mx-auto h-14 w-14 text-primary" />
+              <div className="font-display-lg text-[18px] text-primary uppercase tracking-tighter mt-2">
+                {brandName}
+              </div>
             </div>
           )}
           <p className="text-on-surface-variant text-sm mt-1">{am.login.staffSignIn}</p>

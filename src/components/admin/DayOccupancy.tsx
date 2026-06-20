@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DayAvailability } from "@/lib/reservations/types";
 import { adminJson } from "./api";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 
 /**
  * Compact per-service capacity view for a date: total covers booked vs capacity,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 import { adminJson, toast } from "@/components/admin/api";
 import type { AvailabilityConfig, RestaurantTable } from "@/lib/reservations/types";
 import { offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";

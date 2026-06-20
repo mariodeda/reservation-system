@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type AdminReservation, formatDateLong, todayInTz } from "@/components/admin/shared";
-import { am } from "@/i18n/admin";
+import { am } from "@/i18n";
 import ReservationRow from "@/components/admin/ReservationRow";
 import { adminJson, toast } from "@/components/admin/api";
 import { ACTIVE_STATUSES, type AvailabilityConfig } from "@/lib/reservations/types";
