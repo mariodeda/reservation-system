@@ -115,6 +115,7 @@ export const am = {
   },
   login: {
     staffSignIn: "Staff sign in",
+    operatorSignIn: "Operator sign in",
     username: "Username",
     password: "Password",
     signIn: "Sign in",

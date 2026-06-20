@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { am } from "@/i18n";
+import { am, getLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
 
 function Inner({
@@ -25,6 +25,20 @@ function Inner({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [locale, setLocaleState] = useState<Locale>("it");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("admin-theme");
+    if (saved === "light") setTheme("light");
+    setLocaleState(getLocale());
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("admin-theme", next);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +65,34 @@ function Inner({
   }
 
   return (
-    <main data-admin className="min-h-screen flex items-center justify-center bg-background px-4">
+    <main data-admin data-theme={theme} className="relative min-h-screen flex items-center justify-center bg-background px-4">
+      {/* Theme + language controls */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <div className="flex items-center rounded-lg border border-outline-variant/40 overflow-hidden">
+          {(["it", "en"] as Locale[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => { if (locale !== l) setLocale(l); }}
+              title={l === "it" ? "Italiano" : "English"}
+              className={`px-2 py-1 text-sm leading-none transition ${
+                locale === l
+                  ? "bg-primary/15 text-primary font-medium"
+                  : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+              }`}
+            >
+              {l === "it" ? "🇮🇹" : "🇬🇧"}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={toggleTheme}
+          title={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
+        >
+          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+        </button>
+      </div>
+
       <form
         onSubmit={submit}
         className="w-full max-w-sm bg-surface-container rounded-xl border border-outline-variant/30 p-8 shadow-2xl space-y-5"
@@ -120,5 +161,29 @@ export default function LoginForm(props: {
     <Suspense>
       <Inner {...props} />
     </Suspense>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+      <circle cx="10" cy="10" r="3.5" />
+      <line x1="10" y1="1.5" x2="10" y2="3" />
+      <line x1="10" y1="17" x2="10" y2="18.5" />
+      <line x1="1.5" y1="10" x2="3" y2="10" />
+      <line x1="17" y1="10" x2="18.5" y2="10" />
+      <line x1="3.6" y1="3.6" x2="4.7" y2="4.7" />
+      <line x1="15.3" y1="15.3" x2="16.4" y2="16.4" />
+      <line x1="3.6" y1="16.4" x2="4.7" y2="15.3" />
+      <line x1="15.3" y1="4.7" x2="16.4" y2="3.6" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17.5 12.5A7.5 7.5 0 117.5 2.5a5.5 5.5 0 0010 10z" />
+    </svg>
   );
 }

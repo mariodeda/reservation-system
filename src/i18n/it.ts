@@ -114,6 +114,7 @@ export const it = {
   },
   login: {
     staffSignIn: "Accesso staff",
+    operatorSignIn: "Accesso operatore",
     username: "Nome utente",
     password: "Password",
     signIn: "Accedi",
