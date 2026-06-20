@@ -70,9 +70,18 @@ export default function ReservationsPage() {
     }
   }, [date]);
 
+  useEffect(() => { load(); }, [load]);
+
+  // Auto-refresh when the SSE bus fires a new reservation for the current date
   useEffect(() => {
-    load();
-  }, [load]);
+    function handler(e: Event) {
+      const detail = (e as CustomEvent).detail as { date?: string };
+      if (!detail?.date || detail.date === date) load();
+    }
+    window.addEventListener("reservation:new", handler);
+    return () => window.removeEventListener("reservation:new", handler);
+  }, [date, load]);
+
   useEffect(() => {
     adminJson<{ config: AvailabilityConfig }>("/api/admin/config")
       .then((d) => {
@@ -187,6 +196,7 @@ export default function ReservationsPage() {
           date={date}
           offerings={offerings}
           tz={tz}
+          tables={tables.filter((t) => t.active)}
           onCreated={() => { setShowWalkIn(false); load(); }}
         />
       )}
@@ -432,23 +442,29 @@ function WalkInForm({
   date,
   offerings,
   tz,
+  tables,
   onCreated,
 }: {
   date: string;
   offerings: OfferingServices[];
   tz: string;
+  tables: RestaurantTable[];
   onCreated: () => void;
 }) {
   const nowTime = useMemo(() => timeInTz(tz), [tz]);
   const [name, setName] = useState("");
   const [partySize, setPartySize] = useState(2);
-  const [table, setTable] = useState("");
+  const [tableLabel, setTableLabel] = useState("");
+  const [selectedTableId, setSelectedTableId] = useState("");
   const [offering, setOffering] = useState(offerings[0]?.id ?? "main");
   const services = offerings.find((o) => o.id === offering)?.services ?? [];
   const [service, setService] = useState(services[0]?.id ?? "dinner");
   const multiOffering = offerings.length > 1;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const offeringTables = tables.filter((t) => !t.offering || t.offering === offering);
+  const hasManagedTables = offeringTables.length > 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -468,7 +484,9 @@ function WalkInForm({
           name: name.trim(),
           email: "",
           phone: "",
-          tableLabel: table.trim() || undefined,
+          ...(hasManagedTables
+            ? { tableId: selectedTableId || undefined }
+            : { tableLabel: tableLabel.trim() || undefined }),
           status: "seated",
           source: "admin",
         }),
@@ -508,12 +526,23 @@ function WalkInForm({
           placeholder={am.walkIn.partySize}
           className={field}
         />
-        <input
-          value={table}
-          onChange={(e) => setTable(e.target.value)}
-          placeholder={am.walkIn.table}
-          className={field}
-        />
+        {hasManagedTables ? (
+          <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} className={field}>
+            <option value="">{am.row.tableUnassigned}</option>
+            {offeringTables.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label} ({am.row.tableSeats(t.capacity)})
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            value={tableLabel}
+            onChange={(e) => setTableLabel(e.target.value)}
+            placeholder={am.walkIn.table}
+            className={field}
+          />
+        )}
         {multiOffering && (
           <select
             value={offering}

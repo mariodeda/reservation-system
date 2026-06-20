@@ -58,6 +58,8 @@ const WEEKDAYS = [
 const field =
   "h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm focus:border-primary outline-none [color-scheme:dark]";
 
+const DUR_OPTIONS = [45, 60, 75, 90, 105, 120, 150, 180, 240];
+
 export default function AvailabilityPage() {
   const [config, setConfig] = useState<AvailabilityConfig | null>(null);
   const [activeId, setActiveId] = useState<string>(DEFAULT_OFFERING_ID);
@@ -186,9 +188,25 @@ export default function AvailabilityPage() {
           <Num label={am.availability.maxParty} value={config.maxPartySize} min={1} onChange={(v) => update((c) => (c.maxPartySize = v))} />
           <Num label={am.availability.bookingWindow} value={config.bookingWindowDays} min={1} onChange={(v) => update((c) => (c.bookingWindowDays = v))} />
           <Num label={am.availability.leadTime} value={config.leadMinutes} min={0} onChange={(v) => update((c) => (c.leadMinutes = v))} />
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs text-on-surface-variant">{am.availability.tableDuration}</span>
+            <select
+              value={config.turnMinutes ?? ""}
+              onChange={(e) => update((c) => { c.turnMinutes = e.target.value ? Number(e.target.value) : undefined; })}
+              className={`${field} w-full`}
+            >
+              <option value="">{am.availability.durDefault}</option>
+              {DUR_OPTIONS.map((m) => (
+                <option key={m} value={m}>{am.availability.durLabel(m)}</option>
+              ))}
+            </select>
+          </label>
         </div>
         <p className="text-xs text-on-surface-variant mt-2">
           {am.availability.leadHint}
+        </p>
+        <p className="text-xs text-on-surface-variant mt-1">
+          {am.availability.tableDurationHint}
         </p>
       </section>
 
@@ -541,6 +559,19 @@ function DayServicesEditor({
           <Inp label={am.availability.serviceTo} type="time" value={s.end} w="w-28" onChange={(v) => mutate((d) => (d.services[si].end = v))} />
           <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-24" min={5} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
           <NumInp label={am.availability.serviceCapacity} value={s.capacity} w="w-24" min={1} onChange={(v) => mutate((d) => (d.services[si].capacity = v))} />
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{am.availability.serviceDuration}</span>
+            <select
+              value={s.turnMinutes ?? ""}
+              onChange={(e) => mutate((d) => { const v = e.target.value; d.services[si].turnMinutes = v ? Number(v) : undefined; })}
+              className={`${field} w-28`}
+            >
+              <option value="">{am.availability.durInherit}</option>
+              {DUR_OPTIONS.map((m) => (
+                <option key={m} value={m}>{am.availability.durLabel(m)}</option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={() => mutate((d) => d.services.splice(si, 1))}
             className="text-rose-400 hover:text-rose-300 text-sm h-9 px-2"

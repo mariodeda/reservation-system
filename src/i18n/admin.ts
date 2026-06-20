@@ -340,6 +340,17 @@ export const am = {
     removeOfferingConfirm: (label: string) =>
       `Remove the "${label}" offering? Its schedule will be deleted. Existing reservations are kept.`,
     offeringName: "Name",
+    // Table duration
+    tableDuration: "Default table duration",
+    tableDurationHint: "How long a booked table stays occupied — used for table conflict detection.",
+    serviceDuration: "Duration",
+    durDefault: "System default (2h)",
+    durInherit: "Global default",
+    durLabel: (min: number) => {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      return m ? `${h}h ${m}min` : `${h}h`;
+    },
     // DayOccupancy inline messages
     dayError: "Could not load availability for this date.",
     dayClosed: "Closed on this date.",

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { am, getLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
+import { useReservationEvents } from "./useReservationEvents";
+import { NotificationBell, ReservationToastStack } from "./NotificationBell";
 
 const NAV = [
   { seg: "", label: am.nav.dashboard },
@@ -33,6 +35,20 @@ export default function AdminShell({
   const nav = NAV.map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
+  const { notifications, unreadCount, connected, markAllRead, markRead } = useReservationEvents();
+  const [toasts, setToasts] = useState<typeof notifications>([]);
+
+  // Each new notification pops a toast
+  useEffect(() => {
+    const newest = notifications[0];
+    if (newest && !newest.read) {
+      setToasts((prev) => {
+        if (prev.some((t) => t.id === newest.id)) return prev;
+        return [newest, ...prev].slice(0, 4);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications[0]?.id]);
 
   useEffect(() => {
     const saved = localStorage.getItem("admin-theme");
@@ -88,6 +104,14 @@ export default function AdminShell({
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell
+              notifications={notifications}
+              unreadCount={unreadCount}
+              connected={connected}
+              slug={slug}
+              onMarkAllRead={markAllRead}
+              onMarkRead={markRead}
+            />
             <button
               onClick={toggleTheme}
               title={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
@@ -142,6 +166,11 @@ export default function AdminShell({
         </div>
       </header>
       <main className="px-6 py-6">{children}</main>
+      <ReservationToastStack
+        toasts={toasts}
+        slug={slug}
+        onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
+      />
     </div>
   );
 }

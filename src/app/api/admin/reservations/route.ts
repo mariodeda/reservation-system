@@ -8,6 +8,7 @@ import type {
   ReservationStatus,
 } from "@/lib/reservations/types";
 import { RESERVATION_STATUSES } from "@/lib/reservations/types";
+import { emitReservation } from "@/lib/reservations/events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,6 +110,19 @@ export async function POST(req: NextRequest) {
       ? (body.status as ReservationStatus)
       : "confirmed",
   });
+  emitReservation({
+    type: "reservation.created",
+    tenantId: ctx.tenant.id,
+    id: reservation.id,
+    name: reservation.name,
+    partySize: reservation.partySize,
+    date: reservation.date,
+    time: reservation.time,
+    service: reservation.service,
+    offering: reservation.offering ?? "main",
+    source: "admin",
+  });
+
   return NextResponse.json(
     { ok: true, reservation: { ...reservation, reference: referenceOf(reservation.id) } },
     { status: 201 },

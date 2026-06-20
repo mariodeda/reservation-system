@@ -7,6 +7,7 @@ import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
 import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-context";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { ACTIVE_STATUSES, type NewReservationInput } from "@/lib/reservations/types";
+import { emitReservation } from "@/lib/reservations/events";
 
 export const runtime = "nodejs";
 
@@ -156,6 +157,19 @@ async function handle(req: NextRequest) {
           : offeringLabel
         : serviceLabel;
     const email = await sendConfirmationEmail(result.reservation, tenant, emailLabel);
+
+    emitReservation({
+      type: "reservation.created",
+      tenantId: tenant.id,
+      id: result.reservation.id,
+      name: result.reservation.name,
+      partySize: result.reservation.partySize,
+      date: result.reservation.date,
+      time: result.reservation.time,
+      service: result.reservation.service,
+      offering: result.reservation.offering ?? "main",
+      source: "web",
+    });
 
     return NextResponse.json(
       { ok: true, reference: referenceOf(result.reservation.id), emailSent: email.sent },

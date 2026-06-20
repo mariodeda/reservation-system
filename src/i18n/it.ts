@@ -337,6 +337,16 @@ export const it = {
     removeOfferingConfirm: (label: string) =>
       `Rimuovere l'offerta "${label}"? Il suo programma verrà eliminato. Le prenotazioni esistenti vengono mantenute.`,
     offeringName: "Nome",
+    tableDuration: "Durata predefinita al tavolo",
+    tableDurationHint: "Per quanto tempo un tavolo prenotato rimane occupato — usato per il controllo dei conflitti.",
+    serviceDuration: "Durata",
+    durDefault: "Predefinito di sistema (2h)",
+    durInherit: "Valore globale",
+    durLabel: (min: number) => {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      return m ? `${h}h ${m}min` : `${h}h`;
+    },
     dayError: "Impossibile caricare la disponibilità per questa data.",
     dayClosed: "Chiuso in questa data.",
     dayNoService: "Nessun servizio configurato per questa data.",

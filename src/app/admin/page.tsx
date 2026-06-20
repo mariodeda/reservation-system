@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { am } from "@/i18n";
 
 export default function AdminLanding() {
   const router = useRouter();
   const [slug, setSlug] = useState("");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("admin-theme");
+    if (saved === "light") setTheme("light");
+  }, []);
 
   function go(e: React.FormEvent) {
     e.preventDefault();
@@ -15,7 +21,7 @@ export default function AdminLanding() {
   }
 
   return (
-    <main data-admin className="min-h-screen flex items-center justify-center bg-background px-4">
+    <main data-admin data-theme={theme} className="min-h-screen flex items-center justify-center bg-background px-4">
       <form
         onSubmit={go}
         className="w-full max-w-sm bg-surface-container rounded-xl border border-outline-variant/30 p-8 shadow-2xl space-y-5"

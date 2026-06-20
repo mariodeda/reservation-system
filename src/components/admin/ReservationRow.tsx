@@ -200,6 +200,7 @@ export default function ReservationRow({
             <EditForm
               r={r}
               offerings={offerings}
+              tables={tables}
               onCancel={() => setEditing(false)}
               onSaved={() => { setEditing(false); onChanged(); }}
             />
@@ -503,11 +504,13 @@ function FreeTextTableAssign({
 function EditForm({
   r,
   offerings,
+  tables,
   onCancel,
   onSaved,
 }: {
   r: AdminReservation;
   offerings: OfferingServices[];
+  tables: RestaurantTable[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -525,10 +528,13 @@ function EditForm({
     tableLabel: r.tableLabel ?? "",
     status: r.status as ReservationStatus,
   });
+  const [selectedTableId, setSelectedTableId] = useState<string>(r.tableId ?? "");
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: string | number) => setF((p) => ({ ...p, [k]: v }));
   const multiOffering = offerings.length > 1;
   const services = offerings.find((o) => o.id === f.offering)?.services ?? [];
+  const offeringTables = tables.filter((t) => t.active && (!t.offering || t.offering === f.offering));
+  const hasManagedTables = offeringTables.length > 0;
 
   async function save() {
     if (!f.name.trim()) {
@@ -537,10 +543,17 @@ function EditForm({
     }
     setBusy(true);
     try {
+      const body: Record<string, unknown> = { ...f };
+      // Only include tableId in the PATCH when it changed — the route triggers
+      // assignTable() whenever this key is present, causing a conflict check.
+      const originalTableId = r.tableId ?? "";
+      if (hasManagedTables && selectedTableId !== originalTableId) {
+        body.tableId = selectedTableId || null;
+      }
       const res = await adminFetch(`/api/admin/reservations/${r.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(f),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
       toast(am.row.updated);
@@ -589,7 +602,18 @@ function EditForm({
       </select>
       <input value={f.occasion} onChange={(e) => set("occasion", e.target.value)} placeholder={am.row.occasion} className={field} />
       <input value={f.notes} onChange={(e) => set("notes", e.target.value)} placeholder={am.row.notes} className={`${field} col-span-2`} />
-      <input value={f.tableLabel} onChange={(e) => set("tableLabel", e.target.value)} placeholder={am.row.tablePlaceholder} className={field} />
+      {hasManagedTables ? (
+        <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} className={field}>
+          <option value="">{am.row.tableUnassigned}</option>
+          {offeringTables.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label} ({am.row.tableSeats(t.capacity)})
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input value={f.tableLabel} onChange={(e) => set("tableLabel", e.target.value)} placeholder={am.row.tablePlaceholder} className={field} />
+      )}
       <div className="col-span-2 flex gap-2">
         <button onClick={save} disabled={busy} className="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
           {busy ? am.row.saving : am.row.save}
