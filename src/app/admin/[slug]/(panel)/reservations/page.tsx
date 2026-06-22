@@ -22,7 +22,7 @@ import { offeringServiceMap, type OfferingServices } from "@/lib/reservations/of
 interface FloorEntry {
   table: RestaurantTable;
   state: TableState;
-  reservations: { id: string; time: string; partySize: number; name: string; status: string; service: string }[];
+  reservations: { id: string; time: string; partySize: number; name: string; status: string; service: string; durationMins: number }[];
 }
 
 function shiftDate(date: string, days: number): string {
@@ -57,8 +57,10 @@ export default function ReservationsPage() {
   const tz = config?.timezone ?? "Europe/Rome";
   const searching = query.trim().length >= 2;
 
+  const initialLoad = useRef(true);
+
   const load = useCallback(async () => {
-    setLoading(true);
+    if (initialLoad.current) setLoading(true);
     try {
       const data = await adminJson<{ reservations: AdminReservation[] }>(
         `/api/admin/reservations?date=${date}`,
@@ -68,11 +70,17 @@ export default function ReservationsPage() {
     } catch {
       toast(am.reservations.couldNotLoad, "error");
     } finally {
-      setLoading(false);
+      if (initialLoad.current) {
+        setLoading(false);
+        initialLoad.current = false;
+      }
     }
   }, [date]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    initialLoad.current = true;
+    load();
+  }, [load]);
 
   // Auto-refresh when the SSE bus fires a new reservation for the current date
   useEffect(() => {
@@ -632,14 +640,15 @@ function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: num
     return `${h}:${m}`;
   };
 
-  const allTimes = activeTables.flatMap((f) => f.reservations.map((r) => r.time));
+  const allReservations = activeTables.flatMap((f) => f.reservations);
   const SLOT = 30;
   let startMins: number;
   let endMins: number;
-  if (allTimes.length > 0) {
-    const mins = allTimes.map(toMins);
-    startMins = Math.floor((Math.min(...mins) - SLOT) / SLOT) * SLOT;
-    endMins = Math.ceil((Math.max(...mins) + 90) / SLOT) * SLOT;
+  if (allReservations.length > 0) {
+    const starts = allReservations.map((r) => toMins(r.time));
+    const ends = allReservations.map((r) => toMins(r.time) + r.durationMins);
+    startMins = Math.floor((Math.min(...starts) - SLOT) / SLOT) * SLOT;
+    endMins = Math.ceil((Math.max(...ends) + SLOT) / SLOT) * SLOT;
   } else {
     startMins = 11 * 60;
     endMins = 23 * 60;
@@ -680,7 +689,14 @@ function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: num
 
           {/* Table rows */}
           {activeTables.map(({ table, reservations }) => {
-            const resMap = new Map(reservations.map((r) => [r.time, r]));
+            // Map each slot minute to the reservation whose window covers it.
+            // A reservation starting at T with durationMins D covers [T, T+D).
+            const occupancy = new Map<number, typeof reservations[0]>();
+            for (const r of reservations) {
+              const rStart = toMins(r.time);
+              const rEnd = rStart + r.durationMins;
+              for (let m = rStart; m < rEnd; m += SLOT) occupancy.set(m, r);
+            }
             return (
               <div key={table.id} className="flex items-center mb-1 group">
                 <div className="w-24 shrink-0 text-xs font-medium truncate pr-2 text-on-surface-variant group-hover:text-on-surface transition-colors">
@@ -688,15 +704,17 @@ function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: num
                 </div>
                 <div className="flex gap-0.5">
                   {slots.map((t) => {
-                    const res = resMap.get(t);
+                    const slotM = toMins(t);
+                    const res = occupancy.get(slotM);
+                    const isStart = res && toMins(res.time) === slotM;
                     const cls = res
                       ? (TIMELINE_STATUS[res.status] ?? "bg-primary/35 border border-primary/25")
                       : "bg-surface-container-high/60";
                     return (
                       <div
                         key={t}
-                        className={`w-10 h-7 rounded-sm ${cls}`}
-                        title={res ? `${t} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · free`}
+                        className={`w-10 h-7 ${isStart ? "rounded-l-sm" : ""} ${res && toMins(res.time) + res.durationMins <= slotM + SLOT ? "rounded-r-sm" : ""} ${!isStart && res ? "border-l-0" : ""} ${cls}`}
+                        title={res ? `${res.time}–${fmtTime(toMins(res.time) + res.durationMins)} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · free`}
                       />
                     );
                   })}

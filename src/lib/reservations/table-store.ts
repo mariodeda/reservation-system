@@ -453,6 +453,7 @@ export class TableStore {
           name: b.name,
           status: b.status,
           service: b.service,
+          durationMins: turnMinutesFor(config, b.offering, b.service, b.date),
         })),
       };
     });
