@@ -3,13 +3,14 @@ import type { RowDataPacket } from "mysql2/promise";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getPool } from "@/lib/reservations/mysql-pool";
 import { ensureSchema } from "@/lib/reservations/mysql-schema";
+import { nowInTz } from "@/lib/reservations/availability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function periodDates(period: string): { from: string; to: string } {
+function periodDates(period: string, timezone: string): { from: string; to: string } {
   const days = period === "7d" ? 7 : period === "90d" ? 90 : period === "365d" ? 365 : 30;
-  const to = new Date();
+  const to = new Date(`${nowInTz(timezone).dateStr}T00:00:00Z`);
   const from = new Date(to);
   from.setDate(from.getDate() - days + 1);
   return {
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   if (!ctx.ok) return ctx.res;
   const tid = ctx.tenant.id;
   const period = req.nextUrl.searchParams.get("period") ?? "30d";
-  const { from, to } = periodDates(period);
+  const { from, to } = periodDates(period, ctx.tenant.settings.timezone || "UTC");
 
   try {
     await ensureSchema();

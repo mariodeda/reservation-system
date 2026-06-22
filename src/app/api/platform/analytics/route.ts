@@ -57,17 +57,19 @@ export async function GET(req: NextRequest) {
     // Platform-wide totals
     const [totRow] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS total,
-              SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS last30,
-              COUNT(DISTINCT tenant_id) AS tenants
+              SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS last30
        FROM reservations`,
       [cutoff],
+    );
+    const [tenantRows] = await pool.query<RowDataPacket[]>(
+      "SELECT COUNT(*) AS tenants FROM tenants WHERE status = 'active'",
     );
 
     return NextResponse.json({
       totals: {
         reservations: Number(totRow[0]?.total ?? 0),
         last30: Number(totRow[0]?.last30 ?? 0),
-        tenants: Number(totRow[0]?.tenants ?? 0),
+        tenants: Number(tenantRows[0]?.tenants ?? 0),
       },
       byTenant,
     });

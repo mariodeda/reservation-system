@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDB } from "mysql-memory-server";
 import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
@@ -235,6 +235,19 @@ describe("GET /api/admin/analytics", () => {
       expect(json.period).toBe(period);
       expect(json.from).toBeTruthy();
       expect(json.to).toBeTruthy();
+    }
+  });
+
+  it("anchors period windows to the tenant timezone date, not the server UTC date", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-12T22:30:00Z")); // 00:30 on 2026-06-13 in Europe/Rome
+    try {
+      const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=7d"));
+      const json = await res.json();
+      expect(json.to).toBe("2026-06-13");
+      expect(json.from).toBe("2026-06-07");
+    } finally {
+      vi.useRealTimers();
     }
   });
 

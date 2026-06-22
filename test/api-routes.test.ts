@@ -15,6 +15,8 @@ let tenantId: string;
 let routes: {
   book: typeof import("@/app/api/reservations/route");
   avail: typeof import("@/app/api/availability/route");
+  tenant: typeof import("@/app/api/tenant/route");
+  lookup: typeof import("@/app/api/reservations/lookup/route");
   login: typeof import("@/app/api/admin/login/route");
   logout: typeof import("@/app/api/admin/logout/route");
   config: typeof import("@/app/api/admin/config/route");
@@ -63,6 +65,8 @@ beforeAll(async () => {
   routes = {
     book: await import("@/app/api/reservations/route"),
     avail: await import("@/app/api/availability/route"),
+    tenant: await import("@/app/api/tenant/route"),
+    lookup: await import("@/app/api/reservations/lookup/route"),
     login: await import("@/app/api/admin/login/route"),
     logout: await import("@/app/api/admin/logout/route"),
     config: await import("@/app/api/admin/config/route"),
@@ -103,6 +107,16 @@ beforeEach(async () => {
   await pool.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM app_config WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM rate_limits");
+  const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+  const { clearTenantCache } = await import("@/lib/reservations/tenant-context");
+  const tenant = (await getTenantStore().getById(tenantId))!;
+  await getTenantStore().updateSettings(tenantId, {
+    ...tenant.settings,
+    name: "Test Restaurant",
+    autoConfirm: true,
+    allowedOrigins: undefined,
+  });
+  clearTenantCache();
 
   sendConfirmationEmail.mockClear();
   // Only fake Date — mocking setImmediate/setTimeout breaks mysql2's async I/O.
@@ -131,6 +145,22 @@ describe("POST /api/reservations", () => {
     expect(stored[0].source).toBe("web");
   });
 
+  it("does not send confirmation wording while autoConfirm=false leaves booking pending", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const { clearTenantCache } = await import("@/lib/reservations/tenant-context");
+    const ts = getTenantStore();
+    const tenant = (await ts.getById(tenantId))!;
+    await ts.updateSettings(tenantId, { ...tenant.settings, autoConfirm: false });
+    clearTenantCache();
+
+    const res = await routes.book.POST(req("/api/reservations", { method: "POST", body: valid() }));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ ok: true, emailSent: false });
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
+    const stored = await routes.store.getStore().forTenant(tenantId).listReservations({ date: "2026-06-12" });
+    expect(stored[0].status).toBe("pending");
+  });
+
   it("books with a legacy payload (no offering) and attributes it to 'main'", async () => {
     const res = await routes.book.POST(req("/api/reservations", { method: "POST", body: valid() }));
     expect(res.status).toBe(201);
@@ -154,7 +184,6 @@ describe("POST /api/reservations", () => {
   });
 
   it("blocks MAX_ACTIVE when contact matched by phone even with a different email", async () => {
-    vi.useRealTimers();
     // Seed two active future bookings directly via the store, using the same phone but different emails
     const s = routes.store.getStore().forTenant(tenantId);
     await s.createReservation({ date: "2026-06-20", time: "12:30", service: "lunch", partySize: 2, name: "A1", email: "a1@x.io", phone: "333111222" });
@@ -235,6 +264,187 @@ describe("GET /api/availability", () => {
       req("/api/availability?month=2026-06", { headers: { host: "unmapped.example.com" } }),
     );
     expect(viaHost.status).toBe(404);
+  });
+});
+
+/* ----------------------------- marketing-site integration ----------------------------- */
+
+describe("public marketing-site integration", () => {
+  const marketingOrigin = "https://bookings.example.com";
+  const guest = {
+    date: "2026-06-12",
+    time: "12:30",
+    service: "lunch",
+    partySize: 2,
+    name: "Marketing Guest",
+    email: "marketing.guest@example.com",
+    phone: "+39 055 123456",
+  };
+
+  async function publicKeyForMarketingOrigin() {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const { clearTenantCache } = await import("@/lib/reservations/tenant-context");
+    const ts = getTenantStore();
+    const tenant = (await ts.getById(tenantId))!;
+    await ts.updateSettings(tenantId, {
+      ...tenant.settings,
+      name: tenant.name,
+      allowedOrigins: [marketingOrigin.toLowerCase()],
+    });
+    clearTenantCache();
+    return tenant.publicKey;
+  }
+
+  function marketingReq(path: string, init: Parameters<typeof req>[1] = {}) {
+    return req(path, {
+      ...init,
+      headers: {
+        host: "reservations.example.test",
+        origin: marketingOrigin,
+        ...(init.headers ?? {}),
+      },
+    });
+  }
+
+  function expectMarketingCors(res: Response) {
+    expect(res.headers.get("access-control-allow-origin")).toBe(marketingOrigin);
+    expect(res.headers.get("vary")).toContain("Origin");
+  }
+
+  it("supports the complete cross-origin booking widget flow by public tenant key", async () => {
+    const publicKey = await publicKeyForMarketingOrigin();
+    const tenantParam = `tenant=${encodeURIComponent(publicKey)}`;
+
+    const brandingPreflight = await routes.tenant.OPTIONS(
+      marketingReq(`/api/tenant?${tenantParam}`, {
+        method: "OPTIONS",
+        headers: { "access-control-request-method": "GET" },
+      }),
+    );
+    expect(brandingPreflight.status).toBe(204);
+    expectMarketingCors(brandingPreflight);
+
+    const branding = await routes.tenant.GET(marketingReq(`/api/tenant?${tenantParam}`));
+    expect(branding.status).toBe(200);
+    expectMarketingCors(branding);
+    expect(await branding.json()).toMatchObject({ name: "Test Restaurant" });
+
+    const month = await routes.avail.GET(marketingReq(`/api/availability?month=2026-06&${tenantParam}`));
+    expect(month.status).toBe(200);
+    expectMarketingCors(month);
+    const monthJson = await month.json();
+    expect(monthJson.days).toHaveLength(30);
+    expect(monthJson.offerings[0]).toMatchObject({ id: "main" });
+
+    const day = await routes.avail.GET(marketingReq(`/api/availability?date=${guest.date}&${tenantParam}`));
+    expect(day.status).toBe(200);
+    expectMarketingCors(day);
+    const dayJson = await day.json();
+    expect(dayJson.services[0].slots.some((slot: { time: string; available: boolean }) => slot.time === guest.time && slot.available)).toBe(true);
+
+    const bookingPreflight = await routes.book.OPTIONS(
+      marketingReq(`/api/reservations?${tenantParam}`, {
+        method: "OPTIONS",
+        headers: { "access-control-request-method": "POST" },
+      }),
+    );
+    expect(bookingPreflight.status).toBe(204);
+    expectMarketingCors(bookingPreflight);
+
+    const booking = await routes.book.POST(
+      marketingReq(`/api/reservations?${tenantParam}`, {
+        method: "POST",
+        body: guest,
+      }),
+    );
+    expect(booking.status).toBe(201);
+    expectMarketingCors(booking);
+    expect(await booking.json()).toMatchObject({ ok: true, emailSent: true });
+
+    const lookup = await routes.lookup.POST(
+      marketingReq(`/api/reservations/lookup?${tenantParam}`, {
+        method: "POST",
+        body: { email: guest.email, phone: guest.phone },
+      }),
+    );
+    expect(lookup.status).toBe(200);
+    expectMarketingCors(lookup);
+    const lookupJson = await lookup.json();
+    expect(lookupJson.reservations).toHaveLength(1);
+    expect(lookupJson.reservations[0]).toMatchObject({
+      date: guest.date,
+      time: guest.time,
+      partySize: guest.partySize,
+      name: guest.name,
+      status: "confirmed",
+    });
+    expect(lookupJson.reservations[0].reference).toMatch(/^[A-Z0-9]{6}$/);
+    expect(lookupJson.reservations[0].id).toBeUndefined();
+
+    const blockedPreflight = await routes.avail.OPTIONS(
+      req(`/api/availability?month=2026-06&${tenantParam}`, {
+        method: "OPTIONS",
+        headers: {
+          host: "reservations.example.test",
+          origin: "https://not-allowed.example.com",
+          "access-control-request-method": "GET",
+        },
+      }),
+    );
+    expect(blockedPreflight.status).toBe(403);
+  });
+});
+
+/* ----------------------------- guest self-service lookup changes ----------------------------- */
+
+describe("public reservation self-service", () => {
+  const guest = () => ({ date: "2026-06-12", time: "12:30", service: "lunch", partySize: 2, name: "Guest", email: "guest-self@example.com", phone: "555123456" });
+
+  async function createGuest() {
+    const created = await routes.book.POST(req("/api/reservations", { method: "POST", body: guest() }));
+    return (await created.json()).reference as string;
+  }
+
+  it("modifies an active reservation when email, phone and reference match", async () => {
+    const reference = await createGuest();
+    const res = await routes.lookup.PATCH(req("/api/reservations/lookup", {
+      method: "PATCH",
+      body: {
+        email: guest().email,
+        phone: guest().phone,
+        reference,
+        time: "13:30",
+        partySize: 3,
+        notes: "Updated online",
+      },
+    }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.reservation).toMatchObject({ reference, time: "13:30", partySize: 3 });
+    const stored = (await routes.store.getStore().forTenant(tenantId).findByContact(guest().email, guest().phone))[0];
+    expect(stored.notes).toBe("Updated online");
+    expect(stored.tableId).toBeUndefined();
+  });
+
+  it("cancels an active reservation instead of deleting it", async () => {
+    const reference = await createGuest();
+    const res = await routes.lookup.DELETE(req("/api/reservations/lookup", {
+      method: "DELETE",
+      body: { email: guest().email, phone: guest().phone, reference },
+    }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).reservation.status).toBe("cancelled");
+    const stored = (await routes.store.getStore().forTenant(tenantId).findByContact(guest().email, guest().phone))[0];
+    expect(stored.status).toBe("cancelled");
+  });
+
+  it("rejects self-service changes for the wrong contact", async () => {
+    const reference = await createGuest();
+    const res = await routes.lookup.PATCH(req("/api/reservations/lookup", {
+      method: "PATCH",
+      body: { email: "wrong@example.com", phone: guest().phone, reference, time: "13:30" },
+    }));
+    expect(res.status).toBe(404);
   });
 });
 
@@ -320,9 +530,36 @@ describe("admin reservations routes", () => {
     expect(json.reservation.status).toBe("confirmed");
     expect(json.reservation.reference).toMatch(/^[A-Z0-9]{6}$/);
   });
+  it("POST persists table assignment fields for manual bookings", async () => {
+    const res = await routes.adminRes.POST(adminReq("/api/admin/reservations", {
+      method: "POST",
+      body: {
+        date: "2026-06-12",
+        time: "20:00",
+        service: "dinner",
+        name: "Walk In",
+        partySize: 4,
+        tableId: "table-1",
+        tableLabel: "Patio 1",
+      },
+    }));
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.reservation.tableId).toBe("table-1");
+    expect(json.reservation.tableLabel).toBe("Patio 1");
+  });
   it("POST 400s when required fields are missing", async () => {
     const res = await routes.adminRes.POST(adminReq("/api/admin/reservations", { method: "POST", body: { date: "2026-06-12" } }));
     expect(res.status).toBe(400);
+  });
+  it("rejects cross-site admin mutations by Origin header", async () => {
+    const res = await routes.adminRes.POST(adminReq("/api/admin/reservations", {
+      method: "POST",
+      headers: { origin: "https://evil.example.com" },
+      body: { date: "2026-06-12", time: "20:00", service: "dinner", name: "X", partySize: 2 },
+    }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/cross-site/i);
   });
   it("GET lists reservations with a reference, filtered by date", async () => {
     await routes.adminRes.POST(adminReq("/api/admin/reservations", { method: "POST", body: { date: "2026-06-12", time: "20:00", service: "dinner", name: "A", partySize: 2 } }));

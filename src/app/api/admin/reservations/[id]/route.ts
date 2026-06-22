@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { RESERVATION_STATUSES, type Reservation } from "@/lib/reservations/types";
 import { createFeedbackToken, getFeedbackByReservation } from "@/lib/reservations/feedback-store";
 import { sendFeedbackRequestEmail } from "@/lib/reservations/email";
+import { emitReservation } from "@/lib/reservations/events";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   // table_id goes through the conflict-checked assignment path (and supports
   // unassign via null/""), never the blind field loop.
   const assigningTable = Object.prototype.hasOwnProperty.call(body, "tableId");
+  const tableSensitiveEdit = ["date", "time", "offering", "service"].some((f) =>
+    Object.prototype.hasOwnProperty.call(patch, f),
+  );
+
+  if (!assigningTable && tableSensitiveEdit) {
+    const existing = await store.getReservation(id);
+    if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    const candidate = { ...existing, ...patch };
+    if (candidate.tableId || candidate.tableIds?.length) {
+      const config = await store.getConfig();
+      const tableError = await getTableStore(admin.tenant.id).validateAssignedTables(candidate, config);
+      if (tableError) return NextResponse.json({ error: tableError }, { status: 409 });
+    }
+  }
 
   let updated: Reservation | null = null;
   if (Object.keys(patch).length > 0) {
@@ -58,7 +73,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   // Auto-send feedback email when status transitions to "completed" and has an email.
   // Fire-and-forget — don't block or fail the status update if email fails.
-  if (patch.status === "completed" && reservation.email) {
+  if (patch.status === "completed" && reservation.email && admin.tenant.settings.feedbackEnabled !== false) {
     const existing = await getFeedbackByReservation(id).catch(() => null);
     if (!existing) {
       createFeedbackToken(id, admin.tenant.id)
@@ -71,6 +86,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
+  emitReservation({
+    type: "reservation.updated",
+    tenantId: admin.tenant.id,
+    id: reservation.id,
+    name: reservation.name,
+    partySize: reservation.partySize,
+    date: reservation.date,
+    time: reservation.time,
+    service: reservation.service,
+    offering: reservation.offering ?? "main",
+    source: reservation.source,
+  });
+
   return NextResponse.json({ ok: true, reservation: { ...reservation, reference: referenceOf(reservation.id) } });
 }
 
@@ -79,7 +107,23 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;
-  const ok = await getStore().forTenant(admin.tenant.id).deleteReservation(id);
+  const store = getStore().forTenant(admin.tenant.id);
+  const existing = await store.getReservation(id);
+  const ok = await store.deleteReservation(id);
   if (!ok) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (existing) {
+    emitReservation({
+      type: "reservation.updated",
+      tenantId: admin.tenant.id,
+      id: existing.id,
+      name: existing.name,
+      partySize: existing.partySize,
+      date: existing.date,
+      time: existing.time,
+      service: existing.service,
+      offering: existing.offering ?? "main",
+      source: existing.source,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

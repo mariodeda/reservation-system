@@ -56,7 +56,7 @@ const WEEKDAYS = [
 ];
 
 const field =
-  "h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm focus:border-primary outline-none [color-scheme:dark]";
+  "h-8 bg-surface-container-high border border-outline-variant/30 rounded-md px-2 py-1 text-sm focus:border-primary outline-none [color-scheme:dark]";
 
 const DUR_OPTIONS = [45, 60, 75, 90, 105, 120, 150, 180, 240];
 
@@ -225,11 +225,19 @@ export default function AvailabilityPage() {
             const day = active.weekly[i] ?? { closed: true, services: [] };
             const isOpen = !day.closed;
             return (
-              <div key={i} className={idx > 0 ? "border-t border-outline-variant/20" : ""}>
-                {/* Day header row */}
-                <div className={`flex items-center gap-4 px-4 py-3 ${isOpen ? "" : "opacity-50"}`}>
-                  <span className="font-medium w-24 shrink-0 text-sm">{label}</span>
-                  {/* Toggle switch */}
+              <div
+                key={i}
+                className={`grid lg:grid-cols-[9.5rem_minmax(0,1fr)] ${idx > 0 ? "border-t border-outline-variant/20" : ""} ${
+                  isOpen ? "bg-surface-container" : "bg-surface-container/60"
+                }`}
+              >
+                <div className={`flex items-center gap-3 px-4 py-3 lg:items-start lg:flex-col lg:gap-2 ${isOpen ? "" : "opacity-60"}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-medium text-sm min-w-24 lg:min-w-0">{label}</span>
+                    <span className={`text-[11px] font-medium ${isOpen ? "text-emerald-400" : "text-on-surface-variant"}`}>
+                      {isOpen ? am.availability.open : am.availability.closed}
+                    </span>
+                  </div>
                   <button
                     role="switch"
                     aria-checked={isOpen}
@@ -242,27 +250,20 @@ export default function AvailabilityPage() {
                     }
                     className={`relative shrink-0 w-9 h-5 rounded-full transition-colors focus:outline-none ${isOpen ? "bg-primary" : "bg-outline-variant/50"}`}
                   >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${isOpen ? "left-[18px]" : "left-0.5"}`} />
+                    <span className={`absolute top-0.5 w-4 h-4 bg-surface-bright rounded-full shadow transition-all ${isOpen ? "left-[18px]" : "left-0.5"}`} />
                   </button>
-                  <span className={`text-xs w-10 shrink-0 ${isOpen ? "text-emerald-400" : "text-on-surface-variant"}`}>
-                    {isOpen ? am.availability.open : am.availability.closed}
-                  </span>
-                  {/* Compact service summary when open */}
-                  {isOpen && day.services.length > 0 && (
-                    <span className="text-xs text-on-surface-variant truncate hidden sm:block">
-                      {day.services.map((s) => `${s.label} ${s.start}–${s.end}`).join(" · ")}
-                    </span>
-                  )}
                 </div>
-                {/* Service editor — shown below when open */}
-                {isOpen && (
-                  <div className="px-4 pb-4 border-t border-outline-variant/10 bg-primary/5">
+                <div className={`min-w-0 px-4 pb-4 lg:px-3 lg:py-3 ${isOpen ? "lg:border-l lg:border-outline-variant/10" : "hidden lg:block"}`}>
+                  {isOpen ? (
                     <DayServicesEditor
                       services={day.services}
+                      wide
                       mutate={(fn) => updateOffering((o) => fn((o.weekly[i] ??= { closed: false, services: [] })))}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-xs text-on-surface-variant">{am.availability.closed}</span>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -357,10 +358,10 @@ export default function AvailabilityPage() {
               {d}
               <button
                 onClick={() => update((c) => (c.closures = c.closures.filter((x) => x !== d)))}
-                className="w-5 h-5 rounded-full hover:bg-rose-500/20 text-rose-400"
+                className="w-5 h-5 rounded-full hover:bg-rose-500/20 text-rose-400 inline-flex items-center justify-center"
                 aria-label={`Remove ${d}`}
               >
-                ×
+                <XIcon className="h-3 w-3" />
               </button>
             </span>
           ))}
@@ -406,10 +407,10 @@ export default function AvailabilityPage() {
                           if (!o.blockedSlots[d].length) delete o.blockedSlots[d];
                         })
                       }
-                      className="text-rose-400"
+                      className="text-rose-400 inline-flex items-center justify-center"
                       aria-label={`Unblock ${d} ${tm}`}
                     >
-                      ×
+                      <XIcon className="h-3 w-3" />
                     </button>
                   </span>
                 ))}
@@ -439,6 +440,15 @@ export default function AvailabilityPage() {
         </div>{/* end right column */}
       </div>{/* end grid */}
     </div>
+  );
+}
+
+function XIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
   );
 }
 
@@ -546,25 +556,44 @@ function OfferingsBar({
 function DayServicesEditor({
   services,
   mutate,
+  wide = false,
 }: {
   services: ServiceWindow[];
   mutate: (fn: (day: DaySchedule) => void) => void;
+  wide?: boolean;
 }) {
+  const wideColumns =
+    "lg:grid-cols-[minmax(6rem,1.4fr)_repeat(2,minmax(4.75rem,0.8fr))_repeat(2,minmax(4rem,0.65fr))_minmax(5.5rem,1fr)_auto]";
   return (
     <div className="space-y-2">
+      {wide && services.length > 0 && (
+        <div className={`hidden lg:grid ${wideColumns} lg:gap-2 px-1 text-[10px] uppercase tracking-widest text-on-surface-variant`}>
+          <span>{am.availability.serviceName}</span>
+          <span>{am.availability.serviceFrom}</span>
+          <span>{am.availability.serviceTo}</span>
+          <span>{am.availability.serviceInterval}</span>
+          <span>{am.availability.serviceCapacity}</span>
+          <span>{am.availability.serviceDuration}</span>
+          <span />
+        </div>
+      )}
       {services.map((s, si) => (
-        <div key={si} className="flex items-end gap-2 flex-wrap">
-          <Inp label={am.availability.serviceName} value={s.label} w="w-28" onChange={(v) => mutate((d) => (d.services[si].label = v))} />
-          <Inp label={am.availability.serviceFrom} type="time" value={s.start} w="w-28" onChange={(v) => mutate((d) => (d.services[si].start = v))} />
-          <Inp label={am.availability.serviceTo} type="time" value={s.end} w="w-28" onChange={(v) => mutate((d) => (d.services[si].end = v))} />
-          <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-24" min={5} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
-          <NumInp label={am.availability.serviceCapacity} value={s.capacity} w="w-24" min={1} onChange={(v) => mutate((d) => (d.services[si].capacity = v))} />
+        <div
+          key={si}
+          className={`grid grid-cols-2 sm:grid-cols-3 ${wide ? wideColumns : ""} gap-2 items-end bg-surface-container-high/45 border border-outline-variant/20 rounded-lg p-2`}
+        >
+          <Inp label={am.availability.serviceName} value={s.label} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].label = v))} />
+          <Inp label={am.availability.serviceFrom} type="time" value={s.start} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].start = v))} />
+          <Inp label={am.availability.serviceTo} type="time" value={s.end} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].end = v))} />
+          <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-full" min={5} compact={wide} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
+          <NumInp label={am.availability.serviceCapacity} value={s.capacity} w="w-full" min={1} compact={wide} onChange={(v) => mutate((d) => (d.services[si].capacity = v))} />
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{am.availability.serviceDuration}</span>
+            <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${wide ? "lg:sr-only" : ""}`}>{am.availability.serviceDuration}</span>
             <select
               value={s.turnMinutes ?? ""}
               onChange={(e) => mutate((d) => { const v = e.target.value; d.services[si].turnMinutes = v ? Number(v) : undefined; })}
-              className={`${field} w-28`}
+              className={`${field} w-full`}
+              aria-label={am.availability.serviceDuration}
             >
               <option value="">{am.availability.durInherit}</option>
               {DUR_OPTIONS.map((m) => (
@@ -574,7 +603,7 @@ function DayServicesEditor({
           </label>
           <button
             onClick={() => mutate((d) => d.services.splice(si, 1))}
-            className="text-rose-400 hover:text-rose-300 text-sm h-9 px-2"
+            className="text-rose-400 hover:text-rose-300 text-sm h-8 px-2 justify-self-start sm:justify-self-end"
           >
             {am.availability.remove}
           </button>
@@ -605,19 +634,19 @@ function Num({ label, value, onChange, min }: { label: string; value: number; on
     </label>
   );
 }
-function Inp({ label, value, onChange, type = "text", w = "" }: { label: string; value: string; onChange: (v: string) => void; type?: string; w?: string }) {
+function Inp({ label, value, onChange, type = "text", w = "", compact = false }: { label: string; value: string; onChange: (v: string) => void; type?: string; w?: string; compact?: boolean }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{label}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className={`${field} ${w}`} />
+      <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${compact ? "lg:sr-only" : ""}`}>{label}</span>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className={`${field} ${w}`} aria-label={compact ? label : undefined} />
     </label>
   );
 }
-function NumInp({ label, value, onChange, w = "", min }: { label: string; value: number; onChange: (v: number) => void; w?: string; min?: number }) {
+function NumInp({ label, value, onChange, w = "", min, compact = false }: { label: string; value: number; onChange: (v: number) => void; w?: string; min?: number; compact?: boolean }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{label}</span>
-      <input type="number" value={value} min={min} step="1" onChange={(e) => onChange(Number(e.target.value))} className={`${field} ${w}`} />
+      <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${compact ? "lg:sr-only" : ""}`}>{label}</span>
+      <input type="number" value={value} min={min} step="1" onChange={(e) => onChange(Number(e.target.value))} className={`${field} ${w}`} aria-label={compact ? label : undefined} />
     </label>
   );
 }

@@ -87,6 +87,7 @@ export function buildReservation(input: NewReservationInput): Reservation {
     notes: input.notes?.trim() || undefined,
     tableLabel: input.tableLabel?.trim() || undefined,
     tableId: input.tableId || undefined,
+    tableIds: input.tableIds?.length ? input.tableIds : input.tableId ? [input.tableId] : undefined,
     status: input.status ?? (input.source === "admin" ? "confirmed" : "pending"),
     source: input.source ?? "web",
     createdAt: now,

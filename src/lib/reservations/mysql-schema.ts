@@ -326,6 +326,20 @@ const MIGRATIONS: Migration[] = [
     },
   },
   {
+    // Multiple physical tables can back one reservation when staff join tables
+    // for a larger party. table_id remains the primary/display table for legacy
+    // reads; table_ids is the authoritative conflict set when present.
+    version: 13,
+    run: async (pool) => {
+      await ensureColumn(
+        pool,
+        "reservations",
+        "table_ids",
+        "ADD COLUMN table_ids JSON NULL DEFAULT NULL AFTER table_id",
+      );
+    },
+  },
+  {
     // No-op. Seeding the default platform admin moved to a boot-time bootstrap
     // (src/lib/reservations/bootstrap.ts) so it self-heals when the table is
     // emptied — a one-shot migration cannot, since the runner records it as

@@ -97,6 +97,7 @@ export async function sendFeedbackRequestEmail(
   feedbackUrl: string,
 ): Promise<SendResult> {
   const s = tenant.settings;
+  if (s.feedbackEnabled === false) return { sent: false, skipped: true };
   if (!s.emailEnabled) return { sent: false, skipped: true };
   const smtp = s.smtp;
   if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true };

@@ -118,13 +118,21 @@ export default function PlatformHome() {
                     )}
                   </div>
                 )}
-                <span className="text-on-surface-variant ml-3">›</span>
+                <ChevronRightIcon className="h-4 w-4 text-on-surface-variant ml-3 shrink-0" />
               </Link>
             );
           })}
         </div>
       )}
     </div>
+  );
+}
+
+function ChevronRightIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
   );
 }
 

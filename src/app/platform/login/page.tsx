@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { am, getLocale, setLocale, type Locale } from "@/i18n";
+import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
 
 function LoginForm() {
@@ -18,7 +18,7 @@ function LoginForm() {
   useEffect(() => {
     const saved = localStorage.getItem("admin-theme");
     if (saved === "light") setTheme("light");
-    setLocaleState(getLocale());
+    setLocaleState(hydrateLocale());
   }, []);
 
   function toggleTheme() {

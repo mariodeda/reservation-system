@@ -21,6 +21,31 @@ export function hostOf(req: NextRequest): string {
   return (req.headers.get("host") || "").split(":")[0].trim().toLowerCase();
 }
 
+function sameOriginMutation(req: NextRequest): boolean {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return true;
+  const host = (req.headers.get("host") || req.nextUrl.host || "").toLowerCase();
+  const origin = req.headers.get("origin");
+  if (origin) {
+    try {
+      return new URL(origin).host.toLowerCase() === host;
+    } catch {
+      return false;
+    }
+  }
+  const referer = req.headers.get("referer");
+  if (referer) {
+    try {
+      return new URL(referer).host.toLowerCase() === host;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+const csrfError = () =>
+  NextResponse.json({ error: "Cross-site request rejected." }, { status: 403 });
+
 export async function tenantByHost(host: string): Promise<Tenant | null> {
   const now = Date.now();
   const hit = cache.get(`host:${host}`);
@@ -97,6 +122,7 @@ export type AdminCtx =
  * data regardless of which slug path the request came from.
  */
 export async function requireAdmin(req: NextRequest): Promise<AdminCtx> {
+  if (!sameOriginMutation(req)) return { ok: false, res: csrfError() };
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
   if (!session) return { ok: false, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   const tenant = await getTenantStore().getById(session.tid);
@@ -130,6 +156,7 @@ export type PlatformCtx =
 
 /** Platform (operator) routes: require a valid platform session. */
 export async function requirePlatform(req: NextRequest): Promise<PlatformCtx> {
+  if (!sameOriginMutation(req)) return { ok: false, res: csrfError() };
   const session = await verifyPlatformSession(req.cookies.get(PLATFORM_COOKIE)?.value);
   if (!session) return { ok: false, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   return { ok: true, session };

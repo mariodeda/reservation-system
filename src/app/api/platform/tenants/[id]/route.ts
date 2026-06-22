@@ -4,6 +4,7 @@ import { requirePlatform } from "@/lib/reservations/tenant-context";
 import { sanitizeTenantSettings } from "@/lib/reservations/sanitize-tenant";
 import { tenantView } from "@/lib/reservations/platform-view";
 import type { Tenant, TenantSettings } from "@/lib/reservations/tenant";
+import { getPlatformStore } from "@/lib/reservations/platform-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,11 @@ export async function PATCH(req: NextRequest, ctxArg: { params: Promise<{ id: st
   }
 
   if (body.settings !== undefined) {
-    const next = sanitizeTenantSettings({ name: existing.name, ...body.settings });
+    const next = sanitizeTenantSettings({
+      ...existing.settings,
+      ...body.settings,
+      name: body.settings.name ?? existing.settings.name ?? existing.name,
+    });
     // Preserve the stored SMTP password when the client sends a blank one
     // (the UI never echoes the secret back).
     if (next.smtp && !next.smtp.pass && existing.settings.smtp?.pass) {
@@ -62,6 +67,16 @@ export async function DELETE(req: NextRequest, ctxArg: { params: Promise<{ id: s
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
+  let body: { operatorPassword?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid body." }, { status: 400 });
+  }
+  const operatorPassword = String(body.operatorPassword ?? "");
+  if (!operatorPassword || !(await getPlatformStore().verifyLogin(ctx.session.u, operatorPassword))) {
+    return NextResponse.json({ error: "Operator password is required." }, { status: 401 });
+  }
   await getTenantStore().remove(id);
   return NextResponse.json({ ok: true });
 }

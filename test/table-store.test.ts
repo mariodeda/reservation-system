@@ -202,6 +202,38 @@ describe("suggestTable", () => {
     expect(suggestion).toBeNull();
     void tiny;
   });
+
+  it("combines free joinable tables when no single table fits", async () => {
+    const ts = tableStore();
+    const a = await ts.createTable({ label: "A", capacity: 4, joinable: true });
+    const b = await ts.createTable({ label: "B", capacity: 4, joinable: true });
+    const r = await booking({ time: "12:00", party: 6 });
+
+    const suggestion = await ts.suggestTable(
+      { date: r.date, time: r.time, offering: r.offering, service: r.service, partySize: r.partySize },
+      config,
+    );
+    expect(suggestion?.id).toBe(`join:${a.id},${b.id}`);
+    expect(suggestion?.label).toBe("A + B");
+
+    await ts.assignTable(r.id, suggestion!.id, config);
+    const stored = await new MySqlStore(TENANT).getReservation(r.id);
+    expect(stored?.tableId).toBe(a.id);
+    expect(stored?.tableIds).toEqual([a.id, b.id]);
+    expect(stored?.tableLabel).toBe("A + B");
+  });
+
+  it("joined assignments block every table in the combination", async () => {
+    const ts = tableStore();
+    const a = await ts.createTable({ label: "A", capacity: 4, joinable: true });
+    const b = await ts.createTable({ label: "B", capacity: 4, joinable: true });
+    const r1 = await booking({ time: "12:00", party: 6 });
+    const r2 = await booking({ time: "12:30", party: 2 });
+
+    await ts.assignTable(r1.id, `join:${a.id},${b.id}`, config);
+    const clash = await ts.assignTable(r2.id, b.id, config);
+    expect(clash.error).toMatch(/already taken/i);
+  });
 });
 
 describe("listTablesWithDayState", () => {

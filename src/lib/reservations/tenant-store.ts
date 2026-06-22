@@ -153,11 +153,20 @@ class MySqlTenantStore implements TenantStore {
 
   async addDomain(tenantId: string, host: string): Promise<void> {
     await ensureSchema();
-    await getPool().query(
-      `INSERT INTO tenant_domains (host, tenant_id) VALUES (?, ?)
-       ON DUPLICATE KEY UPDATE tenant_id = VALUES(tenant_id)`,
-      [host.trim().toLowerCase(), tenantId],
+    const normalized = host.trim().toLowerCase();
+    const [rows] = await getPool().query<RowDataPacket[]>(
+      "SELECT tenant_id FROM tenant_domains WHERE host = ?",
+      [normalized],
     );
+    const existingTenantId = rows[0]?.tenant_id as string | undefined;
+    if (existingTenantId) {
+      if (existingTenantId === tenantId) return;
+      throw new Error("DOMAIN_ALREADY_MAPPED");
+    }
+    await getPool().query("INSERT INTO tenant_domains (host, tenant_id) VALUES (?, ?)", [
+      normalized,
+      tenantId,
+    ]);
   }
 
   async removeDomain(host: string): Promise<void> {
@@ -189,6 +198,10 @@ class MySqlTenantStore implements TenantStore {
     await ensureSchema();
     const pool = getPool();
     // cascade: data first, then domains, then the tenant row
+    await pool.query("DELETE FROM reservation_feedback WHERE tenant_id = ?", [tenantId]);
+    await pool.query("DELETE FROM waitlist WHERE tenant_id = ?", [tenantId]);
+    await pool.query("DELETE FROM customer_profiles WHERE tenant_id = ?", [tenantId]);
+    await pool.query("DELETE FROM tables WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM app_config WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM tenant_domains WHERE tenant_id = ?", [tenantId]);

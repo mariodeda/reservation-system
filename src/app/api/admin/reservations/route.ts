@@ -105,6 +105,8 @@ export async function POST(req: NextRequest) {
     phone: String(body.phone ?? ""),
     occasion: body.occasion ? String(body.occasion) : undefined,
     notes: body.notes ? String(body.notes) : undefined,
+    tableId: body.tableId ? String(body.tableId) : undefined,
+    tableLabel: body.tableLabel ? String(body.tableLabel) : undefined,
     source: "admin",
     status: (["pending", "confirmed", "seated"] as ReservationStatus[]).includes(body.status as ReservationStatus)
       ? (body.status as ReservationStatus)

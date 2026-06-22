@@ -23,14 +23,17 @@ export function useReservationEvents() {
 
       es.addEventListener("connected", () => setConnected(true));
 
-      es.addEventListener("reservation.created", (e: MessageEvent) => {
+      const handleReservationEvent = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data) as ReservationEvent;
           const n: ReservationNotification = { ...data, receivedAt: Date.now(), read: false };
           setNotifications((prev) => [n, ...prev].slice(0, MAX));
           window.dispatchEvent(new CustomEvent("reservation:new", { detail: n }));
         } catch { /* malformed */ }
-      });
+      };
+
+      es.addEventListener("reservation.created", handleReservationEvent);
+      es.addEventListener("reservation.updated", handleReservationEvent);
 
       es.onerror = () => {
         setConnected(false);

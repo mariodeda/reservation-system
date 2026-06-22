@@ -135,6 +135,8 @@ export interface Reservation {
   tableLabel?: string;
   /** FK to a managed `tables` row, when a physical table is assigned. */
   tableId?: string;
+  /** All managed tables used by this booking, for joined/combo table assignments. */
+  tableIds?: string[];
   status: ReservationStatus;
   source: "web" | "admin";
   createdAt: string; // ISO
@@ -155,6 +157,7 @@ export interface NewReservationInput {
   notes?: string;
   tableLabel?: string;
   tableId?: string;
+  tableIds?: string[];
   source?: "web" | "admin";
   status?: ReservationStatus;
 }

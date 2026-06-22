@@ -155,8 +155,9 @@ export default function CustomersPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
             className="h-9 px-3 rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-30 hover:text-primary transition"
+            aria-label="Previous page"
           >
-            ‹
+            <ChevronLeftIcon className="h-4 w-4" />
           </button>
           <span className="text-sm text-on-surface-variant">
             {page} / {totalPages}
@@ -165,8 +166,9 @@ export default function CustomersPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
             className="h-9 px-3 rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-30 hover:text-primary transition"
+            aria-label="Next page"
           >
-            ›
+            <ChevronRightIcon className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -236,17 +238,20 @@ function CustomerRow({
             <span className="font-semibold truncate">{customer.name}</span>
             {customer.vip && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-widest shrink-0">
-                ★ {am.customers.vip}
+                <StarIcon className="h-3 w-3" />
+                {am.customers.vip}
               </span>
             )}
             {customer.dietaryNotes && (
-              <span className="text-[10px] text-amber-300 shrink-0" title={customer.dietaryNotes}>
-                ⚠ {am.customers.dietaryAlert}
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-300 shrink-0" title={customer.dietaryNotes}>
+                <AlertIcon className="h-3 w-3" />
+                {am.customers.dietaryAlert}
               </span>
             )}
             {customer.noShowCount > 0 && (
-              <span className="text-[10px] text-rose-400 shrink-0" title={`${customer.noShowCount} no-show${customer.noShowCount > 1 ? "s" : ""}`}>
-                ✕ {customer.noShowCount} {am.customers.noShows.toLowerCase()}
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-rose-400 shrink-0" title={`${customer.noShowCount} no-show${customer.noShowCount > 1 ? "s" : ""}`}>
+                <XIcon className="h-3 w-3" />
+                {customer.noShowCount} {am.customers.noShows.toLowerCase()}
               </span>
             )}
           </div>
@@ -364,8 +369,9 @@ function ProfileView({
         <div className="space-y-2">
           {profile.dietaryNotes && (
             <div className="rounded-lg bg-amber-400/10 border border-amber-400/30 px-3 py-2 text-sm">
-              <span className="text-xs font-semibold text-amber-300 uppercase tracking-widest block mb-0.5">
-                ⚠ {am.customers.dietaryNotes}
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-300 uppercase tracking-widest mb-0.5">
+                <AlertIcon className="h-3.5 w-3.5" />
+                {am.customers.dietaryNotes}
               </span>
               <span className="text-on-surface">{profile.dietaryNotes}</span>
             </div>
@@ -383,9 +389,10 @@ function ProfileView({
 
       <button
         onClick={onEdit}
-        className="text-xs text-primary hover:underline"
+        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
       >
-        Edit profile →
+        Edit profile
+        <ChevronRightIcon className="h-3 w-3" />
       </button>
 
       {/* Upcoming */}
@@ -457,9 +464,7 @@ function ReservationTable({
                   </td>
                   <td className="px-3 py-2 hidden lg:table-cell">
                     {r.feedback?.filled && r.feedback.rating != null ? (
-                      <span className="text-amber-400 text-xs font-semibold tabular-nums">
-                        {"★".repeat(r.feedback.rating)}{"☆".repeat(5 - r.feedback.rating)}
-                      </span>
+                      <RatingStars rating={r.feedback.rating} />
                     ) : r.feedback?.sentAt ? (
                       <span className="text-on-surface-variant/40 text-xs">pending</span>
                     ) : (
@@ -530,13 +535,14 @@ function ProfileEditForm({
           aria-checked={vip}
           role="switch"
         >
-          <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${vip ? "translate-x-4" : ""}`} />
+          <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-surface-bright shadow transition-transform ${vip ? "translate-x-4" : ""}`} />
         </button>
         <span className="text-sm font-medium">
           {am.customers.vipToggle}
           {vip && (
             <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-widest">
-              ★ {am.customers.vip}
+              <StarIcon className="h-3 w-3" />
+              {am.customers.vip}
             </span>
           )}
         </span>
@@ -545,7 +551,10 @@ function ProfileEditForm({
       {/* Dietary notes */}
       <div>
         <label className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant block mb-1.5">
-          ⚠ {am.customers.dietaryNotes}
+          <span className="inline-flex items-center gap-1">
+            <AlertIcon className="h-3.5 w-3.5" />
+            {am.customers.dietaryNotes}
+          </span>
         </label>
         <textarea
           value={dietaryNotes}
@@ -588,5 +597,59 @@ function ProfileEditForm({
         </button>
       </div>
     </div>
+  );
+}
+
+function ChevronLeftIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+function StarIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="m12 2.8 2.78 5.63 6.22.9-4.5 4.39 1.06 6.19L12 17l-5.56 2.91 1.06-6.19L3 9.33l6.22-.9L12 2.8z" />
+    </svg>
+  );
+}
+
+function AlertIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m12 3 10 18H2L12 3z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function XIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+function RatingStars({ rating }: { rating: number }) {
+  const clamped = Math.max(0, Math.min(5, Math.round(rating)));
+  return (
+    <span className="inline-flex items-center gap-0.5 text-amber-400" aria-label={`${clamped} out of 5`}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <StarIcon key={i} className={`h-3 w-3 ${i < clamped ? "opacity-100" : "opacity-25"}`} />
+      ))}
+    </span>
   );
 }

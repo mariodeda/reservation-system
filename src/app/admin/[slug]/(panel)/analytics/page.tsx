@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { am } from "@/i18n";
 import { adminJson, toast } from "@/components/admin/api";
+import { offeringSummaries } from "@/lib/reservations/offerings";
+import type { AvailabilityConfig } from "@/lib/reservations/types";
 
 type Period = "7d" | "30d" | "90d" | "365d";
 
@@ -28,13 +30,6 @@ interface AnalyticsData {
     waiting: number; avgQuotedWait: number; conversionRate: number;
   };
 }
-
-const PERIODS: { value: Period; label: string }[] = [
-  { value: "7d", label: am.analytics.period7 },
-  { value: "30d", label: am.analytics.period30 },
-  { value: "90d", label: am.analytics.period90 },
-  { value: "365d", label: am.analytics.period365 },
-];
 
 const STATUS_COLORS: Record<string, string> = {
   completed: "#4ade80",
@@ -560,6 +555,12 @@ export default function AnalyticsPage() {
   // Page-level tooltip for inline bar rows (offering, service, feedback)
   const [pageTip, setPageTip] = useState<TipState>(null);
   const [pageHovered, setPageHovered] = useState<string | null>(null);
+  const periods: { value: Period; label: string }[] = [
+    { value: "7d", label: am.analytics.period7 },
+    { value: "30d", label: am.analytics.period30 },
+    { value: "90d", label: am.analytics.period90 },
+    { value: "365d", label: am.analytics.period365 },
+  ];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -578,9 +579,9 @@ export default function AnalyticsPage() {
   }, [load]);
 
   useEffect(() => {
-    adminJson<{ offerings: { id: string; label: string }[] }>("/api/availability?offerings=1")
+    adminJson<{ config: AvailabilityConfig }>("/api/admin/config")
       .then((d) =>
-        setOfferingLabels(Object.fromEntries(d.offerings.map((o) => [o.id, o.label]))),
+        setOfferingLabels(Object.fromEntries(offeringSummaries(d.config).map((o) => [o.id, o.label]))),
       )
       .catch(() => {});
   }, []);
@@ -632,7 +633,7 @@ export default function AnalyticsPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-semibold">{am.analytics.title}</h1>
         <div className="flex gap-1">
-          {PERIODS.map((p) => (
+          {periods.map((p) => (
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
@@ -807,9 +808,14 @@ export default function AnalyticsPage() {
                 <div className="flex flex-wrap gap-6 mb-4">
                   <div>
                     <div className="text-2xl font-bold text-primary">
-                      {data.feedback.avgRating != null
-                        ? `★ ${data.feedback.avgRating.toFixed(1)}`
-                        : "—"}
+                      {data.feedback.avgRating != null ? (
+                        <span className="inline-flex items-center gap-1">
+                          <StarIcon className="h-5 w-5" />
+                          {data.feedback.avgRating.toFixed(1)}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </div>
                     <div className="text-xs text-on-surface-variant mt-0.5">
                       {am.analytics.avgRating}
@@ -853,8 +859,9 @@ export default function AnalyticsPage() {
                         }
                         onMouseMove={inlineBarMove}
                       >
-                        <span className="w-4 text-on-surface-variant text-right tabular-nums">
-                          {s}★
+                        <span className="w-8 inline-flex items-center justify-end gap-0.5 text-on-surface-variant tabular-nums">
+                          {s}
+                          <StarIcon className="h-3 w-3" />
                         </span>
                         <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
                           <div
@@ -1044,5 +1051,13 @@ export default function AnalyticsPage() {
       {/* Page-level tooltip for inline bar rows */}
       {pageTip && <Tip tip={pageTip} />}
     </div>
+  );
+}
+
+function StarIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="m12 2.8 2.78 5.63 6.22.9-4.5 4.39 1.06 6.19L12 17l-5.56 2.91 1.06-6.19L3 9.33l6.22-.9L12 2.8z" />
+    </svg>
   );
 }

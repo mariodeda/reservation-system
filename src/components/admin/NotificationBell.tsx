@@ -69,7 +69,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
         <div className="pl-4 pr-3 pt-3 pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-lg leading-none" aria-hidden>🔔</span>
+              <BellIcon className="w-4 h-4 shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-on-surface leading-tight truncate">
                   {n.name}
@@ -92,7 +92,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
                 className="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/60 hover:text-on-surface transition"
                 aria-label="Dismiss"
               >
-                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                   <line x1="1" y1="1" x2="11" y2="11" /><line x1="11" y1="1" x2="1" y2="11" />
                 </svg>
               </button>
@@ -220,7 +220,7 @@ export function NotificationBell({
           <div className="max-h-[420px] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-on-surface-variant/50">
-                <p className="text-2xl mb-2">🔔</p>
+                <BellIcon className="w-6 h-6 mx-auto mb-2" />
                 <p>No notifications yet</p>
                 <p className="text-xs mt-1 text-on-surface-variant/40">
                   {connected ? "Listening for new reservations…" : "Connecting…"}
@@ -268,9 +268,10 @@ export function NotificationBell({
             <div className="px-4 py-2 border-t border-outline-variant/20 text-center">
               <button
                 onClick={() => { setOpen(false); router.push(`/admin/${slug}/reservations`); }}
-                className="text-xs text-primary hover:text-primary/70 font-medium transition"
+                className="inline-flex items-center justify-center gap-1 text-xs text-primary hover:text-primary/70 font-medium transition"
               >
-                View all reservations →
+                View all reservations
+                <ArrowRightIcon />
               </button>
             </div>
           )}
@@ -280,11 +281,20 @@ export function NotificationBell({
   );
 }
 
-function BellIcon() {
+function BellIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 20 20" className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M10 2a6 6 0 0 0-6 6v2.5l-1.5 2.5h15L16 10.5V8a6 6 0 0 0-6-6Z" />
       <path d="M8 16a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8h10" />
+      <path d="m9 4 4 4-4 4" />
     </svg>
   );
 }

@@ -13,6 +13,9 @@ export async function POST(
 ) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
+  if (ctx.tenant.settings.feedbackEnabled === false) {
+    return NextResponse.json({ error: "Feedback requests are disabled for this restaurant." }, { status: 403 });
+  }
   const { id } = await params;
 
   try {

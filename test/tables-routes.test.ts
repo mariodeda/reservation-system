@@ -215,6 +215,20 @@ describe("PATCH /api/admin/reservations/[id] — table assignment", () => {
     expect(json.reservation.partySize).toBe(5);
     expect(json.reservation.tableId).toBe(table.id);
   });
+
+  it("revalidates table conflicts when editing time on an assigned reservation", async () => {
+    const { table } = await createTable({ label: "5", capacity: 4 });
+    const r1 = await booking({ time: "20:00" });
+    const r2 = await booking({ time: "22:30" });
+    await resIdRoute.PATCH(authed(`/api/admin/reservations/${r1.id}`, { method: "PATCH", body: { tableId: table.id } }), params(r1.id));
+    await resIdRoute.PATCH(authed(`/api/admin/reservations/${r2.id}`, { method: "PATCH", body: { tableId: table.id } }), params(r2.id));
+
+    const res = await resIdRoute.PATCH(authed(`/api/admin/reservations/${r2.id}`, { method: "PATCH", body: { time: "20:30" } }), params(r2.id));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/already taken/i);
+    const stored = await store.getStore().forTenant(tenantId).getReservation(r2.id);
+    expect(stored?.time).toBe("22:30");
+  });
 });
 
 describe("GET /api/admin/reservations/[id]/table (suggest)", () => {
@@ -234,6 +248,17 @@ describe("GET /api/admin/reservations/[id]/table (suggest)", () => {
     const res = await suggestRoute.GET(authed(`/api/admin/reservations/${r.id}/table`), params(r.id));
     const json = await res.json();
     expect(json.table).toBeNull();
+  });
+
+  it("suggests a joined table combo when joinable tables together fit", async () => {
+    const { table: a } = await createTable({ label: "A", capacity: 4, joinable: true });
+    const { table: b } = await createTable({ label: "B", capacity: 4, joinable: true });
+    const r = await booking({ time: "20:00", party: 6 });
+    const res = await suggestRoute.GET(authed(`/api/admin/reservations/${r.id}/table`), params(r.id));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.table.id).toBe(`join:${a.id},${b.id}`);
+    expect(json.table.label).toBe("A + B");
   });
 
   it("404 for a missing reservation", async () => {

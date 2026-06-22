@@ -3,20 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { am, getLocale, setLocale, type Locale } from "@/i18n";
+import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
 import { useReservationEvents } from "./useReservationEvents";
 import { NotificationBell, ReservationToastStack } from "./NotificationBell";
-
-const NAV = [
-  { seg: "", label: am.nav.dashboard },
-  { seg: "/reservations", label: am.nav.reservations },
-  { seg: "/customers", label: am.nav.customers },
-  { seg: "/tables", label: am.nav.tables },
-  { seg: "/analytics", label: am.nav.analytics },
-  { seg: "/availability", label: am.nav.availability },
-  { seg: "/settings", label: am.nav.settings },
-];
 
 export default function AdminShell({
   slug,
@@ -32,7 +22,15 @@ export default function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const base = `/admin/${slug}`;
-  const nav = NAV.map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
+  const nav = [
+    { seg: "", label: am.nav.dashboard },
+    { seg: "/reservations", label: am.nav.reservations },
+    { seg: "/customers", label: am.nav.customers },
+    { seg: "/tables", label: am.nav.tables },
+    { seg: "/analytics", label: am.nav.analytics },
+    { seg: "/availability", label: am.nav.availability },
+    { seg: "/settings", label: am.nav.settings },
+  ].map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
   const { notifications, unreadCount, connected, markAllRead, markRead } = useReservationEvents();
@@ -53,7 +51,7 @@ export default function AdminShell({
   useEffect(() => {
     const saved = localStorage.getItem("admin-theme");
     if (saved === "light") setTheme("light");
-    setLocaleState(getLocale());
+    setLocaleState(hydrateLocale());
   }, []);
 
   function toggleTheme() {
@@ -71,15 +69,15 @@ export default function AdminShell({
   return (
     <div data-admin data-theme={theme} className="min-h-screen bg-background text-on-surface">
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
-        <div className="px-6 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-6 min-w-0">
+        <div className="px-4 lg:px-6 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 lg:gap-5 min-w-0">
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
             ) : (
-              <div className="flex items-center gap-2 shrink-0">
-                <SystemLogo className="h-7 w-7 text-primary" />
-                <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate hidden sm:inline">
+              <div className="flex items-center gap-2 min-w-0">
+                <SystemLogo className="h-7 w-7 text-primary shrink-0" />
+                <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate hidden xl:inline max-w-[240px]">
                   {brandName}
                 </span>
               </div>
@@ -103,7 +101,7 @@ export default function AdminShell({
               })}
             </nav>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <NotificationBell
               notifications={notifications}
               unreadCount={unreadCount}
@@ -115,6 +113,7 @@ export default function AdminShell({
             <button
               onClick={toggleTheme}
               title={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
+              aria-label={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
             >
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
@@ -125,6 +124,7 @@ export default function AdminShell({
                   key={l}
                   onClick={() => { if (locale !== l) setLocale(l); }}
                   title={l === "it" ? "Italiano" : "English"}
+                  aria-label={l === "it" ? "Italiano" : "English"}
                   className={`px-2 py-1 text-sm leading-none transition ${
                     locale === l
                       ? "bg-primary/15 text-primary font-medium"
@@ -137,7 +137,7 @@ export default function AdminShell({
             </div>
             <button
               onClick={logout}
-              className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition"
+              className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition whitespace-nowrap"
             >
               {am.nav.signOut}
             </button>

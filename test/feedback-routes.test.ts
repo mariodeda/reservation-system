@@ -22,11 +22,13 @@ let auth: typeof import("@/lib/reservations/auth");
 let poolMod: typeof import("@/lib/reservations/mysql-pool");
 
 let adminCookie = "";
+const marketingOrigin = "https://www.marketing.test";
 
-function req(url: string, opts: { method?: string; body?: unknown; cookie?: string; host?: string } = {}) {
+function req(url: string, opts: { method?: string; body?: unknown; cookie?: string; host?: string; headers?: Record<string, string> } = {}) {
   const headers: Record<string, string> = {
     host: opts.host ?? "localhost",
     "x-forwarded-for": "127.0.0.1",
+    ...(opts.headers ?? {}),
   };
   if (opts.cookie) headers.cookie = opts.cookie;
   let body: string | undefined;
@@ -38,6 +40,17 @@ function req(url: string, opts: { method?: string; body?: unknown; cookie?: stri
   return new NextRequest(`http://localhost${url}`, { method: opts.method ?? "GET", headers, body });
 }
 const authed = (url: string, o: Parameters<typeof req>[1] = {}) => req(url, { ...o, cookie: adminCookie });
+const marketingReq = (url: string, o: Parameters<typeof req>[1] = {}) =>
+  req(url, {
+    ...o,
+    host: "reservations.example.test",
+    headers: { origin: marketingOrigin, ...(o.headers ?? {}) },
+  });
+
+function expectMarketingCors(res: Response) {
+  expect(res.headers.get("access-control-allow-origin")).toBe(marketingOrigin);
+  expect(res.headers.get("vary")).toContain("Origin");
+}
 
 beforeAll(async () => {
   db = await createDB({ version: "8.4.x" });
@@ -66,7 +79,7 @@ beforeAll(async () => {
     id: tenantId,
     slug: "fb-test",
     name: "Feedback Test Restaurant",
-    settings: { ...templateSettings(), url: "https://fb.test" },
+    settings: { ...templateSettings(), url: "https://fb.test", allowedOrigins: [marketingOrigin] },
     adminUsername: "staff",
     adminPasswordHash: hashPassword("secret1"),
     hosts: ["localhost"],
@@ -83,6 +96,13 @@ beforeEach(async () => {
   await p.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
   await p.query("DELETE FROM reservation_feedback");
   await p.query("DELETE FROM rate_limits WHERE k LIKE 'feedback-%'");
+  const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+  const tenant = (await getTenantStore().getById(tenantId))!;
+  await getTenantStore().updateSettings(tenantId, {
+    ...tenant.settings,
+    feedbackEnabled: true,
+    allowedOrigins: [marketingOrigin],
+  });
   sendFeedbackRequestEmail.mockClear();
 });
 
@@ -143,6 +163,19 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     );
     expect(res.status).toBe(422);
     expect((await res.json()).error).toMatch(/email/);
+  });
+
+  it("403s when tenant feedback requests are disabled", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, { ...tenant.settings, feedbackEnabled: false });
+    const r = await makeCompleted();
+    const res = await adminFeedbackRoute.POST(
+      authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
+      { params: Promise.resolve({ id: r.id }) },
+    );
+    expect(res.status).toBe(403);
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
   });
 
   it("201-level: creates token, calls sendFeedbackRequestEmail, returns token + feedbackUrl", async () => {
@@ -270,6 +303,42 @@ describe("GET /api/admin/reservations/[id]/feedback", () => {
 /* ---- Public feedback route: GET /api/feedback/[token] ---- */
 
 describe("GET /api/feedback/[token]", () => {
+  it("supports cross-origin preflight and form loading for marketing sites", async () => {
+    const r = await makeCompleted();
+    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
+
+    const preflight = await publicFeedbackRoute.OPTIONS(
+      marketingReq(`/api/feedback/${rec.token}`, {
+        method: "OPTIONS",
+        headers: { "access-control-request-method": "GET" },
+      }),
+      { params: Promise.resolve({ token: rec.token }) },
+    );
+    expect(preflight.status).toBe(204);
+    expectMarketingCors(preflight);
+
+    const res = await publicFeedbackRoute.GET(
+      marketingReq(`/api/feedback/${rec.token}`),
+      { params: Promise.resolve({ token: rec.token }) },
+    );
+    expect(res.status).toBe(200);
+    expectMarketingCors(res);
+  });
+
+  it("503s public feedback form access when tenant feedback is disabled", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, { ...tenant.settings, feedbackEnabled: false });
+    const r = await makeCompleted();
+    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
+    const res = await publicFeedbackRoute.GET(
+      marketingReq(`/api/feedback/${rec.token}`),
+      { params: Promise.resolve({ token: rec.token }) },
+    );
+    expect(res.status).toBe(503);
+    expectMarketingCors(res);
+  });
+
   it("404 for an unknown token", async () => {
     const res = await publicFeedbackRoute.GET(
       req(`/api/feedback/${randomUUID()}`),
@@ -312,6 +381,28 @@ describe("GET /api/feedback/[token]", () => {
 /* ---- Public feedback route: POST /api/feedback/[token] ---- */
 
 describe("POST /api/feedback/[token]", () => {
+  it("supports cross-origin preflight and submission for marketing sites", async () => {
+    const r = await makeCompleted();
+    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
+
+    const preflight = await publicFeedbackRoute.OPTIONS(
+      marketingReq(`/api/feedback/${rec.token}`, {
+        method: "OPTIONS",
+        headers: { "access-control-request-method": "POST" },
+      }),
+      { params: Promise.resolve({ token: rec.token }) },
+    );
+    expect(preflight.status).toBe(204);
+    expectMarketingCors(preflight);
+
+    const res = await publicFeedbackRoute.POST(
+      marketingReq(`/api/feedback/${rec.token}`, { method: "POST", body: { rating: 5, comment: "Great." } }),
+      { params: Promise.resolve({ token: rec.token }) },
+    );
+    expect(res.status).toBe(200);
+    expectMarketingCors(res);
+  });
+
   it("400 on invalid JSON body", async () => {
     const r = await makeCompleted();
     const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);

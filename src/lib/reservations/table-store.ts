@@ -51,6 +51,30 @@ function toTable(r: TblRow): RestaurantTable {
   };
 }
 
+function parseAssignmentId(value: string): string[] {
+  if (value.startsWith("join:")) {
+    return value
+      .slice(5)
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+  return [value];
+}
+
+function tableIdsFor(row: { tableId: string | null; tableIds: unknown }): string[] {
+  if (Array.isArray(row.tableIds)) return row.tableIds as string[];
+  if (typeof row.tableIds === "string" && row.tableIds.length > 0) {
+    try {
+      const parsed = JSON.parse(row.tableIds) as unknown;
+      if (Array.isArray(parsed)) return parsed.filter((id): id is string => typeof id === "string" && id.length > 0);
+    } catch {
+      // Fall back to legacy table_id below.
+    }
+  }
+  return row.tableId ? [row.tableId] : [];
+}
+
 /** Minimal reservation shape needed for conflict/occupancy logic. */
 interface AssignedRow extends RowDataPacket {
   id: string;
@@ -62,6 +86,7 @@ interface AssignedRow extends RowDataPacket {
   name: string;
   status: Reservation["status"];
   tableId: string | null;
+  tableIds: unknown;
 }
 
 export interface TableDayState {
@@ -205,17 +230,58 @@ export class TableStore {
     excludeId?: string,
   ): Promise<AssignedRow[]> {
     const statuses = ACTIVE_STATUSES.map(() => "?").join(",");
-    const params: unknown[] = [this.tenantId, date, tableId, ...ACTIVE_STATUSES];
+    const params: unknown[] = [this.tenantId, date, ...ACTIVE_STATUSES];
     let sql =
-      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId
+      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId, table_ids AS tableIds
        FROM reservations
-       WHERE tenant_id = ? AND \`date\` = ? AND table_id = ? AND status IN (${statuses})`;
+       WHERE tenant_id = ? AND \`date\` = ? AND status IN (${statuses})
+         AND (table_id IS NOT NULL OR table_ids IS NOT NULL)`;
     if (excludeId) {
       sql += " AND id != ?";
       params.push(excludeId);
     }
     const [rows] = await getPool().query<AssignedRow[]>(sql, params);
-    return rows;
+    return rows.filter((r) => tableIdsFor(r).includes(tableId));
+  }
+
+  private async validateTableSet(
+    reservation: { id: string; date: string; time: string; offering: string; service: string; name?: string },
+    tableIds: string[],
+    config: AvailabilityConfig,
+  ): Promise<{ tables?: RestaurantTable[]; error?: string }> {
+    if (tableIds.length === 0) return { tables: [] };
+    const tables: RestaurantTable[] = [];
+    for (const id of tableIds) {
+      const table = await this.getTable(id);
+      if (!table || !table.active) return { error: "That table does not exist." };
+      if (table.offering && table.offering !== offeringOf(reservation.offering)) {
+        return { error: `Table ${table.label} is not available for this offering.` };
+      }
+      tables.push(table);
+    }
+
+    const myStart = toMinutes(reservation.time);
+    const myTurn = turnMinutesFor(config, reservation.offering, reservation.service, reservation.date);
+    for (const table of tables) {
+      const others = await this.assignedOnDate(reservation.date, table.id, reservation.id);
+      for (const o of others) {
+        const oStart = toMinutes(o.time);
+        const oTurn = turnMinutesFor(config, o.offering, o.service, o.date);
+        if (turnsOverlap(myStart, myTurn, oStart, oTurn)) {
+          return {
+            error: `Table ${table.label} is already taken at ${o.time} (${o.name}). Pick another table or time.`,
+          };
+        }
+      }
+    }
+    return { tables };
+  }
+
+  async validateAssignedTables(reservation: Reservation, config: AvailabilityConfig): Promise<string | null> {
+    const ids = reservation.tableIds?.length ? reservation.tableIds : reservation.tableId ? [reservation.tableId] : [];
+    if (!ids.length) return null;
+    const result = await this.validateTableSet(reservation, ids, config);
+    return result.error ?? null;
   }
 
   /**
@@ -242,35 +308,27 @@ export class TableStore {
 
     if (tableId === null) {
       await pool.query(
-        "UPDATE reservations SET table_id = NULL, updated_at = ? WHERE id = ? AND tenant_id = ?",
+        "UPDATE reservations SET table_id = NULL, table_ids = NULL, updated_at = ? WHERE id = ? AND tenant_id = ?",
         [new Date().toISOString(), reservationId, this.tenantId],
       );
       return this.reload(reservationId);
     }
 
-    const table = await this.getTable(tableId);
-    if (!table || !table.active) return { error: "That table does not exist." };
-    if (table.offering && table.offering !== offeringOf(res.offering)) {
-      return { error: "That table is not available for this offering." };
-    }
-
-    // Conflict: any other active booking on this table whose turn overlaps.
-    const myStart = toMinutes(res.time);
-    const myTurn = turnMinutesFor(config, res.offering, res.service, res.date);
-    const others = await this.assignedOnDate(res.date, tableId, reservationId);
-    for (const o of others) {
-      const oStart = toMinutes(o.time);
-      const oTurn = turnMinutesFor(config, o.offering, o.service, o.date);
-      if (turnsOverlap(myStart, myTurn, oStart, oTurn)) {
-        return {
-          error: `Table ${table.label} is already taken at ${o.time} (${o.name}). Pick another table or time.`,
-        };
-      }
-    }
+    const tableIds = parseAssignmentId(tableId);
+    const validated = await this.validateTableSet(res, tableIds, config);
+    if (validated.error) return { error: validated.error };
+    const tables = validated.tables ?? [];
 
     await pool.query(
-      "UPDATE reservations SET table_id = ?, table_label = ?, updated_at = ? WHERE id = ? AND tenant_id = ?",
-      [tableId, table.label, new Date().toISOString(), reservationId, this.tenantId],
+      "UPDATE reservations SET table_id = ?, table_ids = ?, table_label = ?, updated_at = ? WHERE id = ? AND tenant_id = ?",
+      [
+        tableIds[0],
+        JSON.stringify(tableIds),
+        tables.map((t) => t.label).join(" + "),
+        new Date().toISOString(),
+        reservationId,
+        this.tenantId,
+      ],
     );
     return this.reload(reservationId);
   }
@@ -293,9 +351,10 @@ export class TableStore {
     res: { date: string; time: string; offering: string; service: string; partySize: number },
     config: AvailabilityConfig,
   ): Promise<RestaurantTable | null> {
-    const candidates = (await this.listTables({ activeOnly: true, offering: res.offering }))
-      .filter((t) => t.capacity >= res.partySize && t.minParty <= res.partySize)
+    const allCandidates = (await this.listTables({ activeOnly: true, offering: res.offering }))
+      .filter((t) => t.minParty <= res.partySize)
       .sort((a, b) => a.capacity - b.capacity || a.sortOrder - b.sortOrder);
+    const candidates = allCandidates.filter((t) => t.capacity >= res.partySize);
     const myStart = toMinutes(res.time);
     const myTurn = turnMinutesFor(config, res.offering, res.service, res.date);
     for (const t of candidates) {
@@ -304,6 +363,35 @@ export class TableStore {
         turnsOverlap(myStart, myTurn, toMinutes(o.time), turnMinutesFor(config, o.offering, o.service, o.date)),
       );
       if (!clash) return t;
+    }
+    const joinable = allCandidates.filter((t) => t.joinable);
+    for (let i = 0; i < joinable.length; i++) {
+      const combo: RestaurantTable[] = [];
+      let capacity = 0;
+      for (let j = i; j < joinable.length && capacity < res.partySize; j++) {
+        const t = joinable[j];
+        const others = await this.assignedOnDate(res.date, t.id);
+        const clash = others.some((o) =>
+          turnsOverlap(myStart, myTurn, toMinutes(o.time), turnMinutesFor(config, o.offering, o.service, o.date)),
+        );
+        if (clash) continue;
+        combo.push(t);
+        capacity += t.capacity;
+      }
+      if (capacity >= res.partySize && combo.length > 1) {
+        return {
+          id: `join:${combo.map((t) => t.id).join(",")}`,
+          offering: null,
+          label: combo.map((t) => t.label).join(" + "),
+          capacity,
+          minParty: Math.min(...combo.map((t) => t.minParty)),
+          zone: combo.map((t) => t.zone).filter(Boolean).join(" + ") || undefined,
+          sortOrder: Math.min(...combo.map((t) => t.sortOrder)),
+          joinable: true,
+          active: true,
+          createdAt: new Date().toISOString(),
+        };
+      }
     }
     return null;
   }
@@ -324,7 +412,7 @@ export class TableStore {
 
     const statuses = ACTIVE_STATUSES.map(() => "?").join(",");
     const [rows] = await getPool().query<AssignedRow[]>(
-      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId
+      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId, table_ids AS tableIds
        FROM reservations
        WHERE tenant_id = ? AND \`date\` = ? AND table_id IS NOT NULL AND status IN (${statuses})
        ORDER BY \`time\``,
@@ -333,10 +421,11 @@ export class TableStore {
 
     const byTable = new Map<string, AssignedRow[]>();
     for (const r of rows) {
-      if (!r.tableId) continue;
-      const list = byTable.get(r.tableId) ?? [];
-      list.push(r);
-      byTable.set(r.tableId, list);
+      for (const tableId of tableIdsFor(r)) {
+        const list = byTable.get(tableId) ?? [];
+        list.push(r);
+        byTable.set(tableId, list);
+      }
     }
 
     const now = nowInTz(config.timezone);

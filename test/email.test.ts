@@ -158,6 +158,12 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
     expect(createTransport).not.toHaveBeenCalled();
   });
 
+  it("skips when tenant feedback is disabled", async () => {
+    const r = await sendFeedbackRequestEmail(reservation(), tenant({ feedbackEnabled: false, smtp }), "https://fb.test/feedback/tok");
+    expect(r).toEqual({ sent: false, skipped: true });
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
   it("skips when no SMTP is configured", async () => {
     const r = await sendFeedbackRequestEmail(reservation(), tenant(), "https://fb.test/feedback/tok");
     expect(r).toEqual({ sent: false, skipped: true });

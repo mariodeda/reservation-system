@@ -15,6 +15,7 @@ let tenantsRoute: typeof import("@/app/api/platform/tenants/route");
 let tenantIdRoute: typeof import("@/app/api/platform/tenants/[id]/route");
 let domainsRoute: typeof import("@/app/api/platform/tenants/[id]/domains/route");
 let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route");
+let analyticsRoute: typeof import("@/app/api/platform/analytics/route");
 
 let cookie = "";
 
@@ -42,6 +43,7 @@ beforeAll(async () => {
   tenantIdRoute = await import("@/app/api/platform/tenants/[id]/route");
   domainsRoute = await import("@/app/api/platform/tenants/[id]/domains/route");
   passwordRoute = await import("@/app/api/platform/tenants/[id]/password/route");
+  analyticsRoute = await import("@/app/api/platform/analytics/route");
   // Migration 3 seeds the default platform admin. Wipe it so this test file
   // can create its own fixtures with known credentials.
   const { ensureSchema } = await import("@/lib/reservations/mysql-schema");
@@ -63,8 +65,8 @@ afterAll(async () => {
 });
 
 let ip = 0;
-function req(url: string, opts: { method?: string; body?: unknown; cookie?: string } = {}) {
-  const headers: Record<string, string> = { "x-forwarded-for": `10.1.${ip++ % 256}.1` };
+function req(url: string, opts: { method?: string; body?: unknown; cookie?: string; headers?: Record<string, string> } = {}) {
+  const headers: Record<string, string> = { "x-forwarded-for": `10.1.${ip++ % 256}.1`, ...(opts.headers ?? {}) };
   if (opts.cookie) headers.cookie = opts.cookie;
   let body: string | undefined;
   if (opts.body !== undefined) {
@@ -139,6 +141,23 @@ describe("platform tenant CRUD via routes", () => {
     expect(JSON.stringify(json)).not.toMatch(/scrypt\$/);
   });
 
+  it("rejects cross-site platform mutations by Origin header", async () => {
+    const res = await tenantsRoute.POST(authed("/api/platform/tenants", {
+      method: "POST",
+      headers: { origin: "https://evil.example.com" },
+      body: { slug: "evil", name: "Evil", username: "u", password: "password1" },
+    }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/cross-site/i);
+  });
+
+  it("platform analytics counts active restaurants even before bookings", async () => {
+    const res = await analyticsRoute.GET(authed("/api/platform/analytics"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.totals.tenants).toBeGreaterThanOrEqual(1);
+  });
+
   it("updates SMTP, redacts the password on read, and preserves it on blank write", async () => {
     const ctx = { params: Promise.resolve({ id }) };
     // set SMTP with a password
@@ -162,6 +181,24 @@ describe("platform tenant CRUD via routes", () => {
     expect(stored?.settings.smtp?.port).toBe(2525);
   });
 
+  it("PATCH settings preserves fields omitted by partial clients", async () => {
+    const ctx = { params: Promise.resolve({ id }) };
+    const before = await tenantStoreMod.getTenantStore().getById(id);
+    expect(before?.settings.smtp?.host).toBe("smtp.acme.com");
+
+    const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {
+      method: "PATCH",
+      body: { settings: { contactEmail: "owner@acme.example" } },
+    }), ctx);
+    expect(res.status).toBe(200);
+
+    const stored = await tenantStoreMod.getTenantStore().getById(id);
+    expect(stored?.settings.contactEmail).toBe("owner@acme.example");
+    expect(stored?.settings.smtp?.host).toBe("smtp.acme.com");
+    expect(stored?.settings.smtp?.pass).toBe("secret-pw");
+    expect(stored?.settings.emailEnabled).toBe(true);
+  });
+
   it("maps and unmaps hosts", async () => {
     const ctx = { params: Promise.resolve({ id }) };
     const add = await domainsRoute.POST(authed(`/api/platform/tenants/${id}/domains`, { method: "POST", body: { host: "book.acme.com" } }), ctx);
@@ -170,9 +207,28 @@ describe("platform tenant CRUD via routes", () => {
     expect((await del.json()).hosts).not.toContain("book.acme.com");
   });
 
+  it("rejects mapping a host already owned by another tenant", async () => {
+    const create = await tenantsRoute.POST(authed("/api/platform/tenants", {
+      method: "POST",
+      body: { slug: "beta", name: "Beta Osteria", username: "staff", password: "staffpass1", hosts: [] },
+    }));
+    expect(create.status).toBe(201);
+    const otherId = (await create.json()).tenant.id;
+    const ctx = { params: Promise.resolve({ id: otherId }) };
+
+    const res = await domainsRoute.POST(authed(`/api/platform/tenants/${otherId}/domains`, {
+      method: "POST",
+      body: { host: "acme.example.com" },
+    }), ctx);
+    expect(res.status).toBe(409);
+    expect((await tenantStoreMod.getTenantStore().getByHost("acme.example.com"))?.id).toBe(id);
+  });
+
   it("resets the staff password", async () => {
     const ctx = { params: Promise.resolve({ id }) };
-    const res = await passwordRoute.POST(authed(`/api/platform/tenants/${id}/password`, { method: "POST", body: { password: "brandnewpass" } }), ctx);
+    const missing = await passwordRoute.POST(authed(`/api/platform/tenants/${id}/password`, { method: "POST", body: { password: "brandnewpass" } }), ctx);
+    expect(missing.status).toBe(401);
+    const res = await passwordRoute.POST(authed(`/api/platform/tenants/${id}/password`, { method: "POST", body: { password: "brandnewpass", operatorPassword: "newpassword123" } }), ctx);
     expect(res.status).toBe(200);
     const t = await tenantStoreMod.getTenantStore().getById(id);
     expect(t && tenantMod.verifyTenantLogin(t, "staff", "brandnewpass")).toBe(true);
@@ -187,16 +243,44 @@ describe("platform tenant CRUD via routes", () => {
     expect((await tenantStoreMod.getTenantStore().getByHost("acme.example.com"))?.id).toBe(id);
   });
 
-  it("deletes the tenant and cascades its reservations", async () => {
+  it("deletes the tenant and cascades all tenant-scoped operational data", async () => {
     const ctx = { params: Promise.resolve({ id }) };
-    await new MySqlStore(id).createReservation({
+    const reservation = await new MySqlStore(id).createReservation({
       date: "2026-06-12", time: "13:00", service: "lunch", partySize: 2, name: "G", email: "g@x.io", phone: "1",
     });
     expect((await new MySqlStore(id).listReservations()).length).toBe(1);
+    const { getPool } = await import("@/lib/reservations/mysql-pool");
+    const pool = getPool();
+    await pool.query(
+      `INSERT INTO tables (id, tenant_id, label, capacity, min_party, sort_order, joinable, active, created_at)
+       VALUES ('tbl-cascade', ?, '1', 2, 1, 0, 0, 1, ?)`,
+      [id, new Date().toISOString()],
+    );
+    await pool.query(
+      `INSERT INTO waitlist (id, tenant_id, offering, \`date\`, name, party_size, status, created_at, updated_at)
+       VALUES ('wl-cascade', ?, 'main', '2026-06-12', 'Waiting Guest', 2, 'waiting', ?, ?)`,
+      [id, new Date().toISOString(), new Date().toISOString()],
+    );
+    await pool.query(
+      `INSERT INTO customer_profiles (id, tenant_id, email, vip, updated_at)
+       VALUES ('cp-cascade', ?, 'g@x.io', 1, ?)`,
+      [id, new Date().toISOString()],
+    );
+    await pool.query(
+      `INSERT INTO reservation_feedback (token, reservation_id, tenant_id, sent_at)
+       VALUES ('00000000-0000-4000-8000-000000000001', ?, ?, ?)`,
+      [reservation.id, id, new Date().toISOString()],
+    );
 
-    const del = await tenantIdRoute.DELETE(authed(`/api/platform/tenants/${id}`, { method: "DELETE" }), ctx);
+    const rejected = await tenantIdRoute.DELETE(authed(`/api/platform/tenants/${id}`, { method: "DELETE", body: { operatorPassword: "wrong" } }), ctx);
+    expect(rejected.status).toBe(401);
+    const del = await tenantIdRoute.DELETE(authed(`/api/platform/tenants/${id}`, { method: "DELETE", body: { operatorPassword: "newpassword123" } }), ctx);
     expect(del.status).toBe(200);
     expect(await tenantStoreMod.getTenantStore().getById(id)).toBeNull();
     expect(await new MySqlStore(id).listReservations()).toHaveLength(0);
+    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_feedback"]) {
+      const [rows] = await pool.query(`SELECT COUNT(*) AS count FROM ${table} WHERE tenant_id = ?`, [id]);
+      expect(Number((rows as { count: number }[])[0].count)).toBe(0);
+    }
   });
 });

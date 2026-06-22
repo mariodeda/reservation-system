@@ -132,16 +132,24 @@ export default function TenantDetail() {
 
   async function setPassword() {
     if (newPass.length < 8) { toast("Password must be at least 8 characters.", "error"); return; }
+    const operatorPassword = window.prompt("Confirm with your platform password");
+    if (!operatorPassword) return;
     const res = await platformFetch(`/api/platform/tenants/${id}/password`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: newPass }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: newPass, operatorPassword }),
     });
-    if (res.ok) { setNewPass(""); toast("Staff password updated"); } else toast("Could not set password.", "error");
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) { setNewPass(""); toast("Staff password updated"); } else toast(data.error || "Could not set password.", "error");
   }
 
   async function remove() {
     if (!confirm(`Delete ${view!.name}? This removes its login, hosts, config and all reservations. This cannot be undone.`)) return;
-    const res = await platformFetch(`/api/platform/tenants/${id}`, { method: "DELETE" });
-    if (res.ok) { toast("Restaurant deleted"); router.push("/platform"); } else toast("Could not delete.", "error");
+    const operatorPassword = window.prompt("Confirm deletion with your platform password");
+    if (!operatorPassword) return;
+    const res = await platformFetch(`/api/platform/tenants/${id}`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operatorPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) { toast("Restaurant deleted"); router.push("/platform"); } else toast(data.error || "Could not delete.", "error");
   }
 
   async function mockRun(action: string, label: string, confirmMsg?: string) {
@@ -282,7 +290,9 @@ export default function TenantDetail() {
           {view.hosts.map((h) => (
             <span key={h} className="flex items-center gap-2 bg-surface-container-high border border-outline-variant/30 rounded-full pl-3 pr-1 py-1 text-sm">
               {h}
-              <button onClick={() => removeHost(h)} className="w-5 h-5 rounded-full hover:bg-rose-500/20 text-rose-400" aria-label={`Remove ${h}`}>×</button>
+              <button onClick={() => removeHost(h)} className="w-5 h-5 rounded-full hover:bg-rose-500/20 text-rose-400 inline-flex items-center justify-center" aria-label={`Remove ${h}`}>
+                <XIcon className="h-3 w-3" />
+              </button>
             </span>
           ))}
         </div>
@@ -341,6 +351,15 @@ export default function TenantDetail() {
         </div>
       </section>
     </div>
+  );
+}
+
+function XIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
   );
 }
 

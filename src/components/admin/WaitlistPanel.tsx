@@ -61,7 +61,7 @@ export default function WaitlistPanel({
 
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container">
-      <div className="w-full flex items-center gap-2 px-4 py-2.5">
+      <div className="w-full flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5">
         <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 text-sm font-semibold">
           <svg className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
             <path d="M6 8L1 3h10L6 8z" />
@@ -82,7 +82,7 @@ export default function WaitlistPanel({
       </div>
 
       {open && (
-        <div className="px-4 pb-4 space-y-2">
+        <div className="px-3 pb-3 space-y-2 sm:px-4 sm:pb-4">
           {adding && (
             <AddForm
               date={date}
@@ -91,7 +91,7 @@ export default function WaitlistPanel({
             />
           )}
           {entries.length === 0 ? (
-            <p className="text-sm text-on-surface-variant py-3 text-center">{am.waitlist.none}</p>
+            <p className="text-sm text-on-surface-variant py-1 text-center sm:py-3">{am.waitlist.none}</p>
           ) : (
             entries.map((e) => (
               <WaitRow
@@ -192,7 +192,10 @@ function WaitRow({
           </span>
         )}
         {entry.pagerLabel && (
-          <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">⧉ {entry.pagerLabel}</span>
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-on-surface-variant">
+            <PagerIcon className="h-3 w-3" />
+            {entry.pagerLabel}
+          </span>
         )}
         <span className="ml-auto text-sm tabular-nums text-on-surface-variant" title={am.waitlist.quoted}>
           {am.waitlist.waitingFor(waited)}
@@ -204,7 +207,12 @@ function WaitRow({
 
       {(entry.phone || entry.notes) && (
         <div className="flex flex-wrap gap-x-4 text-sm text-on-surface-variant mt-1">
-          {entry.phone && <span>☎ {entry.phone}</span>}
+          {entry.phone && (
+            <span className="inline-flex items-center gap-1.5">
+              <PhoneIcon className="h-3.5 w-3.5" />
+              {entry.phone}
+            </span>
+          )}
           {entry.notes && <span className="italic">&quot;{entry.notes}&quot;</span>}
         </div>
       )}
@@ -241,6 +249,25 @@ function WaitRow({
         </div>
       )}
     </div>
+  );
+}
+
+function PagerIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="5" width="16" height="11" rx="2" />
+      <path d="M8 19h8" />
+      <path d="M9 9h6" />
+      <path d="M9 12h3" />
+    </svg>
+  );
+}
+
+function PhoneIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 16.92v2a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 3.2 2 2 0 0 1 4.11 1h2a2 2 0 0 1 2 1.72c.12.91.33 1.8.62 2.65a2 2 0 0 1-.45 2.11L7.4 8.36a16 16 0 0 0 6 6l.88-.88a2 2 0 0 1 2.11-.45c.85.29 1.74.5 2.65.62A2 2 0 0 1 22 16.92z" />
+    </svg>
   );
 }
 

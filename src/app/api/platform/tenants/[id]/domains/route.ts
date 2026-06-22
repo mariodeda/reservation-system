@@ -27,6 +27,9 @@ export async function POST(req: NextRequest, ctxArg: { params: Promise<{ id: str
     await store.addDomain(id, host);
     return NextResponse.json({ ok: true, hosts: await store.listDomains(id) });
   } catch (err) {
+    if (err instanceof Error && err.message === "DOMAIN_ALREADY_MAPPED") {
+      return NextResponse.json({ error: "Host is already mapped to another tenant." }, { status: 409 });
+    }
     console.error("[platform] add domain failed:", err);
     return NextResponse.json({ error: "Could not map host." }, { status: 500 });
   }

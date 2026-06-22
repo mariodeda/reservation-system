@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { am } from "@/i18n";
+import { am, hydrateLocale, type Locale } from "@/i18n";
 
 export default function AdminLanding() {
   const router = useRouter();
   const [slug, setSlug] = useState("");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [, setLocaleState] = useState<Locale>("it");
 
   useEffect(() => {
     const saved = localStorage.getItem("admin-theme");
     if (saved === "light") setTheme("light");
+    setLocaleState(hydrateLocale());
   }, []);
 
   function go(e: React.FormEvent) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { type AdminReservation, formatDateLong, todayInTz } from "@/components/admin/shared";
 import { am } from "@/i18n";
 import ReservationRow from "@/components/admin/ReservationRow";
@@ -36,7 +36,9 @@ const NAVBTN =
 
 export default function ReservationsPage() {
   const { slug } = useParams<{ slug: string }>();
-  const initialDate = useRef(todayInTz());
+  const searchParams = useSearchParams();
+  const linkedDate = searchParams.get("date");
+  const initialDate = useRef(linkedDate && /^\d{4}-\d{2}-\d{2}$/.test(linkedDate) ? linkedDate : todayInTz());
   const [date, setDate] = useState(initialDate.current);
   const [items, setItems] = useState<AdminReservation[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
@@ -168,13 +170,13 @@ export default function ReservationsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-semibold">{am.reservations.title}</h1>
-        <div className="flex gap-2">
+    <div className="space-y-3 sm:space-y-5">
+      <div className="flex items-center justify-between gap-2 sm:gap-3">
+        <h1 className="min-w-0 flex-1 truncate text-xl sm:text-2xl font-semibold">{am.reservations.title}</h1>
+        <div className="flex shrink-0 gap-2">
           <button
             onClick={() => { setShowWalkIn((s) => !s); setShowForm(false); }}
-            className="border border-outline-variant/40 text-on-surface-variant hover:text-primary px-4 py-2 rounded-lg text-sm font-semibold transition"
+            className="border border-outline-variant/40 text-on-surface-variant hover:text-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition"
           >
             {showWalkIn ? am.reservations.close : am.walkIn.button}
           </button>
@@ -184,7 +186,7 @@ export default function ReservationsPage() {
               setShowForm((s) => !s);
               setShowWalkIn(false);
             }}
-            className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110"
+            className="bg-primary text-on-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110"
           >
             {showForm ? am.reservations.close : am.reservations.newReservation}
           </button>
@@ -204,36 +206,38 @@ export default function ReservationsPage() {
       {!searching && (
         <>
           {/* date nav + day tools */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap">
             <button onClick={() => setDate(shiftDate(date, -1))} className={NAVBTN} aria-label="Previous day">
-              ‹
+              <ChevronLeftIcon className="h-4 w-4" />
             </button>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm"
-            />
-            <button onClick={() => setDate(shiftDate(date, 1))} className={NAVBTN} aria-label="Next day">
-              ›
-            </button>
+            <div className="flex min-w-0 items-center gap-2 sm:contents">
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="min-w-0 flex-1 bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm sm:flex-none"
+              />
+              <button onClick={() => setDate(shiftDate(date, 1))} className={NAVBTN} aria-label="Next day">
+                <ChevronRightIcon className="h-4 w-4" />
+              </button>
+            </div>
             <button onClick={() => setDate(todayInTz(tz))} className={`${NAVBTN} px-3 text-sm`}>
               {am.reservations.today}
             </button>
-            <span className="text-on-surface-variant text-sm ml-1">
+            <span className="col-span-3 min-w-0 text-on-surface-variant text-xs sm:text-sm sm:ml-1">
               {formatDateLong(date)} · {activeCovers} {am.reservations.covers}
             </span>
-            <div className="ml-auto flex gap-2">
+            <div className="col-span-3 flex gap-2 sm:ml-auto">
               <button
                 onClick={exportCsv}
                 disabled={visible.length === 0}
-                className={`${NAVBTN} px-3 text-sm disabled:opacity-40`}
+                className={`${NAVBTN} flex-1 px-3 text-sm disabled:opacity-40 sm:flex-none`}
               >
                 {am.reservations.exportCsv}
               </button>
               <button
                 onClick={() => window.open(`/admin/${slug}/print?date=${date}`, "_blank")}
-                className={`${NAVBTN} px-3 text-sm`}
+                className={`${NAVBTN} flex-1 px-3 text-sm sm:flex-none`}
               >
                 {am.reservations.print}
               </button>
@@ -287,7 +291,7 @@ export default function ReservationsPage() {
       {/* offering filter (only when more than one offering) */}
       {multiOffering && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs uppercase tracking-widest text-on-surface-variant mr-1">{am.reservations.offeringLabel}</span>
+          <span className="w-full text-xs uppercase tracking-widest text-on-surface-variant sm:w-auto sm:mr-1">{am.reservations.offeringLabel}</span>
           <Chip active={offeringFilter === "all"} onClick={() => setOfferingFilter("all")}>
             {am.reservations.all}
           </Chip>
@@ -314,7 +318,7 @@ export default function ReservationsPage() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder={am.reservations.searchPlaceholder}
           maxLength={200}
-          className="ml-auto bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm w-72 max-w-full"
+          className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm sm:ml-auto sm:w-72 sm:max-w-full"
         />
       </div>
 
@@ -342,7 +346,7 @@ export default function ReservationsPage() {
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <div className="text-center py-16 text-on-surface-variant border border-dashed border-outline-variant/40 rounded-xl">
+        <div className="text-center py-10 sm:py-16 text-on-surface-variant border border-dashed border-outline-variant/40 rounded-xl">
           {am.reservations.noReservationsDay}
         </div>
       ) : (
@@ -572,6 +576,22 @@ function WalkInForm({
       </div>
       {error && <p className="text-sm text-rose-400">{error}</p>}
     </form>
+  );
+}
+
+function ChevronLeftIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
   );
 }
 

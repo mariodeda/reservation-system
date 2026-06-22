@@ -109,7 +109,8 @@ export default function ReservationRow({
             <span className="font-semibold truncate max-w-[180px] sm:max-w-[260px]">{r.name}</span>
             {r.customerVip && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-widest">
-                ★ {am.customers.vip}
+                <StarIcon />
+                {am.customers.vip}
               </span>
             )}
             <span className="text-on-surface-variant text-sm">· {r.partySize} {am.row.guests}</span>
@@ -146,13 +147,29 @@ export default function ReservationRow({
             <>
               {open && (
                 <div className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5 text-sm text-on-surface-variant pt-0.5">
-                  {r.email && <span>✉ {r.email}</span>}
-                  {r.phone && <span>☎ {r.phone}</span>}
-                  {r.occasion && <span>🎉 {r.occasion}</span>}
+                  {r.email && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <EmailIcon />
+                      {r.email}
+                    </span>
+                  )}
+                  {r.phone && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <PhoneIcon />
+                      {r.phone}
+                    </span>
+                  )}
+                  {r.occasion && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <OccasionIcon />
+                      {r.occasion}
+                    </span>
+                  )}
                   {r.notes && <span className="italic">"{r.notes}"</span>}
                   {r.dietaryNotes && (
-                    <span className="text-amber-300 font-medium" title={am.customers.dietaryAlert}>
-                      ⚠ {r.dietaryNotes}
+                    <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium" title={am.customers.dietaryAlert}>
+                      <WarningIcon />
+                      {r.dietaryNotes}
                     </span>
                   )}
                   <span className="ml-auto flex gap-3 flex-wrap items-center">
@@ -423,8 +440,9 @@ function FreeTextTableAssign({
             onMouseDown={(e) => { e.preventDefault(); commit(); }}
             className="w-9 h-full flex items-center justify-center text-primary hover:bg-primary/20 transition-colors text-sm font-bold"
             title={am.row.save}
+            aria-label={am.row.save}
           >
-            ✓
+            <CheckIcon />
           </button>
         )}
       </div>
@@ -446,7 +464,7 @@ function FreeTextTableAssign({
           </span>
           <span className="flex-1 px-2.5 text-sm font-semibold text-on-surface text-left truncate">{value}</span>
           <span className="w-8 h-full flex items-center justify-center text-on-surface-variant/40 group-hover:text-primary/70 transition-colors text-xs shrink-0">
-            ✎
+            <PencilIcon />
           </span>
         </button>
         <button
@@ -467,13 +485,14 @@ function FreeTextTableAssign({
             }
           }}
           title={am.row.tableClear}
+          aria-label={am.row.tableClear}
           disabled={saving}
           className="w-8 h-full flex items-center justify-center text-on-surface-variant/40 hover:text-rose-400 border-l border-primary/20 transition-colors shrink-0 disabled:opacity-50"
         >
           {saving ? (
             <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           ) : (
-            "×"
+            <XIcon />
           )}
         </button>
       </div>
@@ -495,7 +514,7 @@ function FreeTextTableAssign({
         {am.row.assignTable}
       </span>
       <span className="w-9 h-full flex items-center justify-center text-on-surface-variant/30 group-hover:text-primary/50 transition-colors text-base leading-none">
-        +
+        <PlusIcon />
       </span>
     </button>
   );
@@ -654,6 +673,85 @@ function TableIcon() {
   return (
     <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <path d="M2 3h12v2H2V3zm0 4h12v1H2V7zm1 3h10v1H3v-1zm-1 3h12v1H2v-1z"/>
+    </svg>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="m8 1.8 1.8 3.7 4.1.6-3 2.9.7 4.1L8 11.2l-3.6 1.9.7-4.1-3-2.9 4.1-.6L8 1.8Z" />
+    </svg>
+  );
+}
+
+function EmailIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.5 4.5h11v7h-11z" />
+      <path d="m3 5 5 4 5-4" />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5.4 2.7 6.5 5c.2.5.1 1-.3 1.3l-.7.6a8 8 0 0 0 3.6 3.6l.6-.7c.3-.4.8-.5 1.3-.3l2.3 1.1c.5.2.8.8.6 1.3l-.5 1.7c-.1.5-.6.8-1.1.8A10.7 10.7 0 0 1 1.6 3.7c0-.5.3-1 .8-1.1l1.7-.5c.5-.2 1.1.1 1.3.6Z" />
+    </svg>
+  );
+}
+
+function OccasionIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 4.5v9" />
+      <path d="M3.5 7.5h9v6h-9z" />
+      <path d="M2.8 5h10.4v2.5H2.8z" />
+      <path d="M8 5H5.4a1.4 1.4 0 1 1 1.1-2.3L8 5Zm0 0h2.6a1.4 1.4 0 1 0-1.1-2.3L8 5Z" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 2.8 1.9 12a1.1 1.1 0 0 0 1 1.7h10.2a1.1 1.1 0 0 0 1-1.7L9 2.8a1.1 1.1 0 0 0-2 0Z" />
+      <path d="M8 6v3" />
+      <path d="M8 11.6h.01" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m3.5 8.3 2.7 2.7 6.3-6.5" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9.7 3.3 12.7 6.3" />
+      <path d="M3 13h3l7-7a2.1 2.1 0 0 0-3-3l-7 7v3Z" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M8 3.5v9M3.5 8h9" />
     </svg>
   );
 }

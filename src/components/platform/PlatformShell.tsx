@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SystemLogo from "@/components/SystemLogo";
-import { getLocale, setLocale, type Locale } from "@/i18n";
+import { hydrateLocale, setLocale, type Locale } from "@/i18n";
 
 export default function PlatformShell({
   username,
@@ -20,7 +20,7 @@ export default function PlatformShell({
   useEffect(() => {
     const saved = localStorage.getItem("admin-theme");
     if (saved === "light") setTheme("light");
-    setLocaleState(getLocale());
+    setLocaleState(hydrateLocale());
   }, []);
 
   function toggleTheme() {
@@ -52,6 +52,7 @@ export default function PlatformShell({
             <button
               onClick={toggleTheme}
               title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
             >
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
@@ -62,6 +63,7 @@ export default function PlatformShell({
                   key={l}
                   onClick={() => { if (locale !== l) setLocale(l); }}
                   title={l === "it" ? "Italiano" : "English"}
+                  aria-label={l === "it" ? "Italiano" : "English"}
                   className={`px-2 py-1 text-sm leading-none transition ${
                     locale === l
                       ? "bg-primary/15 text-primary font-medium"
