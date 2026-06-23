@@ -137,6 +137,8 @@ export interface Reservation {
   tableId?: string;
   /** All managed tables used by this booking, for joined/combo table assignments. */
   tableIds?: string[];
+  /** Per-reservation turn duration override in minutes. Null clears the override (use config default). */
+  durationMinsOverride?: number | null;
   status: ReservationStatus;
   source: "web" | "admin";
   createdAt: string; // ISO

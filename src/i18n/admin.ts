@@ -57,6 +57,8 @@ export const am = {
     email: "Email",
     occasion: "Occasion",
     notes: "Notes",
+    durationOverride: "Table time",
+    durationOverrideDefault: "Default",
   },
   walkIn: {
     button: "Walk-in",

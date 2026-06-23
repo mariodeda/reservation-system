@@ -129,6 +129,23 @@ describe("sanitizeTenantSettings", () => {
     expect(sanitizeTenantSettings({ feedbackEnabled: 0 as unknown as boolean }).feedbackEnabled).toBe(false);
   });
 
+  it("sanitizes per-event email switches and keeps legacy feedbackEnabled aligned", () => {
+    const s = sanitizeTenantSettings({
+      emailEvents: { bookingConfirmation: false, feedbackRequest: true },
+    });
+    expect(s.emailEvents).toEqual({ bookingConfirmation: false, feedbackRequest: true });
+    expect(s.feedbackEnabled).toBe(true);
+
+    const legacy = sanitizeTenantSettings({ feedbackEnabled: true });
+    expect(legacy.emailEvents).toEqual({ bookingConfirmation: true, feedbackRequest: true });
+  });
+
+  it("clamps feedback request delay hours", () => {
+    expect(sanitizeTenantSettings({ feedbackRequestDelayHours: 48 }).feedbackRequestDelayHours).toBe(48);
+    expect(sanitizeTenantSettings({ feedbackRequestDelayHours: -1 }).feedbackRequestDelayHours).toBe(0);
+    expect(sanitizeTenantSettings({ feedbackRequestDelayHours: 9999 }).feedbackRequestDelayHours).toBe(720);
+  });
+
   it("length-caps strings", () => {
     expect(sanitizeTenantSettings({ name: "x".repeat(500) }).name).toHaveLength(160);
   });

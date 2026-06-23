@@ -107,6 +107,15 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
     expect(createTransport).not.toHaveBeenCalled();
   });
 
+  it("skips when the booking confirmation event is disabled", async () => {
+    const r = await sendConfirmationEmail(
+      reservation(),
+      tenant({ smtp, emailEvents: { bookingConfirmation: false, feedbackRequest: true } }),
+    );
+    expect(r).toEqual({ sent: false, skipped: true });
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
   it("sends via the tenant's own SMTP", async () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
     const r = await sendConfirmationEmail(reservation(), tenant({ smtp }), "Dinner");
@@ -160,6 +169,16 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
 
   it("skips when tenant feedback is disabled", async () => {
     const r = await sendFeedbackRequestEmail(reservation(), tenant({ feedbackEnabled: false, smtp }), "https://fb.test/feedback/tok");
+    expect(r).toEqual({ sent: false, skipped: true });
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
+  it("skips when the feedback request event is disabled", async () => {
+    const r = await sendFeedbackRequestEmail(
+      reservation(),
+      tenant({ smtp, emailEvents: { bookingConfirmation: true, feedbackRequest: false } }),
+      "https://fb.test/feedback/tok",
+    );
     expect(r).toEqual({ sent: false, skipped: true });
     expect(createTransport).not.toHaveBeenCalled();
   });

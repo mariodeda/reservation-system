@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDB } from "mysql-memory-server";
 import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
@@ -15,6 +15,8 @@ let db: MySQLDB;
 let tenantId: string;
 
 let adminFeedbackRoute: typeof import("@/app/api/admin/reservations/[id]/feedback/route");
+let adminReservationsRoute: typeof import("@/app/api/admin/reservations/route");
+let adminReservationRoute: typeof import("@/app/api/admin/reservations/[id]/route");
 let publicFeedbackRoute: typeof import("@/app/api/feedback/[token]/route");
 let feedbackStore: typeof import("@/lib/reservations/feedback-store");
 let store: typeof import("@/lib/reservations/store");
@@ -66,6 +68,8 @@ beforeAll(async () => {
   feedbackStore = await import("@/lib/reservations/feedback-store");
   store = await import("@/lib/reservations/store");
   adminFeedbackRoute = await import("@/app/api/admin/reservations/[id]/feedback/route");
+  adminReservationsRoute = await import("@/app/api/admin/reservations/route");
+  adminReservationRoute = await import("@/app/api/admin/reservations/[id]/route");
   publicFeedbackRoute = await import("@/app/api/feedback/[token]/route");
 
   const { getTenantStore, resetTenantStore } = await import("@/lib/reservations/tenant-store");
@@ -91,6 +95,10 @@ afterAll(async () => {
   if (db) await db.stop();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(async () => {
   const p = poolMod.getPool();
   await p.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
@@ -101,6 +109,9 @@ beforeEach(async () => {
   await getTenantStore().updateSettings(tenantId, {
     ...tenant.settings,
     feedbackEnabled: true,
+    emailEnabled: true,
+    emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+    feedbackRequestDelayHours: 0,
     allowedOrigins: [marketingOrigin],
   });
   sendFeedbackRequestEmail.mockClear();
@@ -169,6 +180,24 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     const { getTenantStore } = await import("@/lib/reservations/tenant-store");
     const tenant = (await getTenantStore().getById(tenantId))!;
     await getTenantStore().updateSettings(tenantId, { ...tenant.settings, feedbackEnabled: false });
+    const r = await makeCompleted();
+    const res = await adminFeedbackRoute.POST(
+      authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
+      { params: Promise.resolve({ id: r.id }) },
+    );
+    expect(res.status).toBe(403);
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
+
+  it("403s when the feedback request email event is disabled", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      emailEnabled: true,
+      feedbackEnabled: false,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: false },
+    });
     const r = await makeCompleted();
     const res = await adminFeedbackRoute.POST(
       authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
@@ -249,6 +278,98 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
       { params: Promise.resolve({ id: r.id }) },
     );
     expect(res.status).toBe(200);
+  });
+});
+
+describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
+  it("does not auto-send a feedback request before the tenant delay has elapsed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-12T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackRequestDelayHours: 24,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    const r = await s.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Delayed Guest", email: "delay@x.io", phone: "1",
+    });
+
+    const res = await adminReservationRoute.PATCH(
+      authed(`/api/admin/reservations/${r.id}`, { method: "PATCH", body: { status: "completed" } }),
+      { params: Promise.resolve({ id: r.id }) },
+    );
+    expect(res.status).toBe(200);
+    await Promise.resolve();
+    expect(await feedbackStore.getFeedbackByReservation(r.id)).toBeNull();
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
+
+  it("auto-sends a feedback request once the tenant delay has elapsed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackRequestDelayHours: 24,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    const r = await s.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Due Guest", email: "due@x.io", phone: "1",
+    });
+
+    const res = await adminReservationRoute.PATCH(
+      authed(`/api/admin/reservations/${r.id}`, { method: "PATCH", body: { status: "completed" } }),
+      { params: Promise.resolve({ id: r.id }) },
+    );
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce());
+    expect(await feedbackStore.getFeedbackByReservation(r.id)).not.toBeNull();
+  });
+
+  it("sends delayed feedback requests later from the admin reservation list", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-12T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackRequestDelayHours: 24,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    const r = await s.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Later Guest", email: "later@x.io", phone: "1",
+    });
+    await adminReservationRoute.PATCH(
+      authed(`/api/admin/reservations/${r.id}`, { method: "PATCH", body: { status: "completed" } }),
+      { params: Promise.resolve({ id: r.id }) },
+    );
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+
+    vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
+    const res = await adminReservationsRoute.GET(
+      authed("/api/admin/reservations?date=2026-06-12"),
+    );
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce());
+    expect(await feedbackStore.getFeedbackByReservation(r.id)).not.toBeNull();
   });
 });
 
@@ -336,6 +457,25 @@ describe("GET /api/feedback/[token]", () => {
       { params: Promise.resolve({ token: rec.token }) },
     );
     expect(res.status).toBe(503);
+    expectMarketingCors(res);
+  });
+
+  it("keeps existing feedback links usable when only the global outbound email flow is disabled", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      emailEnabled: false,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+    });
+    const r = await makeCompleted();
+    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
+    const res = await publicFeedbackRoute.GET(
+      marketingReq(`/api/feedback/${rec.token}`),
+      { params: Promise.resolve({ token: rec.token }) },
+    );
+    expect(res.status).toBe(200);
     expectMarketingCors(res);
   });
 

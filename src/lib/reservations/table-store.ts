@@ -87,6 +87,7 @@ interface AssignedRow extends RowDataPacket {
   status: Reservation["status"];
   tableId: string | null;
   tableIds: unknown;
+  durationMinsOverride: number | null;
 }
 
 export interface TableDayState {
@@ -232,7 +233,7 @@ export class TableStore {
     const statuses = ACTIVE_STATUSES.map(() => "?").join(",");
     const params: unknown[] = [this.tenantId, date, ...ACTIVE_STATUSES];
     let sql =
-      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId, table_ids AS tableIds
+      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId, table_ids AS tableIds, duration_mins_override AS durationMinsOverride
        FROM reservations
        WHERE tenant_id = ? AND \`date\` = ? AND status IN (${statuses})
          AND (table_id IS NOT NULL OR table_ids IS NOT NULL)`;
@@ -245,7 +246,7 @@ export class TableStore {
   }
 
   private async validateTableSet(
-    reservation: { id: string; date: string; time: string; offering: string; service: string; name?: string },
+    reservation: { id: string; date: string; time: string; offering: string; service: string; name?: string; durationMinsOverride?: number | null },
     tableIds: string[],
     config: AvailabilityConfig,
   ): Promise<{ tables?: RestaurantTable[]; error?: string }> {
@@ -261,12 +262,12 @@ export class TableStore {
     }
 
     const myStart = toMinutes(reservation.time);
-    const myTurn = turnMinutesFor(config, reservation.offering, reservation.service, reservation.date);
+    const myTurn = reservation.durationMinsOverride ?? turnMinutesFor(config, reservation.offering, reservation.service, reservation.date);
     for (const table of tables) {
       const others = await this.assignedOnDate(reservation.date, table.id, reservation.id);
       for (const o of others) {
         const oStart = toMinutes(o.time);
-        const oTurn = turnMinutesFor(config, o.offering, o.service, o.date);
+        const oTurn = o.durationMinsOverride ?? turnMinutesFor(config, o.offering, o.service, o.date);
         if (turnsOverlap(myStart, myTurn, oStart, oTurn)) {
           return {
             error: `Table ${table.label} is already taken at ${o.time} (${o.name}). Pick another table or time.`,
@@ -298,12 +299,12 @@ export class TableStore {
     await ensureSchema();
     const pool = getPool();
     const [resRows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, `date`, `time`, offering, service FROM reservations WHERE id = ? AND tenant_id = ?",
+      "SELECT id, `date`, `time`, offering, service, duration_mins_override AS durationMinsOverride FROM reservations WHERE id = ? AND tenant_id = ?",
       [reservationId, this.tenantId],
     );
     if (!resRows.length) return { error: "Reservation not found." };
     const res = resRows[0] as {
-      id: string; date: string; time: string; offering: string; service: string;
+      id: string; date: string; time: string; offering: string; service: string; durationMinsOverride?: number | null;
     };
 
     if (tableId === null) {
@@ -348,7 +349,7 @@ export class TableStore {
    * binding, and has no turn conflict. Returns null when nothing fits.
    */
   async suggestTable(
-    res: { date: string; time: string; offering: string; service: string; partySize: number },
+    res: { date: string; time: string; offering: string; service: string; partySize: number; durationMinsOverride?: number | null },
     config: AvailabilityConfig,
   ): Promise<RestaurantTable | null> {
     const allCandidates = (await this.listTables({ activeOnly: true, offering: res.offering }))
@@ -356,11 +357,11 @@ export class TableStore {
       .sort((a, b) => a.capacity - b.capacity || a.sortOrder - b.sortOrder);
     const candidates = allCandidates.filter((t) => t.capacity >= res.partySize);
     const myStart = toMinutes(res.time);
-    const myTurn = turnMinutesFor(config, res.offering, res.service, res.date);
+    const myTurn = res.durationMinsOverride ?? turnMinutesFor(config, res.offering, res.service, res.date);
     for (const t of candidates) {
       const others = await this.assignedOnDate(res.date, t.id);
       const clash = others.some((o) =>
-        turnsOverlap(myStart, myTurn, toMinutes(o.time), turnMinutesFor(config, o.offering, o.service, o.date)),
+        turnsOverlap(myStart, myTurn, toMinutes(o.time), o.durationMinsOverride ?? turnMinutesFor(config, o.offering, o.service, o.date)),
       );
       if (!clash) return t;
     }
@@ -412,7 +413,7 @@ export class TableStore {
 
     const statuses = ACTIVE_STATUSES.map(() => "?").join(",");
     const [rows] = await getPool().query<AssignedRow[]>(
-      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId, table_ids AS tableIds
+      `SELECT id, \`date\`, \`time\`, offering, service, party_size AS partySize, name, status, table_id AS tableId, table_ids AS tableIds, duration_mins_override AS durationMinsOverride
        FROM reservations
        WHERE tenant_id = ? AND \`date\` = ? AND table_id IS NOT NULL AND status IN (${statuses})
        ORDER BY \`time\``,
@@ -453,7 +454,7 @@ export class TableStore {
           name: b.name,
           status: b.status,
           service: b.service,
-          durationMins: turnMinutesFor(config, b.offering, b.service, b.date),
+          durationMins: b.durationMinsOverride ?? turnMinutesFor(config, b.offering, b.service, b.date),
         })),
       };
     });

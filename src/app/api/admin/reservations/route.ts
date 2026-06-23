@@ -3,6 +3,7 @@ import { getStore, referenceOf } from "@/lib/reservations/store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getCustomerStore } from "@/lib/reservations/customer-store";
 import { getFeedbackStatusBatch } from "@/lib/reservations/feedback-store";
+import { processDueFeedbackRequests } from "@/lib/reservations/feedback-automation";
 import type {
   NewReservationInput,
   ReservationStatus,
@@ -46,6 +47,8 @@ export async function GET(req: NextRequest) {
       to: sp.get("to") ?? undefined,
       status: validStatus,
     });
+    processDueFeedbackRequests(reservations, ctx.tenant)
+      .catch((err) => console.error("[feedback] due processor failed:", err));
 
     // Enrich with customer profile data (visit count, VIP, dietary notes)
     const emails = reservations.map((r) => r.email).filter(Boolean);

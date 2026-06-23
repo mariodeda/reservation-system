@@ -17,6 +17,7 @@ export interface AdminReservation {
   notes?: string;
   tableLabel?: string;
   tableId?: string;
+  durationMinsOverride?: number | null;
   status: ReservationStatus;
   source: "web" | "admin";
   createdAt: string;

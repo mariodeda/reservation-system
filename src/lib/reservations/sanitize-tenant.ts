@@ -5,6 +5,7 @@
  * SMTP validated.
  */
 import type { EmailTemplate, TenantSettings, TenantSmtp } from "./tenant";
+import { normalizeFeedbackRequestDelayHours } from "./email-policy";
 
 const str = (v: unknown, max: number, dflt = ""): string =>
   typeof v === "string" ? v.slice(0, max) : dflt;
@@ -113,6 +114,16 @@ function sanitizeTemplate(input: unknown): TenantSettings["emailTemplates"] | un
   } as TenantSettings["emailTemplates"];
 }
 
+function sanitizeEmailEvents(input: Partial<TenantSettings>): NonNullable<TenantSettings["emailEvents"]> {
+  const eventInput: Partial<NonNullable<TenantSettings["emailEvents"]>> =
+    input.emailEvents && typeof input.emailEvents === "object" ? input.emailEvents : {};
+  const feedbackRequest = eventInput.feedbackRequest ?? input.feedbackEnabled;
+  return {
+    bookingConfirmation: eventInput.bookingConfirmation === undefined ? true : Boolean(eventInput.bookingConfirmation),
+    feedbackRequest: Boolean(feedbackRequest),
+  };
+}
+
 export function sanitizeTenantSettings(input: Partial<TenantSettings>): TenantSettings {
   const theme: { primary?: string; onPrimary?: string } = {};
   if (input.theme && typeof input.theme === "object") {
@@ -120,6 +131,7 @@ export function sanitizeTenantSettings(input: Partial<TenantSettings>): TenantSe
     if (isHex(input.theme.onPrimary)) theme.onPrimary = input.theme.onPrimary;
   }
 
+  const emailEvents = sanitizeEmailEvents(input);
   const settings: TenantSettings = {
     name: str(input.name, 160, "Restaurant") || "Restaurant",
     url: str(input.url, 300),
@@ -129,7 +141,9 @@ export function sanitizeTenantSettings(input: Partial<TenantSettings>): TenantSe
     timezone: (() => { const tz = str(input.timezone, 64); return tz && isValidTimezone(tz) ? tz : "Europe/Rome"; })(),
     autoConfirm: Boolean(input.autoConfirm),
     emailEnabled: Boolean(input.emailEnabled),
-    feedbackEnabled: Boolean(input.feedbackEnabled),
+    emailEvents,
+    feedbackRequestDelayHours: normalizeFeedbackRequestDelayHours(input.feedbackRequestDelayHours),
+    feedbackEnabled: emailEvents.feedbackRequest,
   };
   const emailFrom = str(input.emailFrom, 200).trim();
   if (emailFrom) settings.emailFrom = emailFrom;

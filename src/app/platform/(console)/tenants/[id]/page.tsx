@@ -5,12 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
 
 const field =
-  "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
+  "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none disabled:cursor-not-allowed disabled:opacity-60";
 const card = "rounded-xl border border-outline-variant/30 bg-surface-container p-4 space-y-3";
 
 type Form = {
   name: string; url: string; contactEmail: string; contactPhone: string;
-  locale: string; timezone: string; autoConfirm: boolean; emailEnabled: boolean; feedbackEnabled: boolean;
+  locale: string; timezone: string; autoConfirm: boolean; emailEnabled: boolean;
+  emailBookingConfirmation: boolean; emailFeedbackRequest: boolean; feedbackRequestDelayHours: string;
   themePrimary: string; themeOnPrimary: string; logoUrl: string;
   allowedOrigins: string;
   smtpHost: string; smtpPort: string; smtpSecure: boolean; smtpUser: string; smtpFrom: string; smtpPass: string;
@@ -22,10 +23,13 @@ function toForm(t: TenantView): Form {
   const s = t.settings;
   const ct = s.emailTemplates?.confirmation;
   const ft = s.emailTemplates?.feedbackRequest;
+  const feedbackRequestEnabled = s.emailEvents?.feedbackRequest ?? s.feedbackEnabled ?? false;
   return {
     name: s.name, url: s.url, contactEmail: s.contactEmail, contactPhone: s.contactPhone,
     locale: s.locale, timezone: s.timezone, autoConfirm: s.autoConfirm, emailEnabled: s.emailEnabled,
-    feedbackEnabled: s.feedbackEnabled ?? false,
+    emailBookingConfirmation: s.emailEvents?.bookingConfirmation ?? true,
+    emailFeedbackRequest: feedbackRequestEnabled,
+    feedbackRequestDelayHours: String(s.feedbackRequestDelayHours ?? 0),
     themePrimary: s.theme?.primary ?? "", themeOnPrimary: s.theme?.onPrimary ?? "",
     logoUrl: s.logoUrl ?? "",
     allowedOrigins: (s.allowedOrigins ?? []).join("\n"),
@@ -67,7 +71,12 @@ export default function TenantDetail() {
       const settings: Record<string, unknown> = {
         name: f.name, url: f.url, contactEmail: f.contactEmail, contactPhone: f.contactPhone,
         locale: f.locale, timezone: f.timezone, autoConfirm: f.autoConfirm, emailEnabled: f.emailEnabled,
-        feedbackEnabled: f.feedbackEnabled,
+        emailEvents: {
+          bookingConfirmation: f.emailBookingConfirmation,
+          feedbackRequest: f.emailFeedbackRequest,
+        },
+        feedbackRequestDelayHours: Number(f.feedbackRequestDelayHours) || 0,
+        feedbackEnabled: f.emailFeedbackRequest,
         theme: { primary: f.themePrimary || undefined, onPrimary: f.themeOnPrimary || undefined },
         logoUrl: f.logoUrl || undefined,
         allowedOrigins: f.allowedOrigins.split(/[\n,]/).map((o) => o.trim()).filter(Boolean),
@@ -206,8 +215,6 @@ export default function TenantDetail() {
         </div>
         <div className="flex gap-6 flex-wrap">
           <Check label="Auto-confirm web bookings" v={f.autoConfirm} on={(v) => set("autoConfirm", v)} />
-          <Check label="Send confirmation emails" v={f.emailEnabled} on={(v) => set("emailEnabled", v)} />
-          <Check label="Post-visit feedback emails" v={f.feedbackEnabled} on={(v) => set("feedbackEnabled", v)} />
         </div>
       </section>
 
@@ -238,6 +245,61 @@ export default function TenantDetail() {
           on={(v) => set("allowedOrigins", v)}
           placeholder={"https://www.osteria-example.com\nhttps://osteria-example.com"}
         />
+      </section>
+
+      {/* Email flow */}
+      <section className={card}>
+        <div>
+          <h2 className="font-semibold">Email flow</h2>
+          <p className="text-xs text-on-surface-variant">
+            Platform-only controls for this restaurant's outbound email automation. Staff cannot edit these from the tenant admin.
+          </p>
+        </div>
+        <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/70 p-3 space-y-3">
+          <Check
+            label="Enable all outbound email for this tenant"
+            v={f.emailEnabled}
+            on={(v) => set("emailEnabled", v)}
+          />
+          <p className="text-xs text-on-surface-variant">
+            When off, every event below is suppressed even if SMTP credentials and templates are configured.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/70 p-3 space-y-2">
+            <Check
+              label="Booking confirmation email"
+              v={f.emailBookingConfirmation}
+              on={(v) => set("emailBookingConfirmation", v)}
+              disabled={!f.emailEnabled}
+            />
+            <p className="text-xs text-on-surface-variant">
+              Sent after confirmed public bookings when auto-confirm is on, or after any confirmed booking path calls the confirmation event.
+            </p>
+          </div>
+          <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/70 p-3 space-y-3">
+            <Check
+              label="Post-visit review request email"
+              v={f.emailFeedbackRequest}
+              on={(v) => set("emailFeedbackRequest", v)}
+              disabled={!f.emailEnabled}
+            />
+            <label className="block">
+              <span className="text-xs text-on-surface-variant">Review request delay, in hours after reservation time</span>
+              <input
+                className={field}
+                type="number"
+                min="0"
+                max="720"
+                step="1"
+                disabled={!f.emailEnabled || !f.emailFeedbackRequest}
+                value={f.feedbackRequestDelayHours}
+                onChange={(e) => set("feedbackRequestDelayHours", e.target.value)}
+                placeholder="0"
+              />
+            </label>
+          </div>
+        </div>
       </section>
 
       {/* SMTP */}
@@ -406,10 +468,10 @@ function TemplateArea({ label, v, on, placeholder }: { label: string; v: string;
     </label>
   );
 }
-function Check({ label, v, on }: { label: string; v: boolean; on: (v: boolean) => void }) {
+function Check({ label, v, on, disabled = false }: { label: string; v: boolean; on: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <label className="flex items-center gap-2 text-sm cursor-pointer">
-      <input type="checkbox" checked={v} onChange={(e) => on(e.target.checked)} />
+    <label className={`flex items-center gap-2 text-sm ${disabled ? "cursor-not-allowed text-on-surface-variant" : "cursor-pointer"}`}>
+      <input type="checkbox" checked={v} disabled={disabled} onChange={(e) => on(e.target.checked)} />
       {label}
     </label>
   );

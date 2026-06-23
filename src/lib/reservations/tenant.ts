@@ -33,6 +33,11 @@ export interface TenantSmtp {
   from?: string;
 }
 
+export interface TenantEmailEvents {
+  bookingConfirmation: boolean;
+  feedbackRequest: boolean;
+}
+
 /** Per-tenant identity/branding. Stored as JSON on the tenant row. */
 export interface TenantSettings {
   name: string;
@@ -42,7 +47,12 @@ export interface TenantSettings {
   locale: string;
   timezone: string;
   autoConfirm: boolean;
+  /** Global email-flow switch. Event-specific settings are ignored when false. */
   emailEnabled: boolean;
+  /** Platform-managed per-email-event switches. */
+  emailEvents?: TenantEmailEvents;
+  /** Hours after reservation time before automatic feedback requests are sent. */
+  feedbackRequestDelayHours?: number;
   /** Optional explicit From header. */
   emailFrom?: string;
   /** Brand accent colors injected as CSS variables on the reservation page. */
@@ -57,7 +67,7 @@ export interface TenantSettings {
   smtp?: TenantSmtp;
   /** Optional per-tenant templates; falls back to the platform default. */
   emailTemplates?: { confirmation: EmailTemplate; feedbackRequest?: EmailTemplate };
-  /** Send post-visit feedback request emails for completed reservations. */
+  /** Legacy alias for feedbackRequest email flow and feedback collection. */
   feedbackEnabled?: boolean;
   /**
    * Browser origins allowed to call the public booking API for this tenant

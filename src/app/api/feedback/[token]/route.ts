@@ -6,6 +6,7 @@ import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import type { Tenant } from "@/lib/reservations/tenant";
 import type { FeedbackRecord } from "@/lib/reservations/feedback-store";
+import { isFeedbackCollectionEnabled } from "@/lib/reservations/email-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function OPTIONS(
   const ctx = await feedbackContext(token);
   return preflight(
     req,
-    ctx?.tenant?.status === "active" && ctx.tenant.settings.feedbackEnabled !== false ? ctx.tenant : null,
+    ctx?.tenant?.status === "active" && isFeedbackCollectionEnabled(ctx.tenant.settings) ? ctx.tenant : null,
   );
 }
 
@@ -39,7 +40,7 @@ export async function GET(
     if (!ctx) return NextResponse.json({ error: "Invalid or expired link." }, { status: 404 });
     const origin = ctx.tenant ? allowedOrigin(req, ctx.tenant) : null;
 
-    if (ctx.tenant?.status !== "active" || ctx.tenant.settings.feedbackEnabled === false) {
+    if (ctx.tenant?.status !== "active" || !isFeedbackCollectionEnabled(ctx.tenant.settings)) {
       return withCors(
         NextResponse.json({ error: "This restaurant is not currently accepting feedback." }, { status: 503 }),
         origin,
@@ -77,7 +78,7 @@ export async function POST(
   if (!ctx) return NextResponse.json({ error: "Invalid or expired link." }, { status: 404 });
   const origin = ctx.tenant ? allowedOrigin(req, ctx.tenant) : null;
 
-  if (ctx.tenant?.status !== "active" || ctx.tenant.settings.feedbackEnabled === false) {
+  if (ctx.tenant?.status !== "active" || !isFeedbackCollectionEnabled(ctx.tenant.settings)) {
     return withCors(
       NextResponse.json({ error: "This restaurant is not currently accepting feedback." }, { status: 503 }),
       origin,

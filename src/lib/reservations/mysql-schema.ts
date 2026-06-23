@@ -326,6 +326,19 @@ const MIGRATIONS: Migration[] = [
     },
   },
   {
+    // Per-reservation duration override: staff can set a custom table turn time
+    // that takes precedence over the service/config default. NULL = use default.
+    version: 14,
+    run: async (pool) => {
+      await ensureColumn(
+        pool,
+        "reservations",
+        "duration_mins_override",
+        "ADD COLUMN duration_mins_override SMALLINT UNSIGNED NULL DEFAULT NULL AFTER table_ids",
+      );
+    },
+  },
+  {
     // Multiple physical tables can back one reservation when staff join tables
     // for a larger party. table_id remains the primary/display table for legacy
     // reads; table_ids is the authoritative conflict set when present.

@@ -56,6 +56,8 @@ export const it = {
     email: "Email",
     occasion: "Occasione",
     notes: "Note",
+    durationOverride: "Durata al tavolo",
+    durationOverrideDefault: "Predefinita",
   },
   walkIn: {
     button: "Walk-in",

@@ -120,6 +120,12 @@ export default function ReservationRow({
               </span>
             )}
             <StatusBadge status={r.status} />
+            {r.durationMinsOverride != null && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-400/15 text-sky-300 border border-sky-400/30">
+                <ClockIcon />
+                {am.availability.durLabel(r.durationMinsOverride)}
+              </span>
+            )}
             {r.source === "admin" && (
               <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.row.manual}</span>
             )}
@@ -546,6 +552,7 @@ function EditForm({
     notes: r.notes ?? "",
     tableLabel: r.tableLabel ?? "",
     status: r.status as ReservationStatus,
+    durationMinsOverride: r.durationMinsOverride ?? null as number | null,
   });
   const [selectedTableId, setSelectedTableId] = useState<string>(r.tableId ?? "");
   const [busy, setBusy] = useState(false);
@@ -633,6 +640,19 @@ function EditForm({
       ) : (
         <input value={f.tableLabel} onChange={(e) => set("tableLabel", e.target.value)} placeholder={am.row.tablePlaceholder} className={field} />
       )}
+      <label className="flex flex-col gap-1">
+        <span className="text-[11px] text-on-surface-variant">{am.row.durationOverride}</span>
+        <select
+          value={f.durationMinsOverride ?? ""}
+          onChange={(e) => setF((p) => ({ ...p, durationMinsOverride: e.target.value ? Number(e.target.value) : null }))}
+          className={field}
+        >
+          <option value="">{am.row.durationOverrideDefault}</option>
+          {[30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300].map((m) => (
+            <option key={m} value={m}>{am.availability.durLabel(m)}</option>
+          ))}
+        </select>
+      </label>
       <div className="col-span-2 flex gap-2">
         <button onClick={save} disabled={busy} className="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
           {busy ? am.row.saving : am.row.save}
@@ -719,6 +739,15 @@ function WarningIcon() {
       <path d="M7 2.8 1.9 12a1.1 1.1 0 0 0 1 1.7h10.2a1.1 1.1 0 0 0 1-1.7L9 2.8a1.1 1.1 0 0 0-2 0Z" />
       <path d="M8 6v3" />
       <path d="M8 11.6h.01" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 5v3.5l2 1.5" />
     </svg>
   );
 }

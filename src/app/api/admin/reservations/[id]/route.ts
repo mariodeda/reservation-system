@@ -3,8 +3,7 @@ import { getStore, referenceOf } from "@/lib/reservations/store";
 import { getTableStore } from "@/lib/reservations/table-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { RESERVATION_STATUSES, type Reservation } from "@/lib/reservations/types";
-import { createFeedbackToken, getFeedbackByReservation } from "@/lib/reservations/feedback-store";
-import { sendFeedbackRequestEmail } from "@/lib/reservations/email";
+import { sendFeedbackRequestForReservation } from "@/lib/reservations/feedback-automation";
 import { emitReservation } from "@/lib/reservations/events";
 
 export const runtime = "nodejs";
@@ -33,6 +32,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (body[f] !== undefined) (patch as Record<string, unknown>)[f] = body[f];
   }
   if (body.partySize !== undefined) patch.partySize = Math.min(1000, Math.max(1, Math.trunc(Number(body.partySize)) || 1));
+  if (Object.prototype.hasOwnProperty.call(body, "durationMinsOverride")) {
+    if (body.durationMinsOverride === null || body.durationMinsOverride === 0) {
+      patch.durationMinsOverride = null;
+    } else {
+      const v = Math.trunc(Number(body.durationMinsOverride));
+      if (v >= 15 && v <= 480) patch.durationMinsOverride = v;
+    }
+  }
 
   // table_id goes through the conflict-checked assignment path (and supports
   // unassign via null/""), never the blind field loop.
@@ -73,17 +80,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   // Auto-send feedback email when status transitions to "completed" and has an email.
   // Fire-and-forget — don't block or fail the status update if email fails.
-  if (patch.status === "completed" && reservation.email && admin.tenant.settings.feedbackEnabled !== false) {
-    const existing = await getFeedbackByReservation(id).catch(() => null);
-    if (!existing) {
-      createFeedbackToken(id, admin.tenant.id)
-        .then((record) => {
-          const siteUrl = admin.tenant.settings.url?.replace(/\/$/, "") ?? "";
-          const feedbackUrl = `${siteUrl}/feedback/${record.token}`;
-          return sendFeedbackRequestEmail(reservation, admin.tenant, feedbackUrl);
-        })
-        .catch((err) => console.error("[feedback] auto-send failed:", err));
-    }
+  if (patch.status === "completed") {
+    sendFeedbackRequestForReservation(reservation, admin.tenant)
+      .catch((err) => console.error("[feedback] auto-send failed:", err));
   }
 
   emitReservation({

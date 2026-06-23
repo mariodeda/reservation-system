@@ -38,6 +38,8 @@ export interface TenantView {
     timezone: string;
     autoConfirm: boolean;
     emailEnabled: boolean;
+    emailEvents?: { bookingConfirmation?: boolean; feedbackRequest?: boolean };
+    feedbackRequestDelayHours?: number;
     feedbackEnabled?: boolean;
     emailFrom?: string;
     theme?: { primary?: string; onPrimary?: string };

@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getStore } from "@/lib/reservations/store";
 import { createFeedbackToken, getFeedbackByReservation } from "@/lib/reservations/feedback-store";
 import { sendFeedbackRequestEmail } from "@/lib/reservations/email";
+import { isEmailEventEnabled } from "@/lib/reservations/email-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export async function POST(
 ) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
-  if (ctx.tenant.settings.feedbackEnabled === false) {
+  if (!isEmailEventEnabled(ctx.tenant.settings, "feedbackRequest")) {
     return NextResponse.json({ error: "Feedback requests are disabled for this restaurant." }, { status: 403 });
   }
   const { id } = await params;

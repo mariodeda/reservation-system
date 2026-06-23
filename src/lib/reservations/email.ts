@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import type { Reservation } from "./types";
 import { referenceOf } from "./store";
 import { defaultConfirmationTemplate, type Tenant } from "./tenant";
+import { isEmailEventEnabled } from "./email-policy";
 
 /**
  * Stable variable contract shared by every site's templates. Templates differ
@@ -97,8 +98,7 @@ export async function sendFeedbackRequestEmail(
   feedbackUrl: string,
 ): Promise<SendResult> {
   const s = tenant.settings;
-  if (s.feedbackEnabled === false) return { sent: false, skipped: true };
-  if (!s.emailEnabled) return { sent: false, skipped: true };
+  if (!isEmailEventEnabled(s, "feedbackRequest")) return { sent: false, skipped: true };
   const smtp = s.smtp;
   if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true };
   if (!reservation.email) return { sent: false, skipped: true };
@@ -144,7 +144,7 @@ export async function sendConfirmationEmail(
   serviceLabel?: string,
 ): Promise<SendResult> {
   const s = tenant.settings;
-  if (!s.emailEnabled) return { sent: false, skipped: true };
+  if (!isEmailEventEnabled(s, "bookingConfirmation")) return { sent: false, skipped: true };
   const smtp = s.smtp;
   if (!smtp?.host || !smtp?.port) {
     console.warn(`[reservations] tenant ${tenant.id} has no SMTP — skipping confirmation email.`);

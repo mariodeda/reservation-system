@@ -18,7 +18,7 @@ import { normalizePhone } from "./availability";
  */
 
 const RES_COLUMNS =
-  "id, `date`, `time`, offering, service, party_size AS partySize, name, email, phone, occasion, notes, table_label AS tableLabel, table_id AS tableId, table_ids AS tableIds, status, source, created_at AS createdAt, updated_at AS updatedAt";
+  "id, `date`, `time`, offering, service, party_size AS partySize, name, email, phone, occasion, notes, table_label AS tableLabel, table_id AS tableId, table_ids AS tableIds, duration_mins_override AS durationMinsOverride, status, source, created_at AS createdAt, updated_at AS updatedAt";
 
 interface ResRow extends RowDataPacket {
   id: string;
@@ -35,6 +35,7 @@ interface ResRow extends RowDataPacket {
   tableLabel: string | null;
   tableId: string | null;
   tableIds: unknown;
+  durationMinsOverride: number | null;
   status: Reservation["status"];
   source: Reservation["source"];
   createdAt: string;
@@ -61,6 +62,7 @@ function toReservation(r: ResRow): Reservation {
       : typeof r.tableIds === "string" && r.tableIds
         ? JSON.parse(r.tableIds) as string[]
         : undefined,
+    durationMinsOverride: r.durationMinsOverride ?? undefined,
     status: r.status,
     source: r.source,
     createdAt: r.createdAt,
@@ -69,7 +71,7 @@ function toReservation(r: ResRow): Reservation {
 }
 
 const INSERT_SQL =
-  "INSERT INTO reservations (id, tenant_id, `date`, `time`, offering, service, party_size, name, email, phone, occasion, notes, table_label, table_id, table_ids, status, source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+  "INSERT INTO reservations (id, tenant_id, `date`, `time`, offering, service, party_size, name, email, phone, occasion, notes, table_label, table_id, table_ids, duration_mins_override, status, source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 const insertParams = (tenantId: string, r: Reservation) => [
   r.id,
   tenantId,
@@ -86,6 +88,7 @@ const insertParams = (tenantId: string, r: Reservation) => [
   r.tableLabel ?? null,
   r.tableId ?? null,
   r.tableIds?.length ? JSON.stringify(r.tableIds) : null,
+  r.durationMinsOverride ?? null,
   r.status,
   r.source,
   r.createdAt,
@@ -213,6 +216,7 @@ export class MySqlStore implements ReservationStore {
       tableLabel: "table_label",
       tableId: "table_id",
       tableIds: "table_ids",
+      durationMinsOverride: "duration_mins_override",
       status: "status",
       source: "source",
     } as Record<keyof Reservation, string>;
