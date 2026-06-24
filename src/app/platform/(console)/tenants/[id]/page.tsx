@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
+import {
+  CONFIRMATION_PRESETS,
+  FEEDBACK_PRESETS,
+  renderPreview,
+  type EmailPreset,
+} from "@/lib/email-presets";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none disabled:cursor-not-allowed disabled:opacity-60";
@@ -49,6 +55,7 @@ export default function TenantDetail() {
   const [newHost, setNewHost] = useState("");
   const [newPass, setNewPass] = useState("");
   const [mockBusy, setMockBusy] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +70,19 @@ export default function TenantDetail() {
 
   if (!view || !f) return <p className="text-on-surface-variant">Loading…</p>;
   const set = (k: keyof Form, v: string | boolean) => setF((p) => (p ? { ...p, [k]: v } : p));
+
+  function loadPreset(type: "confirmation" | "feedback", preset: EmailPreset) {
+    if (type === "confirmation") {
+      set("confirmSubject", preset.subject);
+      set("confirmText", preset.text);
+      set("confirmHtml", preset.html);
+    } else {
+      set("feedbackSubject", preset.subject);
+      set("feedbackText", preset.text);
+      set("feedbackHtml", preset.html);
+    }
+    toast(`Loaded "${preset.name}"`);
+  }
 
   async function saveSettings() {
     if (!f) return;
@@ -321,23 +341,98 @@ export default function TenantDetail() {
 
       {/* Email templates */}
       <section className={card}>
-        <h2 className="font-semibold">Email templates</h2>
-        <p className="text-xs text-on-surface-variant">
-          Leave blank to use the platform default. Variables: <code>{"{{guestName}}"}</code> <code>{"{{restaurantName}}"}</code> <code>{"{{date}}"}</code> <code>{"{{time}}"}</code> <code>{"{{reference}}"}</code> <code>{"{{siteUrl}}"}</code>. Feedback template also has <code>{"{{feedbackUrl}}"}</code>.
-        </p>
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">Booking confirmation</h3>
-        <div className="space-y-2">
-          <Field label="Subject" v={f.confirmSubject} on={(v) => set("confirmSubject", v)} placeholder="Your reservation at {{restaurantName}} is confirmed" />
-          <TemplateArea label="Plain text body" v={f.confirmText} on={(v) => set("confirmText", v)} placeholder="Hi {{guestName}}, your table for {{partySize}} on {{date}}…" />
-          <TemplateArea label="HTML body" v={f.confirmHtml} on={(v) => set("confirmHtml", v)} placeholder="<p>Hi {{guestName}},…</p>" />
+        <div>
+          <h2 className="font-semibold">Email templates</h2>
+          <p className="text-xs text-on-surface-variant mt-1">
+            Leave blank to use the platform default. Variables:&nbsp;
+            {["guestName","restaurantName","date","time","service","partySize","reference","contactPhone","contactEmail","siteUrl"].map((v) => (
+              <code key={v} className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{`{{${v}}}`}</code>
+            ))}.
+            Feedback template also accepts <code className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{"{{feedbackUrl}}"}</code>.
+          </p>
         </div>
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant mt-2">Feedback request</h3>
-        <div className="space-y-2">
-          <Field label="Subject" v={f.feedbackSubject} on={(v) => set("feedbackSubject", v)} placeholder="How was your visit to {{restaurantName}}?" />
-          <TemplateArea label="Plain text body" v={f.feedbackText} on={(v) => set("feedbackText", v)} placeholder="Hi {{guestName}}, thanks for dining with us on {{date}}. Leave feedback: {{feedbackUrl}}" />
-          <TemplateArea label="HTML body" v={f.feedbackHtml} on={(v) => set("feedbackHtml", v)} placeholder="<p>Hi {{guestName}},…<a href='{{feedbackUrl}}'>Leave feedback</a></p>" />
+
+        {/* Booking confirmation */}
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">Booking confirmation</h3>
+          </div>
+          {/* Preset picker */}
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[11px] text-on-surface-variant/60 self-center mr-1">Presets:</span>
+            {CONFIRMATION_PRESETS.map((p) => (
+              <PresetButton key={p.id} preset={p} onLoad={() => loadPreset("confirmation", p)} />
+            ))}
+          </div>
+          <div className="space-y-2">
+            <Field label="Subject" v={f.confirmSubject} on={(v) => set("confirmSubject", v)} placeholder="Your reservation at {{restaurantName}} is confirmed" />
+            <TemplateArea label="Plain text body" v={f.confirmText} on={(v) => set("confirmText", v)} rows={5} placeholder="Hi {{guestName}}, your table for {{partySize}} on {{date}}…" />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-on-surface-variant">HTML body</span>
+                {f.confirmHtml && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewHtml(renderPreview(f.confirmHtml))}
+                    className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
+                  >
+                    <EyeIcon /> Preview
+                  </button>
+                )}
+              </div>
+              <textarea
+                className={`${field} resize-y font-mono text-xs`}
+                rows={6}
+                value={f.confirmHtml}
+                onChange={(e) => set("confirmHtml", e.target.value)}
+                placeholder="<!DOCTYPE html>…"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Feedback request */}
+        <div className="space-y-3 pt-2 border-t border-outline-variant/20">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant pt-1">Feedback request</h3>
+          {/* Preset picker */}
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[11px] text-on-surface-variant/60 self-center mr-1">Presets:</span>
+            {FEEDBACK_PRESETS.map((p) => (
+              <PresetButton key={p.id} preset={p} onLoad={() => loadPreset("feedback", p)} />
+            ))}
+          </div>
+          <div className="space-y-2">
+            <Field label="Subject" v={f.feedbackSubject} on={(v) => set("feedbackSubject", v)} placeholder="How was your visit to {{restaurantName}}?" />
+            <TemplateArea label="Plain text body" v={f.feedbackText} on={(v) => set("feedbackText", v)} rows={5} placeholder="Hi {{guestName}}, thanks for dining with us on {{date}}. Leave feedback: {{feedbackUrl}}" />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-on-surface-variant">HTML body</span>
+                {f.feedbackHtml && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewHtml(renderPreview(f.feedbackHtml))}
+                    className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
+                  >
+                    <EyeIcon /> Preview
+                  </button>
+                )}
+              </div>
+              <textarea
+                className={`${field} resize-y font-mono text-xs`}
+                rows={6}
+                value={f.feedbackHtml}
+                onChange={(e) => set("feedbackHtml", e.target.value)}
+                placeholder="<!DOCTYPE html>…"
+              />
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* Email preview modal */}
+      {previewHtml !== null && (
+        <EmailPreviewModal html={previewHtml} onClose={() => setPreviewHtml(null)} />
+      )}
 
       <button onClick={saveSettings} disabled={busy} className="bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
         {busy ? "Saving…" : "Save settings"}
@@ -454,18 +549,91 @@ function Field({ label, v, on, placeholder }: { label: string; v: string; on: (v
     </label>
   );
 }
-function TemplateArea({ label, v, on, placeholder }: { label: string; v: string; on: (v: string) => void; placeholder?: string }) {
+function TemplateArea({ label, v, on, placeholder, rows = 3 }: { label: string; v: string; on: (v: string) => void; placeholder?: string; rows?: number }) {
   return (
     <label className="block">
       <span className="text-xs text-on-surface-variant">{label}</span>
       <textarea
         className={`${field} resize-y`}
-        rows={3}
+        rows={rows}
         value={v}
         onChange={(e) => on(e.target.value)}
         placeholder={placeholder}
       />
     </label>
+  );
+}
+
+function PresetButton({ preset, onLoad }: { preset: EmailPreset; onLoad: () => void }) {
+  const [tip, setTip] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onLoad}
+        onMouseEnter={() => setTip(true)}
+        onMouseLeave={() => setTip(false)}
+        className="text-[11px] px-2.5 py-1 rounded-full border border-outline-variant/40 text-on-surface-variant hover:border-primary hover:text-primary hover:bg-primary/5 transition"
+      >
+        {preset.name}
+      </button>
+      {tip && (
+        <div className="absolute bottom-full left-0 mb-1.5 z-10 w-52 rounded-lg bg-surface-container border border-outline-variant/40 shadow-xl px-3 py-2 pointer-events-none">
+          <p className="text-xs font-semibold text-on-surface">{preset.name}</p>
+          <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{preset.description}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handler(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={(e) => { if (!ref.current?.contains(e.target as Node)) onClose(); }}
+    >
+      <div ref={ref} className="relative w-full max-w-2xl mx-4 rounded-xl overflow-hidden shadow-2xl" style={{ background: "#1a1916" }}>
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#c9a44a", letterSpacing: "1px", textTransform: "uppercase" }}>
+              Email Preview
+            </span>
+            <span style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>— sample data</span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", color: "#aaa", border: "none", cursor: "pointer" }}
+            aria-label="Close preview"
+          >
+            <XIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div style={{ background: "#f4f4f4", maxHeight: "72vh", overflow: "auto" }}>
+          <iframe
+            srcDoc={html}
+            title="Email preview"
+            style={{ width: "100%", minHeight: 480, border: "none", display: "block" }}
+            sandbox="allow-same-origin"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5Z"/>
+      <circle cx="8" cy="8" r="2"/>
+    </svg>
   );
 }
 function Check({ label, v, on, disabled = false }: { label: string; v: boolean; on: (v: boolean) => void; disabled?: boolean }) {
