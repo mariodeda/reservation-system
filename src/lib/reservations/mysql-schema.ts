@@ -50,6 +50,30 @@ type Migration = { version: number; run: (pool: Pool) => Promise<void> };
 
 const MIGRATIONS: Migration[] = [
   {
+    // Append-only log of every transactional email send attempt, so staff and
+    // operators can debug whether the right emails went out (per tenant config)
+    // and why a send failed. One row per attempt: status sent|failed|skipped.
+    version: 15,
+    run: async (pool) => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS reservation_emails (
+          id CHAR(36) NOT NULL PRIMARY KEY,
+          tenant_id CHAR(36) NOT NULL,
+          reservation_id CHAR(36) NOT NULL,
+          type VARCHAR(24) NOT NULL,
+          status VARCHAR(12) NOT NULL,
+          reason VARCHAR(48) NULL,
+          error TEXT NULL,
+          to_email VARCHAR(200) NULL,
+          created_at VARCHAR(32) NOT NULL,
+          INDEX idx_re_reservation (reservation_id),
+          INDEX idx_re_tenant_type (tenant_id, type, status),
+          INDEX idx_re_tenant_created (tenant_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    },
+  },
+  {
     version: 1,
     run: async (pool) => {
       await pool.query(`

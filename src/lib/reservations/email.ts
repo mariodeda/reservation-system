@@ -2,7 +2,8 @@ import nodemailer from "nodemailer";
 import type { Reservation } from "./types";
 import { referenceOf } from "./store";
 import { defaultConfirmationTemplate, type Tenant, type TenantSmtp } from "./tenant";
-import { isEmailEventEnabled } from "./email-policy";
+import { isEmailEventEnabled, type TenantEmailEvent } from "./email-policy";
+import { recordEmailAttempt, type EmailLogStatus } from "./email-log-store";
 
 function smtpTransport(smtp: TenantSmtp) {
   const port = Number(smtp.port);
@@ -86,10 +87,46 @@ export function buildEmailVars(r: Reservation, tenant: Tenant, serviceLabel?: st
   };
 }
 
+/** Why a send was skipped — distinguishes deliberate config from misconfig. */
+export type EmailSkipReason = "event_disabled" | "no_smtp" | "no_recipient";
+
 export interface SendResult {
   sent: boolean;
   skipped?: boolean;
+  reason?: EmailSkipReason;
   error?: string;
+}
+
+function statusOf(r: SendResult): EmailLogStatus {
+  if (r.sent) return "sent";
+  if (r.skipped) return "skipped";
+  return "failed";
+}
+
+/**
+ * Persist a send attempt to the email log. Keeps the log high-signal: always
+ * records sends and failures, but among skips records only a likely misconfig
+ * (event enabled yet no SMTP). Deliberate `event_disabled` skips and walk-in
+ * `no_recipient` skips are expected, not bugs, so they're not logged. Never throws.
+ */
+async function logEmailAttempt(
+  type: TenantEmailEvent,
+  reservation: Reservation,
+  tenant: Tenant,
+  result: SendResult,
+): Promise<void> {
+  const isFailure = !result.sent && !result.skipped;
+  const loggableSkip = result.skipped === true && result.reason === "no_smtp";
+  if (!(result.sent || isFailure || loggableSkip)) return;
+  await recordEmailAttempt({
+    tenantId: tenant.id,
+    reservationId: reservation.id,
+    type,
+    status: statusOf(result),
+    reason: result.reason,
+    error: result.error,
+    toEmail: reservation.email || undefined,
+  });
 }
 
 function renderFeedbackTemplate(tpl: string, vars: FeedbackEmailVars): string {
@@ -109,17 +146,27 @@ function defaultFeedbackHtml(): string {
   return `<p>Hi {{guestName}},</p><p>Thank you for dining with us on <strong>{{date}}</strong>.</p><p>We'd love to hear about your experience — it only takes 30 seconds:</p><p><a href="{{feedbackUrl}}" style="background:#f2ca50;color:#3c2f00;padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block">Leave feedback →</a></p><p>Warm regards,<br/>{{restaurantName}}</p>`;
 }
 
-/** Send the post-visit feedback request email. Never throws. */
+/** Send the post-visit feedback request email. Logs the attempt. Never throws. */
 export async function sendFeedbackRequestEmail(
   reservation: Reservation,
   tenant: Tenant,
   feedbackUrl: string,
 ): Promise<SendResult> {
+  const result = await runFeedbackSend(reservation, tenant, feedbackUrl);
+  await logEmailAttempt("feedbackRequest", reservation, tenant, result);
+  return result;
+}
+
+async function runFeedbackSend(
+  reservation: Reservation,
+  tenant: Tenant,
+  feedbackUrl: string,
+): Promise<SendResult> {
   const s = tenant.settings;
-  if (!isEmailEventEnabled(s, "feedbackRequest")) return { sent: false, skipped: true };
+  if (!isEmailEventEnabled(s, "feedbackRequest")) return { sent: false, skipped: true, reason: "event_disabled" };
   const smtp = s.smtp;
-  if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true };
-  if (!reservation.email) return { sent: false, skipped: true };
+  if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true, reason: "no_smtp" };
+  if (!reservation.email) return { sent: false, skipped: true, reason: "no_recipient" };
   try {
     const transport = smtpTransport(smtp);
     const vars: FeedbackEmailVars = {
@@ -153,12 +200,22 @@ export async function sendConfirmationEmail(
   tenant: Tenant,
   serviceLabel?: string,
 ): Promise<SendResult> {
+  const result = await runConfirmationSend(reservation, tenant, serviceLabel);
+  await logEmailAttempt("bookingConfirmation", reservation, tenant, result);
+  return result;
+}
+
+async function runConfirmationSend(
+  reservation: Reservation,
+  tenant: Tenant,
+  serviceLabel?: string,
+): Promise<SendResult> {
   const s = tenant.settings;
-  if (!isEmailEventEnabled(s, "bookingConfirmation")) return { sent: false, skipped: true };
+  if (!isEmailEventEnabled(s, "bookingConfirmation")) return { sent: false, skipped: true, reason: "event_disabled" };
   const smtp = s.smtp;
   if (!smtp?.host || !smtp?.port) {
     console.warn(`[reservations] tenant ${tenant.id} has no SMTP — skipping confirmation email.`);
-    return { sent: false, skipped: true };
+    return { sent: false, skipped: true, reason: "no_smtp" };
   }
   try {
     const transport = smtpTransport(smtp);

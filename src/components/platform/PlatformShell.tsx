@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SystemLogo from "@/components/SystemLogo";
-import { hydrateLocale, setLocale, type Locale } from "@/i18n";
+import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 
 export default function PlatformShell({
   username,
@@ -51,8 +51,8 @@ export default function PlatformShell({
             <span className="text-sm text-on-surface-variant hidden sm:inline mr-1">{username}</span>
             <button
               onClick={toggleTheme}
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              title={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
+              aria-label={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
             >
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
@@ -78,7 +78,7 @@ export default function PlatformShell({
               onClick={logout}
               className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition"
             >
-              Sign out
+              {am.nav.signOut}
             </button>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { getStore, referenceOf } from "@/lib/reservations/store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getCustomerStore } from "@/lib/reservations/customer-store";
 import { getFeedbackStatusBatch } from "@/lib/reservations/feedback-store";
+import { getEmailStatusBatch } from "@/lib/reservations/email-log-store";
 import { processDueFeedbackRequests } from "@/lib/reservations/feedback-automation";
 import type {
   NewReservationInput,
@@ -53,16 +54,19 @@ export async function GET(req: NextRequest) {
     // Enrich with customer profile data (visit count, VIP, dietary notes)
     const emails = reservations.map((r) => r.email).filter(Boolean);
     const completedIds = reservations.filter((r) => r.status === "completed").map((r) => r.id);
+    const allIds = reservations.map((r) => r.id);
 
-    const [enrichments, feedbackMap] = await Promise.all([
+    const [enrichments, feedbackMap, emailMap] = await Promise.all([
       getCustomerStore(ctx.tenant.id).getReservationEnrichments(emails).catch(() => new Map()),
       completedIds.length ? getFeedbackStatusBatch(completedIds).catch(() => new Map()) : Promise.resolve(new Map()),
+      allIds.length ? getEmailStatusBatch(allIds).catch(() => new Map()) : Promise.resolve(new Map()),
     ]);
 
     return NextResponse.json({
       reservations: reservations.map((r) => {
         const enr = enrichments.get(r.email.trim().toLowerCase());
         const fb = feedbackMap.get(r.id);
+        const em = emailMap.get(r.id);
         return {
           ...r,
           reference: referenceOf(r.id),
@@ -70,6 +74,7 @@ export async function GET(req: NextRequest) {
           customerVip: enr?.customerVip,
           dietaryNotes: enr?.dietaryNotes,
           feedbackSentAt: fb?.sentAt ?? null,
+          emails: em ?? undefined,
         };
       }),
     });

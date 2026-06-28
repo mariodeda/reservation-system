@@ -7,6 +7,9 @@ const { sendMail, createTransport } = vi.hoisted(() => {
   return { sendMail, createTransport: vi.fn((_opts?: Record<string, unknown>) => ({ sendMail })) };
 });
 vi.mock("nodemailer", () => ({ default: { createTransport } }));
+// The send functions log every attempt; stub the log store so these stay pure
+// unit tests with no DB dependency.
+vi.mock("@/lib/reservations/email-log-store", () => ({ recordEmailAttempt: vi.fn() }));
 
 import {
   buildEmailVars,
@@ -97,13 +100,13 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
 
   it("skips when the tenant has no SMTP configured", async () => {
     const r = await sendConfirmationEmail(reservation(), tenant()); // no smtp
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "no_smtp" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
   it("skips when the tenant has email disabled (even with SMTP)", async () => {
     const r = await sendConfirmationEmail(reservation(), tenant({ emailEnabled: false, smtp }));
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
@@ -112,7 +115,7 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
       reservation(),
       tenant({ smtp, emailEvents: { bookingConfirmation: false, feedbackRequest: true } }),
     );
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
@@ -163,13 +166,13 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
 
   it("skips when emailEnabled is false", async () => {
     const r = await sendFeedbackRequestEmail(reservation(), tenant({ emailEnabled: false, smtp }), "https://fb.test/feedback/tok");
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
   it("skips when tenant feedback is disabled", async () => {
     const r = await sendFeedbackRequestEmail(reservation(), tenant({ feedbackEnabled: false, smtp }), "https://fb.test/feedback/tok");
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
@@ -179,18 +182,18 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
       tenant({ smtp, emailEvents: { bookingConfirmation: true, feedbackRequest: false } }),
       "https://fb.test/feedback/tok",
     );
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
   it("skips when no SMTP is configured", async () => {
     const r = await sendFeedbackRequestEmail(reservation(), tenant(), "https://fb.test/feedback/tok");
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "no_smtp" });
   });
 
   it("skips when reservation has no email address", async () => {
     const r = await sendFeedbackRequestEmail(reservation({ email: "" }), tenant({ smtp }), "https://fb.test/feedback/tok");
-    expect(r).toEqual({ sent: false, skipped: true });
+    expect(r).toEqual({ sent: false, skipped: true, reason: "no_recipient" });
   });
 
   it("substitutes {{feedbackUrl}} in subject, text and html via default templates", async () => {

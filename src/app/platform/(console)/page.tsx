@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
+import { am } from "@/i18n";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
@@ -35,7 +36,7 @@ export default function PlatformHome() {
       setTenants(tenantsData.tenants);
       setAnalytics(analyticsData);
     } catch {
-      toast("Could not load restaurants.", "error");
+      toast(am.platform.couldNotLoad, "error");
     }
   }
   useEffect(() => {
@@ -45,12 +46,12 @@ export default function PlatformHome() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Restaurants</h1>
+        <h1 className="text-2xl font-semibold">{am.platform.title}</h1>
         <button
           onClick={() => setCreating((c) => !c)}
           className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110"
         >
-          {creating ? "Close" : "New restaurant"}
+          {creating ? am.platform.close : am.platform.newRestaurant}
         </button>
       </div>
 
@@ -60,9 +61,9 @@ export default function PlatformHome() {
       {analytics && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Total bookings", value: analytics.totals.reservations },
-            { label: "Last 30 days", value: analytics.totals.last30 },
-            { label: "Active restaurants", value: analytics.totals.tenants },
+            { label: am.platform.totals.bookings, value: analytics.totals.reservations },
+            { label: am.platform.totals.last30, value: analytics.totals.last30 },
+            { label: am.platform.totals.active, value: analytics.totals.tenants },
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-outline-variant/30 bg-surface-container p-4">
               <div className="text-2xl font-semibold tabular-nums">{s.value}</div>
@@ -73,9 +74,9 @@ export default function PlatformHome() {
       )}
 
       {tenants === null ? (
-        <p className="text-on-surface-variant">Loading…</p>
+        <p className="text-on-surface-variant">{am.platform.loading}</p>
       ) : tenants.length === 0 ? (
-        <p className="text-on-surface-variant">No restaurants yet. Create one to get started.</p>
+        <p className="text-on-surface-variant">{am.platform.noRestaurants}</p>
       ) : (
         <div className="space-y-2">
           {tenants.map((t) => {
@@ -95,15 +96,15 @@ export default function PlatformHome() {
                     )}
                   </div>
                   <div className="text-xs text-on-surface-variant truncate mt-0.5">
-                    {t.hosts.length ? t.hosts.join(", ") : "no hosts mapped"}
+                    {t.hosts.length ? t.hosts.join(", ") : am.platform.noHostsMapped}
                   </div>
                 </div>
                 {stats && (
                   <div className="flex items-center gap-4 shrink-0 ml-4 text-xs text-on-surface-variant">
-                    <span title="Total reservations">
+                    <span title={am.platform.totals.bookings}>
                       <span className="font-semibold text-on-surface">{stats.total}</span> total
                     </span>
-                    <span title="Last 30 days" className="hidden sm:inline">
+                    <span title={am.platform.totals.last30} className="hidden sm:inline">
                       <span className="font-semibold text-on-surface">{stats.last30}</span> /30d
                     </span>
                     {stats.noShows > 0 && (
@@ -143,7 +144,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
 
   async function submit() {
     if (!f.name.trim() || !f.slug.trim() || !f.username.trim() || f.password.length < 8) {
-      toast("Name, slug, username and an 8+ char password are required.", "error");
+      toast(am.platform.create.validationError, "error");
       return;
     }
     setBusy(true);
@@ -161,11 +162,11 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed");
-      toast("Restaurant created");
+      if (!res.ok) throw new Error(data.error || am.platform.create.error);
+      toast(am.platform.create.created);
       onCreated();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not create restaurant.", "error");
+      toast(e instanceof Error ? e.message : am.platform.create.error, "error");
     } finally {
       setBusy(false);
     }
@@ -173,21 +174,21 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-4 space-y-3">
-      <h2 className="font-semibold">New restaurant</h2>
+      <h2 className="font-semibold">{am.platform.create.title}</h2>
       <div className="grid sm:grid-cols-2 gap-3">
-        <label className="block"><span className="text-xs text-on-surface-variant">Name</span>
+        <label className="block"><span className="text-xs text-on-surface-variant">{am.platform.create.name}</span>
           <input className={field} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Acme Osteria" /></label>
-        <label className="block"><span className="text-xs text-on-surface-variant">Slug</span>
+        <label className="block"><span className="text-xs text-on-surface-variant">{am.platform.create.slug}</span>
           <input className={field} value={f.slug} onChange={(e) => set("slug", e.target.value)} placeholder="acme" /></label>
-        <label className="block"><span className="text-xs text-on-surface-variant">Staff username</span>
+        <label className="block"><span className="text-xs text-on-surface-variant">{am.platform.create.username}</span>
           <input className={field} value={f.username} onChange={(e) => set("username", e.target.value)} placeholder="staff" /></label>
-        <label className="block"><span className="text-xs text-on-surface-variant">Staff password (8+)</span>
+        <label className="block"><span className="text-xs text-on-surface-variant">{am.platform.create.password}</span>
           <input className={field} type="password" value={f.password} onChange={(e) => set("password", e.target.value)} /></label>
-        <label className="block sm:col-span-2"><span className="text-xs text-on-surface-variant">Hosts (space/comma separated)</span>
+        <label className="block sm:col-span-2"><span className="text-xs text-on-surface-variant">{am.platform.create.hosts}</span>
           <input className={field} value={f.hosts} onChange={(e) => set("hosts", e.target.value)} placeholder="acme.example.com admin.acme.example.com" /></label>
       </div>
       <button onClick={submit} disabled={busy} className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
-        {busy ? "Creating…" : "Create restaurant"}
+        {busy ? am.platform.create.creating : am.platform.create.create}
       </button>
     </div>
   );

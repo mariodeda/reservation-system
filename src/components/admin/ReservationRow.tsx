@@ -6,6 +6,8 @@ import { RESERVATION_STATUSES } from "@/lib/reservations/types";
 import type { OfferingServices } from "@/lib/reservations/offerings";
 import {
   type AdminReservation,
+  type EmailStatus,
+  type EmailType,
   formatDateLong,
   QUICK_ACTIONS,
   STATUS_META,
@@ -129,6 +131,15 @@ export default function ReservationRow({
             {r.source === "admin" && (
               <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.row.manual}</span>
             )}
+            {hasEmailFailure(r.emails) && (
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                title={emailFailureTitle(r.emails)}
+              >
+                <AlertIcon />
+                {am.email.failedBadge}
+              </span>
+            )}
             {typeof r.visitCount === "number" && r.visitCount > 1 && (
               <span className="text-[10px] font-semibold text-sky-300 uppercase tracking-widest">
                 {am.customers.nthVisit(r.visitCount)}
@@ -151,6 +162,7 @@ export default function ReservationRow({
           {/* Details — expanded by default, horizontal layout */}
           {!editing && (
             <>
+              {open && <EmailStatusSection r={r} />}
               {open && (
                 <div className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5 text-sm text-on-surface-variant pt-0.5">
                   {r.email && (
@@ -662,6 +674,167 @@ function EditForm({
         </button>
       </div>
     </div>
+  );
+}
+
+/* ----------------------------- email tracking ----------------------------- */
+
+const EMAIL_TYPES: EmailType[] = ["bookingConfirmation", "feedbackRequest"];
+
+interface EmailLogEntry {
+  id: string;
+  type: EmailType;
+  status: EmailStatus["status"];
+  reason?: string;
+  error?: string;
+  toEmail?: string;
+  createdAt: string;
+}
+
+function emailTypeLabel(t: EmailType): string {
+  return t === "bookingConfirmation" ? am.email.confirmation : am.email.feedbackRequest;
+}
+
+function reasonLabel(reason?: string): string | undefined {
+  switch (reason) {
+    case "no_smtp": return am.email.reasonNoSmtp;
+    case "event_disabled": return am.email.reasonEventDisabled;
+    case "no_recipient": return am.email.reasonNoRecipient;
+    default: return undefined;
+  }
+}
+
+function statusText(status: EmailStatus["status"]): string {
+  return status === "sent" ? am.email.sent : status === "failed" ? am.email.failed : am.email.skipped;
+}
+
+function fmtTime(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
+function statusChipClass(status: EmailStatus["status"]): string {
+  if (status === "sent") return "bg-emerald-400/15 text-emerald-300 border-emerald-400/30";
+  if (status === "failed") return "bg-rose-500/15 text-rose-300 border-rose-500/30";
+  return "bg-zinc-400/10 text-on-surface-variant/70 border-outline-variant/30";
+}
+
+function dotClass(status: EmailStatus["status"]): string {
+  if (status === "sent") return "bg-emerald-400";
+  if (status === "failed") return "bg-rose-400";
+  return "bg-zinc-500";
+}
+
+function chipTitle(s: EmailStatus): string {
+  const parts: string[] = [];
+  parts.push(s.status === "sent" ? am.email.sentAt(fmtTime(s.at)) : `${statusText(s.status)} · ${fmtTime(s.at)}`);
+  const rl = reasonLabel(s.reason);
+  if (rl) parts.push(rl);
+  if (s.error) parts.push(s.error);
+  if (s.attempts > 1) parts.push(am.email.attempts(s.attempts));
+  return parts.join(" — ");
+}
+
+function hasEmailFailure(emails?: Partial<Record<EmailType, EmailStatus>>): boolean {
+  if (!emails) return false;
+  return EMAIL_TYPES.some((t) => emails[t]?.status === "failed");
+}
+
+function emailFailureTitle(emails?: Partial<Record<EmailType, EmailStatus>>): string {
+  if (!emails) return "";
+  return EMAIL_TYPES
+    .filter((t) => emails[t]?.status === "failed")
+    .map((t) => `${emailTypeLabel(t)}: ${emails[t]?.error ?? am.email.failed}`)
+    .join("\n");
+}
+
+/** Per-reservation email send status + lazy-loaded full attempt log (debug). */
+function EmailStatusSection({ r }: { r: AdminReservation }) {
+  const [showLog, setShowLog] = useState(false);
+  const [log, setLog] = useState<EmailLogEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const present = EMAIL_TYPES.filter((t) => r.emails?.[t]);
+  if (present.length === 0) return null; // nothing tracked yet — keep the row clean
+
+  async function toggleLog() {
+    const next = !showLog;
+    setShowLog(next);
+    if (next && log === null && !loading) {
+      setLoading(true);
+      try {
+        const d = await adminJson<{ emails: EmailLogEntry[] }>(`/api/admin/reservations/${r.id}/emails`);
+        setLog(d.emails);
+      } catch {
+        toast(am.email.loadError, "error");
+        setShowLog(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+  return (
+    <div className="pt-0.5 space-y-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-on-surface-variant/40"><EmailIcon /></span>
+        {present.map((t) => {
+          const s = r.emails![t]!;
+          return (
+            <span
+              key={t}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${statusChipClass(s.status)}`}
+              title={chipTitle(s)}
+            >
+              <span className="font-semibold">{emailTypeLabel(t)}</span>
+              <span className="opacity-50">·</span>
+              <span>{statusText(s.status)}</span>
+              {s.attempts > 1 && <span className="opacity-60">×{s.attempts}</span>}
+            </span>
+          );
+        })}
+        <button
+          onClick={toggleLog}
+          className="text-[10px] text-on-surface-variant/60 hover:text-primary underline decoration-dotted"
+        >
+          {showLog ? am.email.hideLog : am.email.viewLog}
+        </button>
+      </div>
+      {showLog && (
+        <div className="rounded-lg border border-outline-variant/20 bg-surface-container-high/50 p-2 text-[11px] space-y-1.5">
+          {loading && <span className="text-on-surface-variant/60">…</span>}
+          {!loading && log && log.length === 0 && (
+            <span className="text-on-surface-variant/60">{am.email.none}</span>
+          )}
+          {!loading && log?.map((e) => (
+            <div key={e.id} className="flex items-start gap-2">
+              <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${dotClass(e.status)}`} />
+              <div className="min-w-0">
+                <span className="font-semibold">{emailTypeLabel(e.type)}</span>
+                <span className="opacity-70"> · {statusText(e.status)}</span>
+                <span className="text-on-surface-variant/50"> · {fmtTime(e.createdAt)}</span>
+                {reasonLabel(e.reason) && (
+                  <span className="text-on-surface-variant/60"> · {reasonLabel(e.reason)}</span>
+                )}
+                {e.error && (
+                  <div className="text-rose-300/80 break-words font-mono text-[10px] mt-0.5">{e.error}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 2.8 1.9 13a1 1 0 0 0 .9 1.5h10.4a1 1 0 0 0 .9-1.5L8 2.8Z" />
+      <path d="M8 6.5v3" />
+      <path d="M8 12h.01" />
+    </svg>
   );
 }
 

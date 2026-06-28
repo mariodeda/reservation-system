@@ -30,6 +30,20 @@ export interface AdminReservation {
   dietaryNotes?: string;
   /** Set when a feedback email has been sent for this reservation. */
   feedbackSentAt?: string | null;
+  /** Latest outcome of each transactional email type (for send tracking). */
+  emails?: Partial<Record<EmailType, EmailStatus>>;
+}
+
+/** The transactional email kinds we track per reservation. */
+export type EmailType = "bookingConfirmation" | "feedbackRequest";
+
+/** At-a-glance latest send outcome for one email type. */
+export interface EmailStatus {
+  status: "sent" | "failed" | "skipped";
+  reason?: string;
+  error?: string;
+  at: string;
+  attempts: number;
 }
 
 export const STATUS_META: Record<
