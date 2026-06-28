@@ -48,6 +48,11 @@ export async function PATCH(req: NextRequest, ctxArg: { params: Promise<{ id: st
     const next = sanitizeTenantSettings({
       ...existing.settings,
       ...body.settings,
+      // Deep-merge emailTemplates so sending only feedbackRequest doesn't wipe
+      // an existing confirmation template (and vice-versa).
+      emailTemplates: body.settings.emailTemplates
+        ? { ...existing.settings.emailTemplates, ...body.settings.emailTemplates }
+        : existing.settings.emailTemplates,
       name: body.settings.name ?? existing.settings.name ?? existing.name,
     });
     // Preserve the stored SMTP password when the client sends a blank one

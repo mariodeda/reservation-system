@@ -1,8 +1,26 @@
 import nodemailer from "nodemailer";
 import type { Reservation } from "./types";
 import { referenceOf } from "./store";
-import { defaultConfirmationTemplate, type Tenant } from "./tenant";
+import { defaultConfirmationTemplate, type Tenant, type TenantSmtp } from "./tenant";
 import { isEmailEventEnabled } from "./email-policy";
+
+function smtpTransport(smtp: TenantSmtp) {
+  const port = Number(smtp.port);
+  // 465 = implicit TLS (connect already encrypted).
+  // 587 / 25 = STARTTLS (plain connect, then upgrade).
+  // Wrong version number error happens when secure:true is used on a STARTTLS port.
+  const secure = port === 465 ? true : port === 587 || port === 25 ? false : Boolean(smtp.secure);
+  return nodemailer.createTransport({
+    host: smtp.host,
+    port,
+    secure,
+    requireTLS: !secure && port !== 25, // enforce STARTTLS on submission ports
+    auth: smtp.user && smtp.pass ? { user: smtp.user, pass: smtp.pass } : undefined,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
+  });
+}
 
 /**
  * Stable variable contract shared by every site's templates. Templates differ
@@ -103,15 +121,7 @@ export async function sendFeedbackRequestEmail(
   if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true };
   if (!reservation.email) return { sent: false, skipped: true };
   try {
-    const transport = nodemailer.createTransport({
-      host: smtp.host,
-      port: Number(smtp.port),
-      secure: Boolean(smtp.secure),
-      auth: smtp.user && smtp.pass ? { user: smtp.user, pass: smtp.pass } : undefined,
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000,
-    });
+    const transport = smtpTransport(smtp);
     const vars: FeedbackEmailVars = {
       guestName: reservation.name,
       restaurantName: s.name,
@@ -151,16 +161,7 @@ export async function sendConfirmationEmail(
     return { sent: false, skipped: true };
   }
   try {
-    const transport = nodemailer.createTransport({
-      host: smtp.host,
-      port: Number(smtp.port),
-      secure: Boolean(smtp.secure),
-      auth: smtp.user && smtp.pass ? { user: smtp.user, pass: smtp.pass } : undefined,
-      // don't let a slow/unreachable SMTP server hang the booking request
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000,
-    });
+    const transport = smtpTransport(smtp);
     const vars = buildEmailVars(reservation, tenant, serviceLabel);
     const tpl = s.emailTemplates?.confirmation ?? defaultConfirmationTemplate();
     const from = smtp.from || s.emailFrom || `${s.name} <${smtp.user ?? s.contactEmail}>`;

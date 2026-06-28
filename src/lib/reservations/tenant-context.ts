@@ -23,7 +23,11 @@ export function hostOf(req: NextRequest): string {
 
 function sameOriginMutation(req: NextRequest): boolean {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return true;
-  const host = (req.headers.get("host") || req.nextUrl.host || "").toLowerCase();
+  // Accept the forwarded host from a reverse proxy so deployments behind
+  // nginx/Caddy don't produce spurious 403s when the internal `Host` header
+  // differs from the external origin the browser sees.
+  const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || req.nextUrl.host || "";
+  const host = rawHost.split(",")[0].trim().toLowerCase(); // x-forwarded-host may be comma-separated
   const origin = req.headers.get("origin");
   if (origin) {
     try {
