@@ -167,9 +167,8 @@ export function NotificationBell({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  function openAndRead() {
+  function toggleOpen() {
     setOpen((v) => !v);
-    if (!open && unreadCount > 0) onMarkAllRead();
   }
 
   function goTo(n: ReservationNotification) {
@@ -181,7 +180,7 @@ export function NotificationBell({
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={openAndRead}
+        onClick={toggleOpen}
         title={connected ? "Notifications" : "Reconnecting…"}
         aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
         className="relative w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
