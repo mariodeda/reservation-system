@@ -45,8 +45,21 @@ beforeAll(async () => {
     adminPasswordHash: hashPassword("s3cret"),
     hosts: ["mock.example.com"],
   });
-  // Ensure the tenant has an availability config (seeds defaults).
-  await getStore().forTenant(tid).getConfig();
+  // Seed the tenant's config, then force every weekday open so the "today"
+  // seeding is deterministic no matter which day the suite runs (the default
+  // template closes Sundays, which otherwise makes the today assertion flaky).
+  const store = getStore().forTenant(tid);
+  const config = await store.getConfig();
+  const openServices =
+    Object.values(config.weekly).find((d) => !d.closed && d.services.length)?.services ?? [];
+  const openWeek = Object.fromEntries(
+    [0, 1, 2, 3, 4, 5, 6].map((d) => [d, { closed: false, services: openServices }]),
+  );
+  config.weekly = openWeek;
+  if (config.offerings?.length) {
+    config.offerings = config.offerings.map((o) => ({ ...o, weekly: openWeek }));
+  }
+  await store.saveConfig(config);
 }, 180_000);
 
 afterAll(async () => {

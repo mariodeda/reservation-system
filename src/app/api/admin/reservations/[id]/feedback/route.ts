@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getStore } from "@/lib/reservations/store";
 import { createFeedbackToken, getFeedbackByReservation } from "@/lib/reservations/feedback-store";
 import { sendFeedbackRequestEmail } from "@/lib/reservations/email";
-import { isEmailEventEnabled } from "@/lib/reservations/email-policy";
+import { hasGuestAttended, isEmailEventEnabled } from "@/lib/reservations/email-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +23,8 @@ export async function POST(
     const store = getStore().forTenant(ctx.tenant.id);
     const reservation = await store.getReservation(id);
     if (!reservation) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    if (reservation.status !== "completed")
-      return NextResponse.json({ error: "Feedback can only be requested for completed reservations." }, { status: 422 });
+    if (!hasGuestAttended(reservation))
+      return NextResponse.json({ error: "Feedback can only be requested for completed reservations (the guest must have shown up)." }, { status: 422 });
     if (!reservation.email)
       return NextResponse.json({ error: "Reservation has no email address." }, { status: 422 });
 

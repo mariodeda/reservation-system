@@ -12,6 +12,18 @@ export function normalizeFeedbackRequestDelayHours(value: unknown): number {
   return Math.min(MAX_FEEDBACK_DELAY_HOURS, n);
 }
 
+/**
+ * Whether the guest actually showed up — the sole precondition under which a
+ * post-visit rating request may be sent. Only "completed" qualifies: staff set
+ * it once the party has dined. "pending"/"confirmed" are still upcoming,
+ * "seated" is mid-visit (too early to ask), and "cancelled"/"no_show" never
+ * attended. This is the single source of truth for feedback eligibility — every
+ * send path funnels through it so a rating email can never reach a no-show.
+ */
+export function hasGuestAttended(reservation: Reservation): boolean {
+  return reservation.status === "completed";
+}
+
 export function isEmailEventEnabled(settings: TenantSettings, event: TenantEmailEvent): boolean {
   if (!settings.emailEnabled) return false;
   if (event === "feedbackRequest" && settings.feedbackEnabled === false) return false;

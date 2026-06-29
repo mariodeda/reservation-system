@@ -159,26 +159,39 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
 
 describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
   const smtp = { host: "smtp.acme.com", port: 587, secure: false };
+  // The rating request only ever goes out for guests who showed up, so every
+  // config-gate test uses a completed reservation to isolate the gate under test.
+  const done = (over: Partial<Reservation> = {}) => reservation({ status: "completed", ...over });
   beforeEach(() => {
     sendMail.mockReset();
     createTransport.mockClear();
   });
 
+  // ── attendance guard: the core "only people who showed up" guarantee ──────────
+  it.each(["pending", "confirmed", "seated", "cancelled", "no_show"] as const)(
+    "never sends the rating email for a %s reservation (guest did not complete a visit)",
+    async (status) => {
+      const r = await sendFeedbackRequestEmail(reservation({ status }), tenant({ smtp }), "https://fb.test/feedback/tok");
+      expect(r).toEqual({ sent: false, skipped: true, reason: "not_attended" });
+      expect(createTransport).not.toHaveBeenCalled();
+    },
+  );
+
   it("skips when emailEnabled is false", async () => {
-    const r = await sendFeedbackRequestEmail(reservation(), tenant({ emailEnabled: false, smtp }), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant({ emailEnabled: false, smtp }), "https://fb.test/feedback/tok");
     expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
   it("skips when tenant feedback is disabled", async () => {
-    const r = await sendFeedbackRequestEmail(reservation(), tenant({ feedbackEnabled: false, smtp }), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant({ feedbackEnabled: false, smtp }), "https://fb.test/feedback/tok");
     expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
   it("skips when the feedback request event is disabled", async () => {
     const r = await sendFeedbackRequestEmail(
-      reservation(),
+      done(),
       tenant({ smtp, emailEvents: { bookingConfirmation: true, feedbackRequest: false } }),
       "https://fb.test/feedback/tok",
     );
@@ -187,18 +200,18 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
   });
 
   it("skips when no SMTP is configured", async () => {
-    const r = await sendFeedbackRequestEmail(reservation(), tenant(), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant(), "https://fb.test/feedback/tok");
     expect(r).toEqual({ sent: false, skipped: true, reason: "no_smtp" });
   });
 
   it("skips when reservation has no email address", async () => {
-    const r = await sendFeedbackRequestEmail(reservation({ email: "" }), tenant({ smtp }), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done({ email: "" }), tenant({ smtp }), "https://fb.test/feedback/tok");
     expect(r).toEqual({ sent: false, skipped: true, reason: "no_recipient" });
   });
 
   it("substitutes {{feedbackUrl}} in subject, text and html via default templates", async () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
-    await sendFeedbackRequestEmail(reservation(), tenant({ smtp, name: "T1" }), "https://fb.test/feedback/tok");
+    await sendFeedbackRequestEmail(done(), tenant({ smtp, name: "T1" }), "https://fb.test/feedback/tok");
     const arg = sendMail.mock.calls[0][0];
     expect(arg.subject).toContain("T1");
     expect(arg.text).toContain("https://fb.test/feedback/tok");
@@ -209,7 +222,7 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
   it("uses a custom feedbackRequest template when configured", async () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
     await sendFeedbackRequestEmail(
-      reservation(),
+      done(),
       tenant({
         smtp,
         name: "T1",
@@ -232,7 +245,7 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
 
   it("never throws when SMTP send fails", async () => {
     sendMail.mockRejectedValueOnce(new Error("timeout"));
-    const r = await sendFeedbackRequestEmail(reservation(), tenant({ smtp }), "https://x/f/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant({ smtp }), "https://x/f/tok");
     expect(r.sent).toBe(false);
     expect(r.error).toBe("timeout");
   });

@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import type { Reservation } from "./types";
 import { referenceOf } from "./store";
 import { defaultConfirmationTemplate, type Tenant, type TenantSmtp } from "./tenant";
-import { isEmailEventEnabled, type TenantEmailEvent } from "./email-policy";
+import { hasGuestAttended, isEmailEventEnabled, type TenantEmailEvent } from "./email-policy";
 import { recordEmailAttempt, type EmailLogStatus } from "./email-log-store";
 
 function smtpTransport(smtp: TenantSmtp) {
@@ -88,7 +88,7 @@ export function buildEmailVars(r: Reservation, tenant: Tenant, serviceLabel?: st
 }
 
 /** Why a send was skipped — distinguishes deliberate config from misconfig. */
-export type EmailSkipReason = "event_disabled" | "no_smtp" | "no_recipient";
+export type EmailSkipReason = "not_attended" | "event_disabled" | "no_smtp" | "no_recipient";
 
 export interface SendResult {
   sent: boolean;
@@ -163,6 +163,10 @@ async function runFeedbackSend(
   feedbackUrl: string,
 ): Promise<SendResult> {
   const s = tenant.settings;
+  // Authoritative guard: a rating request may ONLY go to guests who showed up.
+  // This is the chokepoint every send path funnels through, so no caller can
+  // ever email a no-show/cancelled guest regardless of upstream checks.
+  if (!hasGuestAttended(reservation)) return { sent: false, skipped: true, reason: "not_attended" };
   if (!isEmailEventEnabled(s, "feedbackRequest")) return { sent: false, skipped: true, reason: "event_disabled" };
   const smtp = s.smtp;
   if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true, reason: "no_smtp" };

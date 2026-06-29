@@ -1,6 +1,6 @@
 import { createFeedbackToken, getFeedbackByReservation } from "./feedback-store";
 import { sendFeedbackRequestEmail } from "./email";
-import { isEmailEventEnabled, isFeedbackRequestDue } from "./email-policy";
+import { hasGuestAttended, isEmailEventEnabled, isFeedbackRequestDue } from "./email-policy";
 import type { Tenant } from "./tenant";
 import type { Reservation } from "./types";
 
@@ -9,7 +9,7 @@ export async function sendFeedbackRequestForReservation(
   tenant: Tenant,
 ): Promise<{ sent: boolean; skipped?: boolean }> {
   if (
-    reservation.status !== "completed" ||
+    !hasGuestAttended(reservation) ||
     !reservation.email ||
     !isEmailEventEnabled(tenant.settings, "feedbackRequest") ||
     !isFeedbackRequestDue(reservation, tenant.settings)
@@ -31,7 +31,7 @@ export async function processDueFeedbackRequests(
   tenant: Tenant,
 ): Promise<void> {
   if (!isEmailEventEnabled(tenant.settings, "feedbackRequest")) return;
-  const due = reservations.filter((r) => r.status === "completed" && r.email && isFeedbackRequestDue(r, tenant.settings));
+  const due = reservations.filter((r) => hasGuestAttended(r) && r.email && isFeedbackRequestDue(r, tenant.settings));
   if (!due.length) return;
   const results = await Promise.allSettled(due.map((r) => sendFeedbackRequestForReservation(r, tenant)));
   for (const result of results) {

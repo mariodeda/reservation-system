@@ -616,13 +616,20 @@ const TIMELINE_STATUS: Record<string, string> = {
 function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: number }) {
   const [floor, setFloor] = useState<FloorEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadedDate = useRef<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
+    // Only show the skeleton on the first load for a given date. Background
+    // refreshes (refreshKey bumps from the SSE bus) refetch silently and keep
+    // the existing timeline mounted — collapsing it to a skeleton each time
+    // would shrink content above the list and reset the page scroll to the top.
+    if (loadedDate.current !== date) setLoading(true);
     adminJson<{ floor: FloorEntry[] }>(`/api/admin/tables?date=${date}`)
-      .then((d) => setFloor(d.floor ?? []))
-      .catch(() => setFloor([]))
-      .finally(() => setLoading(false));
+      .then((d) => { if (!cancelled) { setFloor(d.floor ?? []); loadedDate.current = date; } })
+      .catch(() => { if (!cancelled) setFloor([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [date, refreshKey]);
 
   if (loading) return <div className="h-28 rounded-xl bg-surface-container animate-pulse" />;
