@@ -12,11 +12,46 @@ import { requestContext } from "@/lib/observability/request-context";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function decodeBase64Utf8(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value) return undefined;
+  try {
+    return Buffer.from(value, "base64").toString("utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeEmailTemplatePatch(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  const template = { ...(value as Record<string, unknown>) };
+  const html = decodeBase64Utf8(template.htmlBase64);
+  const text = decodeBase64Utf8(template.textBase64);
+  if (html !== undefined) template.html = html;
+  if (text !== undefined) template.text = text;
+  delete template.htmlBase64;
+  delete template.textBase64;
+  return template;
+}
+
+function normalizeSettingsPatch(patch: Partial<TenantSettings>): Partial<TenantSettings> {
+  if (!patch.emailTemplates || typeof patch.emailTemplates !== "object") return patch;
+  const templates = patch.emailTemplates as Record<string, unknown>;
+  return {
+    ...patch,
+    emailTemplates: {
+      ...templates,
+      confirmation: normalizeEmailTemplatePatch(templates.confirmation),
+      feedbackRequest: normalizeEmailTemplatePatch(templates.feedbackRequest),
+    } as TenantSettings["emailTemplates"],
+  };
+}
+
 function mergeTenantSettings(
   existing: TenantSettings,
   patch: Partial<TenantSettings>,
   fallbackName: string,
 ): TenantSettings {
+  patch = normalizeSettingsPatch(patch);
   const sanitized = sanitizeTenantSettings({
     ...existing,
     ...patch,

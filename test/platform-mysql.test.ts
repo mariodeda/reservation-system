@@ -259,13 +259,13 @@ describe("platform tenant CRUD via routes", () => {
           emailTemplates: {
             confirmation: {
               subject: "Your reservation at {{restaurantName}} is confirmed",
-              text: "Dear {{guestName}}, your table is confirmed. {{reference}}",
-              html: "<html><body><p>Confirmed {{reference}}</p></body></html>",
+              textBase64: Buffer.from("Dear {{guestName}}, your table is confirmed. {{reference}}", "utf8").toString("base64"),
+              htmlBase64: Buffer.from("<html><body><p>Confirmed {{reference}}</p></body></html>", "utf8").toString("base64"),
             },
             feedbackRequest: {
               subject: "How was your visit, {{guestName}}?",
-              text: "Share your experience here: {{feedbackUrl}}",
-              html: "<!DOCTYPE html><html><body><a href=\"{{feedbackUrl}}\">Share my experience</a></body></html>",
+              textBase64: Buffer.from("Share your experience here: {{feedbackUrl}}", "utf8").toString("base64"),
+              htmlBase64: Buffer.from("<!DOCTYPE html><html><body><a href=\"{{feedbackUrl}}\">Share my experience</a></body></html>", "utf8").toString("base64"),
             },
           },
         },

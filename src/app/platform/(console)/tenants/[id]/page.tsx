@@ -26,6 +26,16 @@ type Form = {
   feedbackSubject: string; feedbackText: string; feedbackHtml: string;
 };
 
+function encodeBase64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 function toForm(t: TenantView): Form {
   const s = t.settings;
   const ct = s.emailTemplates?.confirmation;
@@ -113,8 +123,8 @@ export default function TenantDetail() {
       const hasFeedback = f.feedbackSubject || f.feedbackText || f.feedbackHtml;
       if (hasConfirm || hasFeedback) {
         settings.emailTemplates = {
-          ...(hasConfirm ? { confirmation: { subject: f.confirmSubject, text: f.confirmText, html: f.confirmHtml } } : {}),
-          ...(hasFeedback ? { feedbackRequest: { subject: f.feedbackSubject, text: f.feedbackText, html: f.feedbackHtml } } : {}),
+          ...(hasConfirm ? { confirmation: { subject: f.confirmSubject, textBase64: encodeBase64Utf8(f.confirmText), htmlBase64: encodeBase64Utf8(f.confirmHtml) } } : {}),
+          ...(hasFeedback ? { feedbackRequest: { subject: f.feedbackSubject, textBase64: encodeBase64Utf8(f.feedbackText), htmlBase64: encodeBase64Utf8(f.feedbackHtml) } } : {}),
         };
       }
       const res = await platformFetch(`/api/platform/tenants/${id}`, {
