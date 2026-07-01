@@ -50,6 +50,7 @@ export default function ReservationsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [showFloor, setShowFloor] = useState(false);
+  const [showWaitlist, setShowWaitlist] = useState(false);
   const [seed, setSeed] = useState<{ offering?: string; service?: string; time?: string }>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -259,6 +260,12 @@ export default function ReservationsPage() {
                   {am.floor.title}
                 </button>
               )}
+              <button
+                onClick={() => setShowWaitlist(true)}
+                className={`${NAVBTN} flex-1 px-3 text-sm sm:flex-none`}
+              >
+                {am.waitlist.title}
+              </button>
             </div>
           </div>
 
@@ -289,14 +296,17 @@ export default function ReservationsPage() {
             />
           )}
 
-          <WaitlistPanel
-            date={date}
-            offerings={offerings}
-            tables={tables}
-            tz={tz}
-            refreshKey={refreshKey}
-            onSeated={load}
-          />
+          {showWaitlist && (
+            <WaitlistModal
+              date={date}
+              offerings={offerings}
+              tables={tables}
+              tz={tz}
+              refreshKey={refreshKey}
+              onClose={() => setShowWaitlist(false)}
+              onSeated={load}
+            />
+          )}
 
           {showForm && (
             <NewReservationForm
@@ -678,6 +688,70 @@ function FloorModal({
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
           <TableTimelineView date={date} refreshKey={refreshKey} config={config} tz={tz} />
           <FloorView date={date} refreshKey={refreshKey} defaultOpen />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WaitlistModal({
+  date,
+  offerings,
+  tables,
+  tz,
+  refreshKey,
+  onClose,
+  onSeated,
+}: {
+  date: string;
+  offerings: OfferingServices[];
+  tables: RestaurantTable[];
+  tz: string;
+  refreshKey: number;
+  onClose: () => void;
+  onSeated: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[180] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="mx-auto flex max-h-[calc(100vh-1.5rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-background shadow-2xl sm:max-h-[calc(100vh-3rem)]">
+        <div className="flex items-center gap-3 border-b border-outline-variant/25 bg-surface-container px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold">{am.waitlist.title}</h2>
+            <p className="text-xs text-on-surface-variant">{formatDateLong(date)}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="M3 3l10 10" />
+              <path d="M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+          <WaitlistPanel
+            date={date}
+            offerings={offerings}
+            tables={tables}
+            tz={tz}
+            refreshKey={refreshKey}
+            onSeated={onSeated}
+          />
         </div>
       </div>
     </div>
