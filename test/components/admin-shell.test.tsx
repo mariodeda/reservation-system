@@ -72,6 +72,27 @@ describe("AdminShell", () => {
     expect(reservations.getAttribute("href")).toBe("/admin/acme/reservations");
   });
 
+  it("groups clients and statistics under one dropdown nav item", () => {
+    pathname.value = "/admin/acme/analytics";
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    const combined = screen.getAllByText("Clients & Statistics").find((el) => el.tagName.toLowerCase() === "summary");
+    expect(combined).toBeTruthy();
+    expect(combined?.className).toContain("text-primary");
+    expect(screen.getByRole("link", { name: "Clients" }).getAttribute("href")).toBe("/admin/acme/customers");
+    expect(screen.getByRole("link", { name: "Statistics" }).getAttribute("href")).toBe("/admin/acme/analytics");
+  });
+
+  it("navigates to the selected clients/statistics section from the mobile dropdown", async () => {
+    const user = userEvent.setup();
+    pathname.value = "/admin/acme/reservations";
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Clients & Statistics" }), "/admin/acme/customers");
+
+    expect(push).toHaveBeenCalledWith("/admin/acme/customers");
+  });
+
   it("renders a logo image when logoUrl is set (instead of the wordmark)", () => {
     render(<AdminShell slug="acme" brandName="Osteria" logoUrl="https://cdn.example/acme.png"><span /></AdminShell>);
     const img = screen.getByRole("img", { name: "Osteria" });

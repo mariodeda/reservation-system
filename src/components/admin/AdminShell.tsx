@@ -23,16 +23,21 @@ export default function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const base = `/admin/${slug}`;
-  const nav = [
+  const navBeforeClientStats = [
     { seg: "", label: am.nav.dashboard },
     { seg: "/reservations", label: am.nav.reservations },
-    { seg: "/customers", label: am.nav.customers },
     { seg: "/tables", label: am.nav.tables },
-    { seg: "/analytics", label: am.nav.analytics },
-    { seg: "/email-logs", label: "Email logs" },
     { seg: "/availability", label: am.nav.availability },
+  ].map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
+  const navAfterClientStats = [
     { seg: "/settings", label: am.nav.settings },
   ].map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
+  const clientStatsSections = [
+    { href: `${base}/customers`, label: am.nav.customers },
+    { href: `${base}/analytics`, label: am.nav.analytics },
+  ];
+  const clientStatsActive = clientStatsSections.some((s) => pathname.startsWith(s.href));
+  const clientStatsValue = clientStatsActive ? clientStatsSections.find((s) => pathname.startsWith(s.href))?.href : "";
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
   const { notifications, unreadCount, connected, markAllRead, markRead } = useReservationEvents();
@@ -95,7 +100,53 @@ export default function AdminShell({
               </div>
             )}
             <nav className="hidden sm:flex items-center gap-1">
-              {nav.map((n) => {
+              {navBeforeClientStats.map((n) => {
+                const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition ${
+                      active
+                        ? "bg-primary/15 text-primary"
+                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                    }`}
+                  >
+                    {n.label}
+                  </Link>
+                );
+              })}
+              <details className="relative group">
+                <summary
+                  className={`list-none cursor-pointer select-none px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5 [&::-webkit-details-marker]:hidden ${
+                    clientStatsActive
+                      ? "bg-primary/15 text-primary"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                  }`}
+                >
+                  {am.nav.clientsAndStatistics}
+                  <ChevronDownIcon />
+                </summary>
+                <div className="absolute left-0 top-full mt-2 min-w-48 rounded-lg border border-outline-variant/40 bg-surface-container shadow-xl p-1 z-50">
+                  {clientStatsSections.map((section) => {
+                    const active = pathname.startsWith(section.href);
+                    return (
+                      <Link
+                        key={section.href}
+                        href={section.href}
+                        className={`block px-3 py-2 rounded-md text-sm transition ${
+                          active
+                            ? "bg-primary/15 text-primary"
+                            : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                        }`}
+                      >
+                        {section.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </details>
+              {navAfterClientStats.map((n) => {
                 const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
                 return (
                   <Link
@@ -159,7 +210,39 @@ export default function AdminShell({
         {/* mobile nav — horizontally scrollable; right fade hints there are more items */}
         <div className="sm:hidden relative">
           <nav className="flex items-center gap-1 px-4 pb-2 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
-            {nav.map((n) => {
+            {navBeforeClientStats.map((n) => {
+              const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
+              return (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  className={`shrink-0 px-3 py-2 rounded-lg text-sm transition min-h-[36px] flex items-center ${
+                    active ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:text-on-surface"
+                  }`}
+                >
+                  {n.label}
+                </Link>
+              );
+            })}
+            <label className={`shrink-0 min-h-[36px] flex items-center rounded-lg text-sm transition ${
+              clientStatsActive ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:text-on-surface"
+            }`}>
+              <span className="sr-only">{am.nav.clientsAndStatistics}</span>
+              <select
+                aria-label={am.nav.clientsAndStatistics}
+                value={clientStatsValue ?? ""}
+                onChange={(event) => {
+                  if (event.target.value) router.push(event.target.value);
+                }}
+                className="bg-transparent px-3 py-2 rounded-lg outline-none"
+              >
+                <option value="" disabled>{am.nav.clientsAndStatistics}</option>
+                {clientStatsSections.map((section) => (
+                  <option key={section.href} value={section.href}>{section.label}</option>
+                ))}
+              </select>
+            </label>
+            {navAfterClientStats.map((n) => {
               const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
               return (
                 <Link
@@ -208,6 +291,14 @@ function MoonIcon() {
   return (
     <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M17.5 12.5A7.5 7.5 0 117.5 2.5a5.5 5.5 0 0010 10z" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m4 6 4 4 4-4" />
     </svg>
   );
 }

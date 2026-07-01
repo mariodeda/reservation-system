@@ -3,9 +3,10 @@ export const am = {
   nav: {
     dashboard: "Dashboard",
     reservations: "Reservations",
-    analytics: "Analytics",
+    analytics: "Statistics",
+    clientsAndStatistics: "Clients & Statistics",
     availability: "Availability",
-    customers: "Customers",
+    customers: "Clients",
     tables: "Tables",
     settings: "Settings",
     signOut: "Sign out",

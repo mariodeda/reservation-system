@@ -4,6 +4,7 @@ export const it = {
     dashboard: "Dashboard",
     reservations: "Prenotazioni",
     analytics: "Statistiche",
+    clientsAndStatistics: "Clienti e statistiche",
     availability: "Disponibilità",
     customers: "Clienti",
     tables: "Tavoli",
