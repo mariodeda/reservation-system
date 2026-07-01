@@ -139,6 +139,7 @@ describe("AdminShell", () => {
     await user.click(screen.getByRole("button", { name: /mark all read/i }));
 
     expect(reservationEvents.markAllRead).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
   });
 });

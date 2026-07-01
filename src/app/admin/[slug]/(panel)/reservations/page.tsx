@@ -49,6 +49,7 @@ export default function ReservationsPage() {
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
+  const [showFloor, setShowFloor] = useState(false);
   const [seed, setSeed] = useState<{ offering?: string; service?: string; time?: string }>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -250,6 +251,14 @@ export default function ReservationsPage() {
               >
                 {am.reservations.print}
               </button>
+              {hasTables && (
+                <button
+                  onClick={() => setShowFloor(true)}
+                  className={`${NAVBTN} flex-1 px-3 text-sm sm:flex-none`}
+                >
+                  {am.floor.title}
+                </button>
+              )}
             </div>
           </div>
 
@@ -270,9 +279,15 @@ export default function ReservationsPage() {
             ))}
           </div>
 
-          {hasTables && <TableTimelineView date={date} refreshKey={refreshKey} config={config} tz={tz} />}
-
-          {hasTables && <FloorView date={date} refreshKey={refreshKey} />}
+          {hasTables && showFloor && (
+            <FloorModal
+              date={date}
+              refreshKey={refreshKey}
+              config={config}
+              tz={tz}
+              onClose={() => setShowFloor(false)}
+            />
+          )}
 
           <WaitlistPanel
             date={date}
@@ -615,6 +630,60 @@ const TIMELINE_STATUS: Record<string, string> = {
 
 type TimelineWindow = { start: number; end: number };
 
+function FloorModal({
+  date,
+  refreshKey,
+  config,
+  tz,
+  onClose,
+}: {
+  date: string;
+  refreshKey: number;
+  config: AvailabilityConfig | null;
+  tz: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[180] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="mx-auto flex max-h-[calc(100vh-1.5rem)] max-w-6xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-background shadow-2xl sm:max-h-[calc(100vh-3rem)]">
+        <div className="flex items-center gap-3 border-b border-outline-variant/25 bg-surface-container px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold">{am.floor.title}</h2>
+            <p className="text-xs text-on-surface-variant">{formatDateLong(date)}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="M3 3l10 10" />
+              <path d="M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
+          <TableTimelineView date={date} refreshKey={refreshKey} config={config} tz={tz} />
+          <FloorView date={date} refreshKey={refreshKey} defaultOpen />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Horizontal per-table timeline showing bookings across the configured service day. */
 function TableTimelineView({
   date,
@@ -809,8 +878,8 @@ const FLOOR_STATE: Record<TableState, { dot: string; label: () => string }> = {
 };
 
 /** Color-coded floor view for the selected day. Collapsible. */
-function FloorView({ date, refreshKey }: { date: string; refreshKey: number }) {
-  const [open, setOpen] = useState(false);
+function FloorView({ date, refreshKey, defaultOpen = false }: { date: string; refreshKey: number; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [floor, setFloor] = useState<FloorEntry[]>([]);
 
   useEffect(() => {
@@ -932,7 +1001,7 @@ function NewReservationForm({
   // load the day's availability for the selected offering so staff can pick a
   // slot and see how full it is
   useEffect(() => {
-    adminJson<DayAvailability>(`/api/availability?date=${form.date}&offering=${encodeURIComponent(form.offering)}`)
+    adminJson<DayAvailability>(`/api/admin/availability?date=${form.date}&offering=${encodeURIComponent(form.offering)}`)
       .then(setDay)
       .catch(() => setDay(null));
   }, [form.date, form.offering]);

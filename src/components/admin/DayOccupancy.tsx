@@ -32,7 +32,7 @@ export default function DayOccupancy({
     let cancelled = false;
     setError(false);
     const q = offering ? `?date=${date}&offering=${encodeURIComponent(offering)}` : `?date=${date}`;
-    adminJson<DayAvailability>(`/api/availability${q}`)
+    adminJson<DayAvailability>(`/api/admin/availability${q}`)
       .then((d) => !cancelled && setDay(d))
       .catch(() => !cancelled && setError(true));
     return () => {

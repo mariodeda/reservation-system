@@ -152,11 +152,25 @@ interface BellProps {
 }
 
 export function NotificationBell({
-  notifications, unreadCount, connected, slug, onMarkAllRead, onMarkRead,
+  notifications, connected, slug, onMarkAllRead, onMarkRead,
 }: BellProps) {
   const [open, setOpen] = useState(false);
+  const [locallyRead, setLocallyRead] = useState<Set<string>>(() => new Set());
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setLocallyRead((prev) => {
+      const active = new Set(notifications.map((n) => n.notificationId));
+      const next = new Set([...prev].filter((id) => active.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [notifications]);
+
+  const visibleNotifications = notifications.map((n) =>
+    locallyRead.has(n.notificationId) ? { ...n, read: true } : n,
+  );
+  const visibleUnreadCount = visibleNotifications.filter((n) => !n.read).length;
 
   // Close on outside click
   useEffect(() => {
@@ -172,9 +186,19 @@ export function NotificationBell({
   }
 
   function goTo(n: ReservationNotification) {
-    onMarkRead(n.notificationId);
+    markReadNow(n.notificationId);
     setOpen(false);
     router.push(`/admin/${slug}/reservations?date=${n.date}`);
+  }
+
+  function markReadNow(notificationId: string) {
+    setLocallyRead((prev) => new Set(prev).add(notificationId));
+    onMarkRead(notificationId);
+  }
+
+  function markAllReadNow() {
+    setLocallyRead(new Set(notifications.map((n) => n.notificationId)));
+    onMarkAllRead();
   }
 
   return (
@@ -182,13 +206,13 @@ export function NotificationBell({
       <button
         onClick={toggleOpen}
         title={connected ? "Notifications" : "Reconnecting…"}
-        aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+        aria-label={`Notifications${visibleUnreadCount > 0 ? `, ${visibleUnreadCount} unread` : ""}`}
         className="relative w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
       >
         <BellIcon />
-        {unreadCount > 0 && (
+        {visibleUnreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none tabular-nums">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {visibleUnreadCount > 99 ? "99+" : visibleUnreadCount}
           </span>
         )}
         {/* connectivity dot */}
@@ -206,7 +230,7 @@ export function NotificationBell({
               )}
               {notifications.length > 0 && (
                 <button
-                  onClick={onMarkAllRead}
+                  onClick={markAllReadNow}
                   className="text-[11px] text-primary hover:text-primary/70 font-medium transition"
                 >
                   Mark all read
@@ -226,7 +250,7 @@ export function NotificationBell({
                 </p>
               </div>
             ) : (
-              notifications.map((n) => (
+              visibleNotifications.map((n) => (
                 <button
                   key={n.notificationId}
                   onClick={() => goTo(n)}

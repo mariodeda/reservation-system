@@ -19,6 +19,7 @@ let routes: {
   lookup: typeof import("@/app/api/reservations/lookup/route");
   login: typeof import("@/app/api/admin/login/route");
   logout: typeof import("@/app/api/admin/logout/route");
+  adminAvail: typeof import("@/app/api/admin/availability/route");
   config: typeof import("@/app/api/admin/config/route");
   adminRes: typeof import("@/app/api/admin/reservations/route");
   adminResId: typeof import("@/app/api/admin/reservations/[id]/route");
@@ -69,6 +70,7 @@ beforeAll(async () => {
     lookup: await import("@/app/api/reservations/lookup/route"),
     login: await import("@/app/api/admin/login/route"),
     logout: await import("@/app/api/admin/logout/route"),
+    adminAvail: await import("@/app/api/admin/availability/route"),
     config: await import("@/app/api/admin/config/route"),
     adminRes: await import("@/app/api/admin/reservations/route"),
     adminResId: await import("@/app/api/admin/reservations/[id]/route"),
@@ -649,6 +651,28 @@ describe("admin config routes", () => {
   it("PUT 400s on invalid JSON", async () => {
     const res = await routes.config.PUT(adminReq("/api/admin/config", { method: "PUT", body: "{bad", headers: { "content-type": "application/json" } }));
     expect(res.status).toBe(400);
+  });
+});
+
+/* ----------------------------- admin availability ----------------------------- */
+
+describe("admin availability routes", () => {
+  it("uses the admin session tenant instead of public host resolution", async () => {
+    const res = await routes.adminAvail.GET(
+      adminReq("/api/admin/availability?date=2026-06-12", {
+        headers: { host: "unmapped-admin.example.com" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.date).toBe("2026-06-12");
+    expect(json.services.length).toBeGreaterThan(0);
+  });
+
+  it("returns 400 for invalid admin availability params", async () => {
+    expect((await routes.adminAvail.GET(adminReq("/api/admin/availability?date=nope"))).status).toBe(400);
+    expect((await routes.adminAvail.GET(adminReq("/api/admin/availability?month=2026-13"))).status).toBe(400);
+    expect((await routes.adminAvail.GET(adminReq("/api/admin/availability"))).status).toBe(400);
   });
 });
 

@@ -32,6 +32,7 @@ describe("DayOccupancy", () => {
   it("shows per-service covers and a slot chip per time", async () => {
     adminJson.mockResolvedValue(day());
     render(<DayOccupancy date="2026-06-12" />);
+    expect(adminJson).toHaveBeenCalledWith("/api/admin/availability?date=2026-06-12");
     expect(await screen.findByText("Lunch")).toBeInTheDocument();
     expect(screen.getByText("27/40 covers")).toBeInTheDocument(); // 4+8+10+5 booked / 4*10 cap
     // a chip per slot, coloured per fullness (open/amber/full/blocked)
