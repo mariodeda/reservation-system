@@ -25,6 +25,17 @@ export interface EmailLogEntry {
   createdAt: string;
 }
 
+export interface EmailLogFilter {
+  tenantId?: string;
+  reservationId?: string;
+  type?: EmailLogType;
+  status?: EmailLogStatus;
+  q?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
 export interface RecordEmailAttemptInput {
   tenantId: string;
   reservationId: string;
@@ -102,6 +113,53 @@ export async function getEmailLogByReservation(reservationId: string): Promise<E
     `SELECT id, tenant_id, reservation_id, type, status, reason, error, to_email, created_at
      FROM reservation_emails WHERE reservation_id = ? ORDER BY created_at DESC`,
     [reservationId],
+  );
+  return rows.map(toEntry);
+}
+
+/** Platform-wide email attempt listing for operators. */
+export async function listEmailLogs(filter: EmailLogFilter = {}): Promise<EmailLogEntry[]> {
+  await ensureSchema();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (filter.tenantId) {
+    where.push("tenant_id = ?");
+    params.push(filter.tenantId);
+  }
+  if (filter.reservationId) {
+    where.push("reservation_id = ?");
+    params.push(filter.reservationId);
+  }
+  if (filter.type) {
+    where.push("type = ?");
+    params.push(filter.type);
+  }
+  if (filter.status) {
+    where.push("status = ?");
+    params.push(filter.status);
+  }
+  if (filter.from) {
+    where.push("created_at >= ?");
+    params.push(filter.from);
+  }
+  if (filter.to) {
+    where.push("created_at <= ?");
+    params.push(filter.to);
+  }
+  if (filter.q) {
+    where.push("(reservation_id LIKE ? OR to_email LIKE ? OR reason LIKE ? OR error LIKE ?)");
+    const q = `%${filter.q}%`;
+    params.push(q, q, q, q);
+  }
+  const limit = Math.min(Math.max(Math.trunc(filter.limit ?? 100), 1), 500);
+  params.push(limit);
+  const [rows] = await getPool().query<ELRow[]>(
+    `SELECT id, tenant_id, reservation_id, type, status, reason, error, to_email, created_at
+     FROM reservation_emails
+     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+     ORDER BY created_at DESC
+     LIMIT ?`,
+    params,
   );
   return rows.map(toEntry);
 }

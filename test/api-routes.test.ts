@@ -20,6 +20,7 @@ let routes: {
   login: typeof import("@/app/api/admin/login/route");
   logout: typeof import("@/app/api/admin/logout/route");
   adminAvail: typeof import("@/app/api/admin/availability/route");
+  adminEmailLogs: typeof import("@/app/api/admin/email-logs/route");
   config: typeof import("@/app/api/admin/config/route");
   adminRes: typeof import("@/app/api/admin/reservations/route");
   adminResId: typeof import("@/app/api/admin/reservations/[id]/route");
@@ -71,6 +72,7 @@ beforeAll(async () => {
     login: await import("@/app/api/admin/login/route"),
     logout: await import("@/app/api/admin/logout/route"),
     adminAvail: await import("@/app/api/admin/availability/route"),
+    adminEmailLogs: await import("@/app/api/admin/email-logs/route"),
     config: await import("@/app/api/admin/config/route"),
     adminRes: await import("@/app/api/admin/reservations/route"),
     adminResId: await import("@/app/api/admin/reservations/[id]/route"),
@@ -673,6 +675,42 @@ describe("admin availability routes", () => {
     expect((await routes.adminAvail.GET(adminReq("/api/admin/availability?date=nope"))).status).toBe(400);
     expect((await routes.adminAvail.GET(adminReq("/api/admin/availability?month=2026-13"))).status).toBe(400);
     expect((await routes.adminAvail.GET(adminReq("/api/admin/availability"))).status).toBe(400);
+  });
+});
+
+/* ----------------------------- admin email logs ----------------------------- */
+
+describe("admin email log routes", () => {
+  it("lists this tenant's email logs with filters", async () => {
+    const { recordEmailAttempt } = await import("@/lib/reservations/email-log-store");
+    await recordEmailAttempt({
+      tenantId,
+      reservationId: "admin-email-log-1",
+      type: "bookingConfirmation",
+      status: "skipped",
+      reason: "no_smtp",
+      toEmail: "guest@example.com",
+    });
+    await recordEmailAttempt({
+      tenantId: "other-tenant",
+      reservationId: "admin-email-log-2",
+      type: "bookingConfirmation",
+      status: "skipped",
+      reason: "no_smtp",
+      toEmail: "other@example.com",
+    });
+
+    const res = await routes.adminEmailLogs.GET(adminReq("/api/admin/email-logs?type=bookingConfirmation&status=skipped&q=guest&limit=20"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.emails).toHaveLength(1);
+    expect(json.emails[0]).toMatchObject({
+      tenantId,
+      reservationId: "admin-email-log-1",
+      type: "bookingConfirmation",
+      status: "skipped",
+      reason: "no_smtp",
+    });
   });
 });
 

@@ -17,6 +17,7 @@ let domainsRoute: typeof import("@/app/api/platform/tenants/[id]/domains/route")
 let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route");
 let analyticsRoute: typeof import("@/app/api/platform/analytics/route");
 let logsRoute: typeof import("@/app/api/platform/logs/route");
+let emailLogsRoute: typeof import("@/app/api/platform/email-logs/route");
 
 let cookie = "";
 
@@ -46,6 +47,7 @@ beforeAll(async () => {
   passwordRoute = await import("@/app/api/platform/tenants/[id]/password/route");
   analyticsRoute = await import("@/app/api/platform/analytics/route");
   logsRoute = await import("@/app/api/platform/logs/route");
+  emailLogsRoute = await import("@/app/api/platform/email-logs/route");
   // Migration 3 seeds the default platform admin. Wipe it so this test file
   // can create its own fixtures with known credentials.
   const { ensureSchema } = await import("@/lib/reservations/mysql-schema");
@@ -380,6 +382,40 @@ describe("platform tenant CRUD via routes", () => {
     expect(created.events.some((event: { tenantId: string; event: string }) =>
       event.tenantId === id && event.event === "platform.tenant.created",
     )).toBe(true);
+  });
+
+  it("lists platform-visible email logs with tenant, type and status filters", async () => {
+    const { recordEmailAttempt } = await import("@/lib/reservations/email-log-store");
+    await recordEmailAttempt({
+      tenantId: id,
+      reservationId: "reservation-email-log-1",
+      type: "bookingConfirmation",
+      status: "failed",
+      reason: "recipient_rejected",
+      error: "SMTP rejected recipient",
+      toEmail: "guest@example.com",
+    });
+    await recordEmailAttempt({
+      tenantId: id,
+      reservationId: "reservation-email-log-2",
+      type: "feedbackRequest",
+      status: "sent",
+      toEmail: "other@example.com",
+    });
+
+    const res = await emailLogsRoute.GET(authed(`/api/platform/email-logs?tenantId=${id}&type=bookingConfirmation&status=failed&q=guest&limit=20`));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.tenants.some((tenant: { id: string }) => tenant.id === id)).toBe(true);
+    expect(json.emails).toHaveLength(1);
+    expect(json.emails[0]).toMatchObject({
+      tenantId: id,
+      reservationId: "reservation-email-log-1",
+      type: "bookingConfirmation",
+      status: "failed",
+      reason: "recipient_rejected",
+      toEmail: "guest@example.com",
+    });
   });
 
   it("disabling a tenant stops host resolution", async () => {

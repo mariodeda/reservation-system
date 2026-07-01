@@ -15,7 +15,7 @@ export default function PlatformShell({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const fullWidth = pathname?.startsWith("/platform/logs") ?? false;
+  const fullWidth = pathname?.startsWith("/platform/logs") || pathname?.startsWith("/platform/email-logs") || false;
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
 
@@ -51,6 +51,7 @@ export default function PlatformShell({
             <nav className="hidden md:flex items-center gap-1 text-sm" aria-label="Platform">
               <NavLink href="/platform" active={pathname === "/platform"}>Restaurants</NavLink>
               <NavLink href="/platform/logs" active={pathname?.startsWith("/platform/logs") ?? false}>Logs</NavLink>
+              <NavLink href="/platform/email-logs" active={pathname?.startsWith("/platform/email-logs") ?? false}>Email logs</NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-2">

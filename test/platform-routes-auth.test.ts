@@ -12,6 +12,7 @@ let domains: typeof import("@/app/api/platform/tenants/[id]/domains/route");
 let password: typeof import("@/app/api/platform/tenants/[id]/password/route");
 let logout: typeof import("@/app/api/platform/logout/route");
 let logs: typeof import("@/app/api/platform/logs/route");
+let emailLogs: typeof import("@/app/api/platform/email-logs/route");
 let smtpCron: typeof import("@/app/api/platform/cron/smtp-health/route");
 let bounces: typeof import("@/app/api/platform/bounces/route");
 let pauth: typeof import("@/lib/reservations/platform-auth");
@@ -24,6 +25,7 @@ beforeAll(async () => {
   password = await import("@/app/api/platform/tenants/[id]/password/route");
   logout = await import("@/app/api/platform/logout/route");
   logs = await import("@/app/api/platform/logs/route");
+  emailLogs = await import("@/app/api/platform/email-logs/route");
   smtpCron = await import("@/app/api/platform/cron/smtp-health/route");
   bounces = await import("@/app/api/platform/bounces/route");
   pauth = await import("@/lib/reservations/platform-auth");
@@ -55,6 +57,9 @@ describe("platform routes reject unauthenticated callers (401)", () => {
   });
   it("logs GET", async () => {
     expect((await logs.GET(req("/api/platform/logs"))).status).toBe(401);
+  });
+  it("email logs GET", async () => {
+    expect((await emailLogs.GET(req("/api/platform/email-logs"))).status).toBe(401);
   });
   it("SMTP cron POST", async () => {
     expect((await smtpCron.POST(req("/api/platform/cron/smtp-health", "POST"))).status).toBe(401);

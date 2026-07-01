@@ -92,3 +92,23 @@ export interface PlatformLogsResponse {
   events: PlatformLogEvent[];
   tenants: PlatformLogTenant[];
 }
+
+export type PlatformEmailLogType = "bookingConfirmation" | "feedbackRequest";
+export type PlatformEmailLogStatus = "sent" | "failed" | "skipped";
+
+export interface PlatformEmailLogEntry {
+  id: string;
+  tenantId: string;
+  reservationId: string;
+  type: PlatformEmailLogType;
+  status: PlatformEmailLogStatus;
+  reason?: string;
+  error?: string;
+  toEmail?: string;
+  createdAt: string;
+}
+
+export interface PlatformEmailLogsResponse {
+  emails: PlatformEmailLogEntry[];
+  tenants: PlatformLogTenant[];
+}

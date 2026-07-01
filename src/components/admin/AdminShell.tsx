@@ -28,6 +28,7 @@ export default function AdminShell({
     { seg: "/customers", label: am.nav.customers },
     { seg: "/tables", label: am.nav.tables },
     { seg: "/analytics", label: am.nav.analytics },
+    { seg: "/email-logs", label: "Email logs" },
     { seg: "/availability", label: am.nav.availability },
     { seg: "/settings", label: am.nav.settings },
   ].map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
