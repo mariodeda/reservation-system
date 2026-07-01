@@ -50,6 +50,37 @@ type Migration = { version: number; run: (pool: Pool) => Promise<void> };
 
 const MIGRATIONS: Migration[] = [
   {
+    // Cross-surface operational/audit events. This complements structured
+    // stdout logs and the specialized reservation_emails table with a durable,
+    // tenant-scoped event stream for support, security, and debugging.
+    version: 16,
+    run: async (pool) => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS app_events (
+          id CHAR(36) NOT NULL PRIMARY KEY,
+          created_at VARCHAR(32) NOT NULL,
+          level VARCHAR(8) NOT NULL,
+          event VARCHAR(96) NOT NULL,
+          surface VARCHAR(16) NOT NULL,
+          tenant_id CHAR(36) NULL,
+          actor_type VARCHAR(16) NOT NULL,
+          actor_id_hash VARCHAR(64) NULL,
+          request_id VARCHAR(64) NULL,
+          reservation_id CHAR(36) NULL,
+          reference VARCHAR(16) NULL,
+          status INT NULL,
+          reason VARCHAR(120) NULL,
+          metadata JSON NULL,
+          INDEX idx_ae_tenant_created (tenant_id, created_at),
+          INDEX idx_ae_event_created (event, created_at),
+          INDEX idx_ae_level_created (level, created_at),
+          INDEX idx_ae_request (request_id),
+          INDEX idx_ae_reservation (reservation_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    },
+  },
+  {
     // Append-only log of every transactional email send attempt, so staff and
     // operators can debug whether the right emails went out (per tenant config)
     // and why a send failed. One row per attempt: status sent|failed|skipped.

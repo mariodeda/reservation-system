@@ -5,6 +5,8 @@ import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { RESERVATION_STATUSES, type Reservation } from "@/lib/reservations/types";
 import { sendFeedbackRequestForReservation } from "@/lib/reservations/feedback-automation";
 import { emitReservation } from "@/lib/reservations/events";
+import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 
@@ -13,6 +15,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;
+  const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: admin.tenant, session: admin.session, route: "/api/admin/reservations/[id]" });
   let body: Partial<Reservation>;
   try {
     body = await req.json();
@@ -55,7 +58,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (candidate.tableId || candidate.tableIds?.length) {
       const config = await store.getConfig();
       const tableError = await getTableStore(admin.tenant.id).validateAssignedTables(candidate, config);
-      if (tableError) return NextResponse.json({ error: tableError }, { status: 409 });
+      if (tableError) {
+        await recordAppEvent(eventFromRequest(obs, {
+          level: "warn",
+          event: "admin.reservation.table_conflict",
+          status: 409,
+          reservationId: id,
+          reference: referenceOf(id),
+          reason: tableError,
+        }));
+        return NextResponse.json({ error: tableError }, { status: 409 });
+      }
     }
   }
 
@@ -69,7 +82,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const config = await store.getConfig();
     const tableId = body.tableId ? String(body.tableId) : null;
     const result = await getTableStore(admin.tenant.id).assignTable(id, tableId, config);
-    if (result.error) return NextResponse.json({ error: result.error }, { status: 409 });
+    if (result.error) {
+      await recordAppEvent(eventFromRequest(obs, {
+        level: "warn",
+        event: "admin.reservation.table_conflict",
+        status: 409,
+        reservationId: id,
+        reference: referenceOf(id),
+        reason: result.error,
+      }));
+      return NextResponse.json({ error: result.error }, { status: 409 });
+    }
   }
 
   const final = updated ?? (await store.getReservation(id));
@@ -98,6 +121,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     source: reservation.source,
   });
 
+  await recordAppEvent(eventFromRequest(obs, {
+    level: "info",
+    event: "admin.reservation.updated",
+    status: 200,
+    reservationId: reservation.id,
+    reference: referenceOf(reservation.id),
+    metadata: {
+      status: reservation.status,
+      assignedTable: Boolean(reservation.tableId || reservation.tableIds?.length),
+      fields: Object.keys(patch),
+      tableAssignmentChanged: assigningTable,
+    },
+  }));
+
   return NextResponse.json({ ok: true, reservation: { ...reservation, reference: referenceOf(reservation.id) } });
 }
 
@@ -106,6 +143,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;
+  const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: admin.tenant, session: admin.session, route: "/api/admin/reservations/[id]" });
   const store = getStore().forTenant(admin.tenant.id);
   const existing = await store.getReservation(id);
   const ok = await store.deleteReservation(id);
@@ -123,6 +161,14 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
       offering: existing.offering ?? "main",
       source: existing.source,
     });
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "info",
+      event: "admin.reservation.deleted",
+      status: 200,
+      reservationId: existing.id,
+      reference: referenceOf(existing.id),
+      metadata: { status: existing.status, date: existing.date, time: existing.time },
+    }));
   }
   return NextResponse.json({ ok: true });
 }

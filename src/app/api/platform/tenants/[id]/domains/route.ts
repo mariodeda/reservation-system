@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantStore } from "@/lib/reservations/tenant-store";
 import { requirePlatform } from "@/lib/reservations/tenant-context";
+import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 
@@ -11,6 +13,7 @@ export async function POST(req: NextRequest, ctxArg: { params: Promise<{ id: str
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
+  const obs = requestContext(req, { surface: "platform", actorType: "platform", session: ctx.session, route: "/api/platform/tenants/[id]/domains" });
   let body: { host?: string };
   try {
     body = await req.json();
@@ -25,6 +28,15 @@ export async function POST(req: NextRequest, ctxArg: { params: Promise<{ id: str
   if (!(await store.getById(id))) return NextResponse.json({ error: "Not found." }, { status: 404 });
   try {
     await store.addDomain(id, host);
+    await recordAppEvent({
+      ...eventFromRequest(obs, {
+        level: "info",
+        event: "platform.tenant.domain_added",
+        status: 200,
+        metadata: { host },
+      }),
+      tenantId: id,
+    });
     return NextResponse.json({ ok: true, hosts: await store.listDomains(id) });
   } catch (err) {
     if (err instanceof Error && err.message === "DOMAIN_ALREADY_MAPPED") {
@@ -40,6 +52,7 @@ export async function DELETE(req: NextRequest, ctxArg: { params: Promise<{ id: s
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
+  const obs = requestContext(req, { surface: "platform", actorType: "platform", session: ctx.session, route: "/api/platform/tenants/[id]/domains" });
   let body: { host?: string };
   try {
     body = await req.json();
@@ -49,5 +62,14 @@ export async function DELETE(req: NextRequest, ctxArg: { params: Promise<{ id: s
   const host = String(body.host ?? "").trim().toLowerCase();
   const store = getTenantStore();
   await store.removeDomain(host);
+  await recordAppEvent({
+    ...eventFromRequest(obs, {
+      level: "info",
+      event: "platform.tenant.domain_removed",
+      status: 200,
+      metadata: { host },
+    }),
+    tenantId: id,
+  });
   return NextResponse.json({ ok: true, hosts: await store.listDomains(id) });
 }

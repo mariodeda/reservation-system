@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import SystemLogo from "@/components/SystemLogo";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 
@@ -14,6 +14,7 @@ export default function PlatformShell({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
 
@@ -46,6 +47,10 @@ export default function PlatformShell({
                 Reservations Platform
               </span>
             </Link>
+            <nav className="hidden md:flex items-center gap-1 text-sm" aria-label="Platform">
+              <NavLink href="/platform" active={pathname === "/platform"}>Restaurants</NavLink>
+              <NavLink href="/platform/logs" active={pathname?.startsWith("/platform/logs") ?? false}>Logs</NavLink>
+            </nav>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-on-surface-variant hidden sm:inline mr-1">{username}</span>
@@ -85,6 +90,21 @@ export default function PlatformShell({
       </header>
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
     </div>
+  );
+}
+
+function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-lg px-3 py-1.5 transition ${
+        active
+          ? "bg-primary/15 text-primary"
+          : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+      }`}
+    >
+      {children}
+    </Link>
   );
 }
 

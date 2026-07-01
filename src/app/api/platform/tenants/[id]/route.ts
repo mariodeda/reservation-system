@@ -5,6 +5,8 @@ import { sanitizeTenantSettings } from "@/lib/reservations/sanitize-tenant";
 import { tenantView } from "@/lib/reservations/platform-view";
 import type { Tenant, TenantSettings } from "@/lib/reservations/tenant";
 import { getPlatformStore } from "@/lib/reservations/platform-store";
+import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +27,7 @@ export async function PATCH(req: NextRequest, ctxArg: { params: Promise<{ id: st
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
+  const obs = requestContext(req, { surface: "platform", actorType: "platform", session: ctx.session, route: "/api/platform/tenants/[id]" });
 
   let body: { settings?: Partial<TenantSettings>; status?: Tenant["status"] };
   try {
@@ -42,6 +45,16 @@ export async function PATCH(req: NextRequest, ctxArg: { params: Promise<{ id: st
       return NextResponse.json({ error: "Invalid status." }, { status: 400 });
     }
     await store.setStatus(id, body.status);
+    await recordAppEvent({
+      ...eventFromRequest(obs, {
+        level: "info",
+        event: "platform.tenant.status_updated",
+        status: 200,
+        reason: body.status,
+        metadata: { slug: existing.slug },
+      }),
+      tenantId: id,
+    });
   }
 
   if (body.settings !== undefined) {
@@ -61,6 +74,21 @@ export async function PATCH(req: NextRequest, ctxArg: { params: Promise<{ id: st
       next.smtp.pass = existing.settings.smtp.pass;
     }
     await store.updateSettings(id, next);
+    const policyChanged = ["emailEnabled", "emailEvents", "feedbackRequestDelayHours", "feedbackEnabled"].some((k) =>
+      Object.prototype.hasOwnProperty.call(body.settings, k),
+    );
+    await recordAppEvent({
+      ...eventFromRequest(obs, {
+        level: "info",
+        event: policyChanged ? "platform.tenant.email_policy_updated" : "platform.tenant.settings_updated",
+        status: 200,
+        metadata: {
+          slug: existing.slug,
+          keys: Object.keys(body.settings),
+        },
+      }),
+      tenantId: id,
+    });
   }
 
   const updated = await store.getById(id);
@@ -72,6 +100,7 @@ export async function DELETE(req: NextRequest, ctxArg: { params: Promise<{ id: s
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
+  const obs = requestContext(req, { surface: "platform", actorType: "platform", session: ctx.session, route: "/api/platform/tenants/[id]" });
   let body: { operatorPassword?: string } = {};
   try {
     body = await req.json();
@@ -80,8 +109,26 @@ export async function DELETE(req: NextRequest, ctxArg: { params: Promise<{ id: s
   }
   const operatorPassword = String(body.operatorPassword ?? "");
   if (!operatorPassword || !(await getPlatformStore().verifyLogin(ctx.session.u, operatorPassword))) {
+    await recordAppEvent({
+      ...eventFromRequest(obs, {
+        level: "warn",
+        event: "platform.tenant.delete_reauth_failed",
+        status: 401,
+        reason: "operator_password",
+      }),
+      tenantId: id,
+    });
     return NextResponse.json({ error: "Operator password is required." }, { status: 401 });
   }
   await getTenantStore().remove(id);
+  await recordAppEvent({
+    ...eventFromRequest(obs, {
+      level: "warn",
+      event: "platform.tenant.deleted",
+      status: 200,
+      metadata: { tenantId: id },
+    }),
+    tenantId: id,
+  });
   return NextResponse.json({ ok: true });
 }

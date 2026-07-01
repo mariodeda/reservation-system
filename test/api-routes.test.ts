@@ -107,6 +107,7 @@ beforeEach(async () => {
   await pool.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM app_config WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM rate_limits");
+  await pool.query("DELETE FROM app_events").catch(() => {});
   const { getTenantStore } = await import("@/lib/reservations/tenant-store");
   const { clearTenantCache } = await import("@/lib/reservations/tenant-context");
   const tenant = (await getTenantStore().getById(tenantId))!;
@@ -128,7 +129,7 @@ afterEach(() => vi.useRealTimers());
 /* ----------------------------- POST /api/reservations ----------------------------- */
 
 describe("POST /api/reservations", () => {
-  const valid = () => ({ date: "2026-06-12", time: "12:30", service: "lunch", partySize: 2, name: "Guest", email: "g@x.io", phone: "123456" });
+  const valid = () => ({ date: "2026-06-12", time: "12:30", service: "lunch", partySize: 2, name: "Guest", email: "g@x.io", phone: "123456", _t: Date.now() - 2_000 });
 
   it("creates a confirmed booking and triggers the confirmation email", async () => {
     const res = await routes.book.POST(req("/api/reservations", { method: "POST", body: valid() }));
@@ -143,6 +144,17 @@ describe("POST /api/reservations", () => {
     expect(stored).toHaveLength(1);
     expect(stored[0].status).toBe("confirmed"); // autoConfirm
     expect(stored[0].source).toBe("web");
+
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const events = await listAppEvents({ tenantId, event: "public.booking.created" });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      event: "public.booking.created",
+      surface: "public",
+      tenantId,
+      reservationId: stored[0].id,
+      status: 201,
+    });
   });
 
   it("does not send confirmation wording while autoConfirm=false leaves booking pending", async () => {
@@ -216,6 +228,36 @@ describe("POST /api/reservations", () => {
     expect(res.status).toBe(413);
   });
 
+  it("returns neutral fake success for missing, invalid or implausible timing tokens", async () => {
+    const variants = [
+      { label: "missing", patch: {} },
+      { label: "invalid", patch: { _t: "not-a-number" } },
+      { label: "too-fast", patch: { _t: Date.now() } },
+      { label: "future", patch: { _t: Date.now() + 10_000 } },
+      { label: "stale", patch: { _t: Date.now() - 2 * 60 * 60_000 - 1 } },
+    ];
+
+    for (const { label, patch } of variants) {
+      const body = { ...valid(), email: `${label}@x.io`, phone: `555${label.length}12345`, ...patch };
+      if (label === "missing") delete (body as { _t?: number })._t;
+      const res = await routes.book.POST(req("/api/reservations", { method: "POST", body }));
+      expect(res.status, label).toBe(201);
+      expect(await res.json(), label).toEqual({ ok: true, reference: "000000", emailSent: false });
+    }
+
+    const stored = await routes.store.getStore().forTenant(tenantId).listReservations({ date: "2026-06-12" });
+    expect(stored).toHaveLength(0);
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
+
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const events = await listAppEvents({ tenantId, limit: 20 });
+    expect(events.map((e) => e.event)).toEqual(expect.arrayContaining([
+      "public.booking.fake_success.timing_invalid",
+      "public.booking.fake_success.timing_too_fast",
+      "public.booking.fake_success.timing_stale",
+    ]));
+  });
+
   it("returns 429 after exceeding the per-IP rate limit", async () => {
     vi.useRealTimers(); // rate limiter uses real Date.now()
     const ip = "203.0.113.7";
@@ -271,7 +313,7 @@ describe("GET /api/availability", () => {
 
 describe("public marketing-site integration", () => {
   const marketingOrigin = "https://bookings.example.com";
-  const guest = {
+  const guest = () => ({
     date: "2026-06-12",
     time: "12:30",
     service: "lunch",
@@ -279,7 +321,8 @@ describe("public marketing-site integration", () => {
     name: "Marketing Guest",
     email: "marketing.guest@example.com",
     phone: "+39 055 123456",
-  };
+    _t: Date.now() - 2_000,
+  });
 
   async function publicKeyForMarketingOrigin() {
     const { getTenantStore } = await import("@/lib/reservations/tenant-store");
@@ -336,11 +379,13 @@ describe("public marketing-site integration", () => {
     expect(monthJson.days).toHaveLength(30);
     expect(monthJson.offerings[0]).toMatchObject({ id: "main" });
 
-    const day = await routes.avail.GET(marketingReq(`/api/availability?date=${guest.date}&${tenantParam}`));
+    const bookingGuest = guest();
+
+    const day = await routes.avail.GET(marketingReq(`/api/availability?date=${bookingGuest.date}&${tenantParam}`));
     expect(day.status).toBe(200);
     expectMarketingCors(day);
     const dayJson = await day.json();
-    expect(dayJson.services[0].slots.some((slot: { time: string; available: boolean }) => slot.time === guest.time && slot.available)).toBe(true);
+    expect(dayJson.services[0].slots.some((slot: { time: string; available: boolean }) => slot.time === bookingGuest.time && slot.available)).toBe(true);
 
     const bookingPreflight = await routes.book.OPTIONS(
       marketingReq(`/api/reservations?${tenantParam}`, {
@@ -354,7 +399,7 @@ describe("public marketing-site integration", () => {
     const booking = await routes.book.POST(
       marketingReq(`/api/reservations?${tenantParam}`, {
         method: "POST",
-        body: guest,
+        body: bookingGuest,
       }),
     );
     expect(booking.status).toBe(201);
@@ -364,7 +409,7 @@ describe("public marketing-site integration", () => {
     const lookup = await routes.lookup.POST(
       marketingReq(`/api/reservations/lookup?${tenantParam}`, {
         method: "POST",
-        body: { email: guest.email, phone: guest.phone },
+        body: { email: bookingGuest.email, phone: bookingGuest.phone },
       }),
     );
     expect(lookup.status).toBe(200);
@@ -372,10 +417,10 @@ describe("public marketing-site integration", () => {
     const lookupJson = await lookup.json();
     expect(lookupJson.reservations).toHaveLength(1);
     expect(lookupJson.reservations[0]).toMatchObject({
-      date: guest.date,
-      time: guest.time,
-      partySize: guest.partySize,
-      name: guest.name,
+      date: bookingGuest.date,
+      time: bookingGuest.time,
+      partySize: bookingGuest.partySize,
+      name: bookingGuest.name,
       status: "confirmed",
     });
     expect(lookupJson.reservations[0].reference).toMatch(/^[A-Z0-9]{6}$/);
@@ -395,10 +440,78 @@ describe("public marketing-site integration", () => {
   });
 });
 
+/* ----------------------------- lookup bot protection ----------------------------- */
+
+describe("POST /api/reservations/lookup bot protection", () => {
+  const contact = () => ({ email: "lookup-guest@example.com", phone: "+39 333 123 4567" });
+
+  it("returns neutral success for a filled honeypot without consuming IP lookup quota", async () => {
+    const ip = "203.0.113.40";
+    for (let i = 0; i < 8; i++) {
+      const bot = await routes.lookup.POST(req("/api/reservations/lookup", {
+        method: "POST",
+        ip,
+        body: { ...contact(), _hp: "website" },
+      }));
+      expect(bot.status).toBe(200);
+      expect(await bot.json()).toEqual({ reservations: [] });
+    }
+
+    const real = await routes.lookup.POST(req("/api/reservations/lookup", {
+      method: "POST",
+      ip,
+      body: contact(),
+    }));
+    expect(real.status).toBe(200);
+    expect(await real.json()).toEqual({ reservations: [] });
+  });
+
+  it("returns neutral success for too-fast timing without consuming IP lookup quota", async () => {
+    const ip = "203.0.113.41";
+    for (let i = 0; i < 8; i++) {
+      const bot = await routes.lookup.POST(req("/api/reservations/lookup", {
+        method: "POST",
+        ip,
+        body: { ...contact(), _t: Date.now() },
+      }));
+      expect(bot.status).toBe(200);
+      expect(await bot.json()).toEqual({ reservations: [] });
+    }
+
+    const real = await routes.lookup.POST(req("/api/reservations/lookup", {
+      method: "POST",
+      ip,
+      body: { ...contact(), _t: Date.now() - 2_000 },
+    }));
+    expect(real.status).toBe(200);
+    expect(await real.json()).toEqual({ reservations: [] });
+  });
+
+  it("rate-limits repeated normalized email/phone lookup attempts across IPs", async () => {
+    for (let i = 0; i < 5; i++) {
+      const ok = await routes.lookup.POST(req("/api/reservations/lookup", {
+        method: "POST",
+        ip: `198.51.100.${i + 1}`,
+        body: { email: " LOOKUP-GUEST@EXAMPLE.COM ", phone: i % 2 === 0 ? "+39 333 123 4567" : "0039-333-123-4567" },
+      }));
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toEqual({ reservations: [] });
+    }
+
+    const blocked = await routes.lookup.POST(req("/api/reservations/lookup", {
+      method: "POST",
+      ip: "198.51.100.99",
+      body: { email: "lookup-guest@example.com", phone: "3331234567" },
+    }));
+    expect(blocked.status).toBe(429);
+    expect((await blocked.json()).error).toMatch(/too many/i);
+  });
+});
+
 /* ----------------------------- guest self-service lookup changes ----------------------------- */
 
 describe("public reservation self-service", () => {
-  const guest = () => ({ date: "2026-06-12", time: "12:30", service: "lunch", partySize: 2, name: "Guest", email: "guest-self@example.com", phone: "555123456" });
+  const guest = () => ({ date: "2026-06-12", time: "12:30", service: "lunch", partySize: 2, name: "Guest", email: "guest-self@example.com", phone: "555123456", _t: Date.now() - 2_000 });
 
   async function createGuest() {
     const created = await routes.book.POST(req("/api/reservations", { method: "POST", body: guest() }));

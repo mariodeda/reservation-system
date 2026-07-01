@@ -8,10 +8,15 @@ import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-co
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { ACTIVE_STATUSES, type NewReservationInput } from "@/lib/reservations/types";
 import { emitReservation } from "@/lib/reservations/events";
+import { log } from "@/lib/observability/logger";
+import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { elapsedMs, requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 
 const cap = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+const BOOKING_MIN_SUBMIT_MS = 1_500;
+const BOOKING_MAX_SUBMIT_AGE_MS = 2 * 60 * 60_000;
 
 // Silent fake-success used for honeypot/timing hits — gives bots no signal.
 // A factory (not a shared instance) so per-request CORS headers don't leak across calls.
@@ -35,8 +40,14 @@ async function handle(req: NextRequest) {
   const resolved = await requireTenant(req);
   if (!resolved.ok) return resolved.res;
   const { tenant } = resolved;
+  const obs = requestContext(req, { surface: "public", actorType: "guest", tenant, route: "/api/reservations" });
 
   if (tenant.status !== "active") {
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "warn",
+      event: "public.booking.rejected.tenant_disabled",
+      status: 503,
+    }));
     return NextResponse.json(
       { error: "This restaurant is not currently accepting online reservations." },
       { status: 503 },
@@ -45,6 +56,12 @@ async function handle(req: NextRequest) {
 
   const len = Number(req.headers.get("content-length") || 0);
   if (len > 16_384) {
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "warn",
+      event: "public.booking.rejected.request_too_large",
+      status: 413,
+      metadata: { contentLength: len },
+    }));
     return NextResponse.json({ error: "Request too large." }, { status: 413 });
   }
 
@@ -57,16 +74,47 @@ async function handle(req: NextRequest) {
 
   // Honeypot: invisible field that only bots fill in — checked before rate limit
   // so bot traffic does not consume quota for real users on the same IP.
-  if (body._hp) return fakeOk();
+  if (body._hp) {
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "warn",
+      event: "public.booking.fake_success.honeypot",
+      status: 201,
+      reason: "honeypot",
+    }));
+    return fakeOk();
+  }
+
+  // Timing token: public web bookings must include the marketing page-load
+  // timestamp. Missing/invalid/replayed values get the same neutral response as
+  // the honeypot so direct scripts do not get a useful signal or consume quota.
+  const pageLoad = Number(body._t);
+  const elapsed = Date.now() - pageLoad;
+  if (!Number.isFinite(pageLoad) || elapsed < BOOKING_MIN_SUBMIT_MS || elapsed > BOOKING_MAX_SUBMIT_AGE_MS) {
+    const reason = !Number.isFinite(pageLoad)
+      ? "timing_invalid"
+      : elapsed < BOOKING_MIN_SUBMIT_MS
+        ? "timing_too_fast"
+        : "timing_stale";
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "warn",
+      event: `public.booking.fake_success.${reason}`,
+      status: 201,
+      reason,
+      metadata: { elapsedMs: Number.isFinite(elapsed) ? elapsed : undefined },
+    }));
+    return fakeOk();
+  }
 
   // IP rate-limit: 8 attempts per minute per tenant
   if (!(await rateLimit(`book:${tenant.id}:${clientIp(req)}`, 8, 60_000))) {
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "warn",
+      event: "public.booking.rate_limited.ip",
+      status: 429,
+      reason: "ip",
+    }));
     return NextResponse.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
   }
-
-  // Timing: reject submissions that arrive under 1.5 s after page load.
-  const pageLoad = Number(body._t) || 0;
-  if (pageLoad > 0 && Date.now() - pageLoad < 1_500) return fakeOk();
 
   const input: NewReservationInput = {
     date: cap(body.date, 10),
@@ -94,9 +142,21 @@ async function handle(req: NextRequest) {
     // Only applied when the contact field is non-empty — empty values fail canBook() anyway
     // and must not be used as rate-limit keys (they'd collapse all empty-email requests into one bucket).
     if (normEmail && !(await rateLimit(`book-email:${tenant.id}:${normEmail}`, 3, 86_400_000))) {
+      await recordAppEvent(eventFromRequest(obs, {
+        level: "warn",
+        event: "public.booking.rate_limited.email",
+        status: 429,
+        reason: "email",
+      }));
       return NextResponse.json({ error: "Too many bookings from this email address. Please contact us directly." }, { status: 429 });
     }
     if (normPhone && !(await rateLimit(`book-phone:${tenant.id}:${normPhone}`, 3, 86_400_000))) {
+      await recordAppEvent(eventFromRequest(obs, {
+        level: "warn",
+        event: "public.booking.rate_limited.phone",
+        status: 429,
+        reason: "phone",
+      }));
       return NextResponse.json({ error: "Too many bookings from this phone number. Please contact us directly." }, { status: 429 });
     }
 
@@ -110,6 +170,13 @@ async function handle(req: NextRequest) {
         (normalizeEmail(r.email) === normEmail || normalizePhone(r.phone) === normPhone),
     );
     if (activeByContact.length >= MAX_ACTIVE_PER_CONTACT) {
+      await recordAppEvent(eventFromRequest(obs, {
+        level: "warn",
+        event: "public.booking.rejected.max_active_contact",
+        status: 409,
+        reason: "max_active_contact",
+        metadata: { activeCount: activeByContact.length },
+      }));
       return NextResponse.json(
         { error: "You already have the maximum number of active reservations. Please contact us to make changes." },
         { status: 409 },
@@ -140,6 +207,13 @@ async function handle(req: NextRequest) {
     });
 
     if (result.error || !result.reservation) {
+      await recordAppEvent(eventFromRequest(obs, {
+        level: "info",
+        event: "public.booking.rejected.unavailable",
+        status: 409,
+        reason: result.error ?? "unavailable",
+        metadata: { date: input.date, time: input.time, service: input.service, offering: inputOffering },
+      }));
       return NextResponse.json({ error: result.error ?? "Unavailable." }, { status: 409 });
     }
 
@@ -173,12 +247,60 @@ async function handle(req: NextRequest) {
       source: "web",
     });
 
+    const reference = referenceOf(result.reservation.id);
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "info",
+      event: "public.booking.created",
+      status: 201,
+      reservationId: result.reservation.id,
+      reference,
+      metadata: {
+        date: result.reservation.date,
+        time: result.reservation.time,
+        service: result.reservation.service,
+        offering: result.reservation.offering ?? "main",
+        partySize: result.reservation.partySize,
+        status: result.reservation.status,
+        emailSent: email.sent,
+        durationMs: elapsedMs(obs),
+      },
+    }));
+    log.info({
+      event: "public.booking.created",
+      surface: "public",
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      requestId: obs.requestId,
+      route: obs.route,
+      method: obs.method,
+      status: 201,
+      durationMs: elapsedMs(obs),
+      reservationId: result.reservation.id,
+      reference,
+    });
+
     return NextResponse.json(
-      { ok: true, reference: referenceOf(result.reservation.id), emailSent: email.sent },
+      { ok: true, reference, emailSent: email.sent },
       { status: 201 },
     );
   } catch (err) {
-    console.error("[reservations] booking failed:", err);
+    log.error({
+      event: "public.booking.failed",
+      surface: "public",
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      requestId: obs.requestId,
+      route: obs.route,
+      method: obs.method,
+      status: 500,
+      durationMs: elapsedMs(obs),
+    }, err);
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "error",
+      event: "public.booking.failed",
+      status: 500,
+      reason: err instanceof Error ? err.message : "unknown",
+    }));
     return NextResponse.json(
       { error: "We couldn't process your booking right now. Please try again." },
       { status: 500 },

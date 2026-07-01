@@ -16,6 +16,7 @@ let tenantIdRoute: typeof import("@/app/api/platform/tenants/[id]/route");
 let domainsRoute: typeof import("@/app/api/platform/tenants/[id]/domains/route");
 let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route");
 let analyticsRoute: typeof import("@/app/api/platform/analytics/route");
+let logsRoute: typeof import("@/app/api/platform/logs/route");
 
 let cookie = "";
 
@@ -44,6 +45,7 @@ beforeAll(async () => {
   domainsRoute = await import("@/app/api/platform/tenants/[id]/domains/route");
   passwordRoute = await import("@/app/api/platform/tenants/[id]/password/route");
   analyticsRoute = await import("@/app/api/platform/analytics/route");
+  logsRoute = await import("@/app/api/platform/logs/route");
   // Migration 3 seeds the default platform admin. Wipe it so this test file
   // can create its own fixtures with known credentials.
   const { ensureSchema } = await import("@/lib/reservations/mysql-schema");
@@ -233,6 +235,51 @@ describe("platform tenant CRUD via routes", () => {
     const t = await tenantStoreMod.getTenantStore().getById(id);
     expect(t && tenantMod.verifyTenantLogin(t, "staff", "brandnewpass")).toBe(true);
     expect(t && tenantMod.verifyTenantLogin(t, "staff", "staffpass1")).toBe(false);
+  });
+
+  it("lists platform-visible logs with tenant and event filters", async () => {
+    const { recordAppEvent } = await import("@/lib/observability/app-event-store");
+    await recordAppEvent({
+      level: "warn",
+      event: "public.booking.rate_limited.ip",
+      surface: "public",
+      tenantId: id,
+      actorType: "guest",
+      requestId: "req-platform-logs-test",
+      reference: "ABC123",
+      status: 429,
+      reason: "ip",
+      metadata: { safe: "visible", email: "guest@example.com" },
+    });
+    await recordAppEvent({
+      level: "info",
+      event: "platform.tenant.audit_noise",
+      surface: "platform",
+      actorType: "platform",
+      requestId: "req-platform-logs-noise",
+      status: 200,
+    });
+
+    const res = await logsRoute.GET(authed(`/api/platform/logs?tenantId=${id}&level=warn&q=rate_limited&limit=20`));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.tenants.some((tenant: { id: string }) => tenant.id === id)).toBe(true);
+    expect(json.events).toHaveLength(1);
+    expect(json.events[0]).toMatchObject({
+      event: "public.booking.rate_limited.ip",
+      tenantId: id,
+      level: "warn",
+      surface: "public",
+      requestId: "req-platform-logs-test",
+      status: 429,
+      reason: "ip",
+    });
+    expect(json.events[0].metadata).toMatchObject({ safe: "visible", email: "[redacted]" });
+
+    const created = await (await logsRoute.GET(authed(`/api/platform/logs?tenantId=${id}&event=platform.tenant.created`))).json();
+    expect(created.events.some((event: { tenantId: string; event: string }) =>
+      event.tenantId === id && event.event === "platform.tenant.created",
+    )).toBe(true);
   });
 
   it("disabling a tenant stops host resolution", async () => {

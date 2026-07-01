@@ -11,6 +11,8 @@ import type {
 } from "@/lib/reservations/types";
 import { RESERVATION_STATUSES } from "@/lib/reservations/types";
 import { emitReservation } from "@/lib/reservations/events";
+import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { elapsedMs, requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
+  const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: ctx.tenant, session: ctx.session, route: "/api/admin/reservations" });
   const sp = req.nextUrl.searchParams;
   try {
     const store = getStore().forTenant(ctx.tenant.id);
@@ -89,6 +92,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
+  const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: ctx.tenant, session: ctx.session, route: "/api/admin/reservations" });
   let body: Partial<NewReservationInput>;
   try {
     body = await req.json();
@@ -133,8 +137,26 @@ export async function POST(req: NextRequest) {
     source: "admin",
   });
 
+  const reference = referenceOf(reservation.id);
+  await recordAppEvent(eventFromRequest(obs, {
+    level: "info",
+    event: "admin.reservation.created",
+    status: 201,
+    reservationId: reservation.id,
+    reference,
+    metadata: {
+      date: reservation.date,
+      time: reservation.time,
+      service: reservation.service,
+      offering: reservation.offering ?? "main",
+      partySize: reservation.partySize,
+      status: reservation.status,
+      durationMs: elapsedMs(obs),
+    },
+  }));
+
   return NextResponse.json(
-    { ok: true, reservation: { ...reservation, reference: referenceOf(reservation.id) } },
+    { ok: true, reservation: { ...reservation, reference } },
     { status: 201 },
   );
 }

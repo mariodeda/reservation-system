@@ -53,3 +53,36 @@ export interface TenantView {
     };
   };
 }
+
+export type PlatformLogLevel = "debug" | "info" | "warn" | "error";
+export type PlatformLogSurface = "public" | "admin" | "platform" | "system";
+export type PlatformLogActorType = "guest" | "staff" | "platform" | "system" | "unknown";
+
+export interface PlatformLogTenant {
+  id: string;
+  slug: string;
+  name: string;
+  status: "active" | "disabled";
+}
+
+export interface PlatformLogEvent {
+  id: string;
+  createdAt: string;
+  level: PlatformLogLevel;
+  event: string;
+  surface: PlatformLogSurface;
+  tenantId?: string;
+  actorType: PlatformLogActorType;
+  actorIdHash?: string;
+  requestId?: string;
+  reservationId?: string;
+  reference?: string;
+  status?: number;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PlatformLogsResponse {
+  events: PlatformLogEvent[];
+  tenants: PlatformLogTenant[];
+}
