@@ -17,7 +17,6 @@ let tenantId: string;
 let adminFeedbackRoute: typeof import("@/app/api/admin/reservations/[id]/feedback/route");
 let adminReservationsRoute: typeof import("@/app/api/admin/reservations/route");
 let adminReservationRoute: typeof import("@/app/api/admin/reservations/[id]/route");
-let publicFeedbackRoute: typeof import("@/app/api/feedback/[token]/route");
 let feedbackStore: typeof import("@/lib/reservations/feedback-store");
 let store: typeof import("@/lib/reservations/store");
 let auth: typeof import("@/lib/reservations/auth");
@@ -70,7 +69,6 @@ beforeAll(async () => {
   adminFeedbackRoute = await import("@/app/api/admin/reservations/[id]/feedback/route");
   adminReservationsRoute = await import("@/app/api/admin/reservations/route");
   adminReservationRoute = await import("@/app/api/admin/reservations/[id]/route");
-  publicFeedbackRoute = await import("@/app/api/feedback/[token]/route");
 
   const { getTenantStore, resetTenantStore } = await import("@/lib/reservations/tenant-store");
   const { hashPassword, templateSettings } = await import("@/lib/reservations/tenant");
@@ -223,16 +221,6 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
   });
 
-  it("409 when feedback already submitted for that reservation", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    await feedbackStore.submitFeedback(rec.token, 5, "done");
-    const res = await adminFeedbackRoute.POST(
-      authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
-      { params: Promise.resolve({ id: r.id }) },
-    );
-    expect(res.status).toBe(409);
-  });
 
   it("uses the configured review URL even when tenant siteUrl is empty", async () => {
     // Create a tenant with no siteUrl
@@ -273,7 +261,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(json.reviewUrl).toBe("https://reviews.example/no-url");
   });
 
-  it("is idempotent — second POST reuses existing unfilled token without re-sending email", async () => {
+  it("is idempotent â€” second POST reuses existing unfilled token without re-sending email", async () => {
     const r = await makeCompleted("idem@x.io");
     await adminFeedbackRoute.POST(
       authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
@@ -428,255 +416,7 @@ describe("GET /api/admin/reservations/[id]/feedback", () => {
     const json = await res.json();
     expect(json.feedback).not.toBeNull();
     expect(json.feedback.reservationId).toBe(r.id);
-    expect(json.feedback.filledAt).toBeUndefined();
   });
 
-  it("returns filled feedback with rating after submission", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    await feedbackStore.submitFeedback(rec.token, 4, "Good");
-    const res = await adminFeedbackRoute.GET(
-      authed(`/api/admin/reservations/${r.id}/feedback`),
-      { params: Promise.resolve({ id: r.id }) },
-    );
-    const json = await res.json();
-    expect(json.feedback.rating).toBe(4);
-    expect(json.feedback.filledAt).toBeTruthy();
-  });
 });
 
-/* ---- Public feedback route: GET /api/feedback/[token] ---- */
-
-describe("GET /api/feedback/[token]", () => {
-  it("supports cross-origin preflight and form loading for marketing sites", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-
-    const preflight = await publicFeedbackRoute.OPTIONS(
-      marketingReq(`/api/feedback/${rec.token}`, {
-        method: "OPTIONS",
-        headers: { "access-control-request-method": "GET" },
-      }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(preflight.status).toBe(204);
-    expectMarketingCors(preflight);
-
-    const res = await publicFeedbackRoute.GET(
-      marketingReq(`/api/feedback/${rec.token}`),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(200);
-    expectMarketingCors(res);
-  });
-
-  it("503s public feedback form access when tenant feedback is disabled", async () => {
-    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
-    const tenant = (await getTenantStore().getById(tenantId))!;
-    await getTenantStore().updateSettings(tenantId, { ...tenant.settings, feedbackEnabled: false });
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.GET(
-      marketingReq(`/api/feedback/${rec.token}`),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(503);
-    expectMarketingCors(res);
-  });
-
-  it("keeps existing feedback links usable when only the global outbound email flow is disabled", async () => {
-    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
-    const tenant = (await getTenantStore().getById(tenantId))!;
-    await getTenantStore().updateSettings(tenantId, {
-      ...tenant.settings,
-      emailEnabled: false,
-      feedbackEnabled: true,
-      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
-    });
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.GET(
-      marketingReq(`/api/feedback/${rec.token}`),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(200);
-    expectMarketingCors(res);
-  });
-
-  it("404 for an unknown token", async () => {
-    const res = await publicFeedbackRoute.GET(
-      req(`/api/feedback/${randomUUID()}`),
-      { params: Promise.resolve({ token: randomUUID() }) },
-    );
-    expect(res.status).toBe(404);
-  });
-
-  it("returns form data for a valid token", async () => {
-    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
-    const tenant = (await getTenantStore().getById(tenantId))!;
-    await getTenantStore().updateSettings(tenantId, {
-      ...tenant.settings,
-      reviewUrl: "https://g.page/r/fb-test/review",
-    });
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.GET(
-      req(`/api/feedback/${rec.token}`),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.token).toBe(rec.token);
-    expect(json.filled).toBe(false);
-    expect(json.guestName).toBe("Test Guest");
-    // restaurantName comes from getTenantStore().getById — may vary by store backend in test env
-    expect(typeof json.restaurantName).toBe("string");
-    expect(json.date).toBe("2026-06-12");
-    expect(json.reviewUrl).toBe("https://g.page/r/fb-test/review");
-  });
-
-  it("returns filled=true after submission", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    await feedbackStore.submitFeedback(rec.token, 5, "Excellent");
-    const res = await publicFeedbackRoute.GET(
-      req(`/api/feedback/${rec.token}`),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    const json = await res.json();
-    expect(json.filled).toBe(true);
-    expect(json.rating).toBe(5);
-  });
-});
-
-/* ---- Public feedback route: POST /api/feedback/[token] ---- */
-
-describe("POST /api/feedback/[token]", () => {
-  it("returns 410 because public feedback form submissions are no longer supported", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.POST(
-      marketingReq(`/api/feedback/${rec.token}`, { method: "POST", body: { rating: 5, comment: "Great." } }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(410);
-    expect((await res.json()).error).toMatch(/no longer supported/i);
-  });
-  return;
-
-  it("supports cross-origin preflight and submission for marketing sites", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-
-    const preflight = await publicFeedbackRoute.OPTIONS(
-      marketingReq(`/api/feedback/${rec.token}`, {
-        method: "OPTIONS",
-        headers: { "access-control-request-method": "POST" },
-      }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(preflight.status).toBe(204);
-    expectMarketingCors(preflight);
-
-    const res = await publicFeedbackRoute.POST(
-      marketingReq(`/api/feedback/${rec.token}`, { method: "POST", body: { rating: 5, comment: "Great." } }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(200);
-    expectMarketingCors(res);
-  });
-
-  it("400 on invalid JSON body", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.POST(
-      new NextRequest(`http://localhost/api/feedback/${rec.token}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "not json",
-      }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(400);
-  });
-
-  it("422 when rating is missing", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.POST(
-      req(`/api/feedback/${rec.token}`, { method: "POST", body: { comment: "no rating" } }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(422);
-  });
-
-  it("422 when rating is out of range (0 or 6)", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    for (const rating of [0, 6, -1]) {
-      const res = await publicFeedbackRoute.POST(
-        req(`/api/feedback/${rec.token}`, { method: "POST", body: { rating } }),
-        { params: Promise.resolve({ token: rec.token }) },
-      );
-      expect(res.status).toBe(422);
-    }
-  });
-
-  it("404 for an unknown token", async () => {
-    const token = randomUUID();
-    const res = await publicFeedbackRoute.POST(
-      req(`/api/feedback/${token}`, { method: "POST", body: { rating: 3 } }),
-      { params: Promise.resolve({ token }) },
-    );
-    expect(res.status).toBe(404);
-  });
-
-  it("successfully submits valid rating + comment", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.POST(
-      req(`/api/feedback/${rec.token}`, { method: "POST", body: { rating: 5, comment: "Superb!" } }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
-    const saved = await feedbackStore.getFeedbackByToken(rec.token);
-    expect(saved?.rating).toBe(5);
-    expect(saved?.comment).toBe("Superb!");
-    expect(saved?.filledAt).toBeTruthy();
-  });
-
-  it("accepts rating without a comment", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    const res = await publicFeedbackRoute.POST(
-      req(`/api/feedback/${rec.token}`, { method: "POST", body: { rating: 3 } }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(200);
-  });
-
-  it("409 when feedback already filled", async () => {
-    const r = await makeCompleted();
-    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-    await feedbackStore.submitFeedback(rec.token, 4, "already done");
-    const res = await publicFeedbackRoute.POST(
-      req(`/api/feedback/${rec.token}`, { method: "POST", body: { rating: 1 } }),
-      { params: Promise.resolve({ token: rec.token }) },
-    );
-    expect(res.status).toBe(409);
-  });
-
-  it("accepts all valid ratings 1–5", async () => {
-    for (const rating of [1, 2, 3, 4, 5]) {
-      await poolMod.getPool().query("DELETE FROM reservation_feedback");
-      const r = await makeCompleted(`r${rating}@x.io`);
-      const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
-      const res = await publicFeedbackRoute.POST(
-        req(`/api/feedback/${rec.token}`, { method: "POST", body: { rating } }),
-        { params: Promise.resolve({ token: rec.token }) },
-      );
-      expect(res.status).toBe(200);
-    }
-  });
-});

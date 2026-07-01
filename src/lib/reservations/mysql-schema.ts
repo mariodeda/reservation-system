@@ -240,9 +240,6 @@ const MIGRATIONS: Migration[] = [
           reservation_id CHAR(36) NOT NULL,
           tenant_id CHAR(36) NOT NULL,
           sent_at VARCHAR(32) NOT NULL,
-          filled_at VARCHAR(32) NULL,
-          rating TINYINT NULL,
-          comment TEXT NULL,
           UNIQUE KEY uq_rf_reservation (reservation_id),
           INDEX idx_rf_tenant (tenant_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -258,9 +255,9 @@ const MIGRATIONS: Migration[] = [
         "expires_at",
         "ADD COLUMN expires_at VARCHAR(32) NULL DEFAULT NULL AFTER sent_at",
       );
-      // Give existing open tokens 90 days from now; already-filled ones keep NULL.
+      // Give existing tokens 90 days from now.
       await pool.query(
-        `UPDATE reservation_feedback SET expires_at = DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 90 DAY), '%Y-%m-%dT%TZ') WHERE expires_at IS NULL AND filled_at IS NULL`,
+        `UPDATE reservation_feedback SET expires_at = DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 90 DAY), '%Y-%m-%dT%TZ') WHERE expires_at IS NULL`,
       );
     },
   },

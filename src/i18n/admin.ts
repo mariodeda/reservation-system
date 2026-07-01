@@ -214,12 +214,10 @@ export const am = {
     hintAvgLead: "days guests book in advance",
     hintNoShow: "guests who didn't arrive",
     hintCancelRate: "bookings cancelled before visit",
-    // Feedback section
-    feedbackTitle: "Guest feedback",
-    feedbackNone: "No feedback requests sent in this period. Send feedback links from completed reservations to start collecting ratings.",
-    avgRating: "avg rating",
-    feedbackResponses: (filled: number, pct: number, sent: number) =>
-      `responses · ${pct}% of ${sent} sent`,
+    // Review request section
+    feedbackTitle: "Review requests",
+    feedbackNone: "No review requests sent in this period.",
+    feedbackRequests: (sent: number) => `${sent} review request${sent === 1 ? "" : "s"} sent`,
   },
   tables: {
     title: "Tables",
@@ -555,7 +553,7 @@ export const am = {
       mockHistory: "Reservations · history",
       mockWaitlist: "Waitlist",
       mockCustomers: "Customers (VIP/dietary)",
-      mockFeedback: "Feedback (ratings)",
+      mockFeedback: "Review requests",
       clearData: "Clear all data",
       clearing: "Clearing…",
       working: "Working…",
@@ -605,3 +603,4 @@ export const am = {
     reliability: "Reliability",
   },
 };
+

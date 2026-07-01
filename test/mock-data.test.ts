@@ -103,8 +103,8 @@ describe("mock-data generators", () => {
 
   it("seeds feedback against completed past reservations", async () => {
     const summary = await mock.seedFeedback(tid);
-    expect(summary.feedbackRequests).toBeGreaterThan(0);
-    expect(await count("reservation_feedback")).toBe(summary.feedbackRequests);
+    expect(summary.reviewRequests).toBeGreaterThan(0);
+    expect(await count("reservation_feedback")).toBe(summary.reviewRequests);
   });
 
   it("seeds an active waitlist for today", async () => {

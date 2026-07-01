@@ -10,7 +10,7 @@ type SortBy = "lastVisit" | "name" | "visits";
 
 type ReservationWithDetail = Reservation & {
   reference?: string;
-  feedback?: { sentAt: string; filled: boolean; rating?: number } | null;
+  feedback?: { sentAt: string } | null;
 };
 
 export default function CustomersPage() {
@@ -267,7 +267,7 @@ function CustomerRow({
             {customer.visitCount} {customer.visitCount === 1 ? "visit" : "visits"}
           </span>
           <span className="text-xs text-on-surface-variant">
-            {customer.lastVisit ? `Last: ${formatDateLong(customer.lastVisit).replace(/, \d{4}$/, "")}` : "—"}
+            {customer.lastVisit ? `Last: ${formatDateLong(customer.lastVisit).replace(/, \d{4}$/, "")}` : "Ã¢â‚¬â€"}
           </span>
         </div>
 
@@ -337,8 +337,8 @@ function ProfileView({
         {[
           { label: am.customers.totalVisits, value: profile.visitCount },
           { label: am.customers.totalCovers, value: profile.totalCovers },
-          { label: am.customers.firstVisit, value: profile.firstVisit ? formatDateLong(profile.firstVisit).replace(/, \d{4}$/, "") : "—" },
-          { label: am.customers.lastVisit, value: profile.lastVisit ? formatDateLong(profile.lastVisit).replace(/, \d{4}$/, "") : "—" },
+          { label: am.customers.firstVisit, value: profile.firstVisit ? formatDateLong(profile.firstVisit).replace(/, \d{4}$/, "") : "Ã¢â‚¬â€" },
+          { label: am.customers.lastVisit, value: profile.lastVisit ? formatDateLong(profile.lastVisit).replace(/, \d{4}$/, "") : "Ã¢â‚¬â€" },
         ].map((s) => (
           <div key={s.label} className="rounded-lg bg-surface-container p-3 text-center">
             <div className="text-lg font-semibold tabular-nums">{s.value}</div>
@@ -347,7 +347,7 @@ function ProfileView({
         ))}
       </div>
 
-      {/* Reliability strip — only show if there's something interesting */}
+      {/* Reliability strip Ã¢â‚¬â€ only show if there's something interesting */}
       {(profile.noShowCount > 0 || profile.cancelledCount > 0) && (
         <div className="flex items-center gap-4 flex-wrap text-xs rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-2">
           {reliabilityPct !== null && (
@@ -458,15 +458,13 @@ function ReservationTable({
                       {STATUS_META[r.status].label}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-on-surface-variant/70 hidden sm:table-cell">{r.occasion ?? "—"}</td>
+                  <td className="px-3 py-2 text-on-surface-variant/70 hidden sm:table-cell">{r.occasion ?? "Ã¢â‚¬â€"}</td>
                   <td className="px-3 py-2 font-mono text-xs text-on-surface-variant/60 hidden md:table-cell">
                     #{r.reference ?? ""}
                   </td>
                   <td className="px-3 py-2 hidden lg:table-cell">
-                    {r.feedback?.filled && r.feedback.rating != null ? (
-                      <RatingStars rating={r.feedback.rating} />
-                    ) : r.feedback?.sentAt ? (
-                      <span className="text-on-surface-variant/40 text-xs">pending</span>
+                    {r.feedback?.sentAt ? (
+                      <span className="text-on-surface-variant/60 text-xs">requested</span>
                     ) : (
                       <span className="text-on-surface-variant/30 text-xs">—</span>
                     )}
@@ -643,13 +641,4 @@ function XIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-function RatingStars({ rating }: { rating: number }) {
-  const clamped = Math.max(0, Math.min(5, Math.round(rating)));
-  return (
-    <span className="inline-flex items-center gap-0.5 text-amber-400" aria-label={`${clamped} out of 5`}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <StarIcon key={i} className={`h-3 w-3 ${i < clamped ? "opacity-100" : "opacity-25"}`} />
-      ))}
-    </span>
-  );
-}
+

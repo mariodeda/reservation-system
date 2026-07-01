@@ -212,12 +212,9 @@ export const it = {
     hintAvgLead: "giorni di anticipo prenotazione",
     hintNoShow: "ospiti non presentati",
     hintCancelRate: "prenotazioni cancellate prima della visita",
-    feedbackTitle: "Feedback ospiti",
-    feedbackNone:
-      "Nessuna richiesta di feedback inviata in questo periodo. Invia link di feedback dalle prenotazioni completate per iniziare a raccogliere valutazioni.",
-    avgRating: "valutazione media",
-    feedbackResponses: (filled: number, pct: number, sent: number) =>
-      `risposte · ${pct}% di ${sent} inviati`,
+    feedbackTitle: "Richieste recensione",
+    feedbackNone: "Nessuna richiesta recensione inviata in questo periodo.",
+    feedbackRequests: (sent: number) => `${sent} richiest${sent === 1 ? "a" : "e"} recensione inviat${sent === 1 ? "a" : "e"}`,
   },
   tables: {
     title: "Tavoli",
@@ -541,7 +538,7 @@ export const it = {
       mockHistory: "Prenotazioni · storico",
       mockWaitlist: "Lista d'attesa",
       mockCustomers: "Clienti (VIP/diete)",
-      mockFeedback: "Feedback (valutazioni)",
+      mockFeedback: "Richieste recensione",
       clearData: "Cancella tutti i dati",
       clearing: "Cancellazione…",
       working: "In corso…",
@@ -587,3 +584,4 @@ export const it = {
     reliability: "Affidabilità",
   },
 };
+
