@@ -2,11 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getWaitlistStore } from "@/lib/reservations/waitlist-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { WAITLIST_STATUSES, type WaitlistEntry } from "@/lib/reservations/types";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
 /** PATCH /api/admin/waitlist/[id] — edit a queue entry or change its status. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/waitlist/[id]", patchWaitlistEntry, req, ctx);
+}
+
+async function patchWaitlistEntry(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;
@@ -30,6 +35,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 /** DELETE /api/admin/waitlist/[id] — remove a queue entry. */
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/waitlist/[id]", deleteWaitlistEntry, req, ctx);
+}
+
+async function deleteWaitlistEntry(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;

@@ -11,6 +11,7 @@ import { emitReservation } from "@/lib/reservations/events";
 import { log } from "@/lib/observability/logger";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
+import { observePublicRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
@@ -27,11 +28,19 @@ const MAX_ACTIVE_PER_CONTACT = 2;
 
 /** CORS preflight for cross-origin marketing sites. */
 export async function OPTIONS(req: NextRequest) {
+  return observePublicRoute(req, "/api/reservations", reservationsOptions, req);
+}
+
+async function reservationsOptions(req: NextRequest) {
   return preflight(req, await resolvePublicTenant(req));
 }
 
 /** POST /api/reservations — public booking. Validates, persists atomically, emails. */
 export async function POST(req: NextRequest) {
+  return observePublicRoute(req, "/api/reservations", createPublicReservation, req);
+}
+
+async function createPublicReservation(req: NextRequest) {
   const tenant = await resolvePublicTenant(req);
   return withCors(await handle(req), tenant ? allowedOrigin(req, tenant) : null);
 }

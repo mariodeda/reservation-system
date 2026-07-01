@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { reservationBus, type ReservationEvent } from "@/lib/reservations/events";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,10 @@ const sse = (event: string, data: unknown) =>
 const comment = enc.encode(": heartbeat\n\n");
 
 export async function GET(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/events", getEvents, req);
+}
+
+async function getEvents(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
   const tenantId = ctx.tenant.id;

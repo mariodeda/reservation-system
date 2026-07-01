@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { listAppEvents, type AppEventFilter } from "@/lib/observability/app-event-store";
 import { getTenantStore } from "@/lib/reservations/tenant-store";
 import { requirePlatform } from "@/lib/reservations/tenant-context";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 import type { ActorType, LogLevel, Surface } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
@@ -49,6 +50,10 @@ function filters(req: NextRequest): AppEventFilter {
 }
 
 export async function GET(req: NextRequest) {
+  return observePlatformRoute(req, "/api/platform/logs", listLogs, req);
+}
+
+async function listLogs(req: NextRequest) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
 

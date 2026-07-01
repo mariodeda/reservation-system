@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantStore } from "@/lib/reservations/tenant-store";
 import { requirePlatform } from "@/lib/reservations/tenant-context";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 import {
   clearTenantData,
   seedAll,
@@ -39,6 +40,10 @@ const RUN: Record<Action, (tenantId: string) => Promise<MockSummary>> = {
 
 /** POST /api/platform/tenants/[id]/mock  { action } — platform debug data tools. */
 export async function POST(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  return observePlatformRoute(req, "/api/platform/tenants/[id]/mock", runMockAction, req, ctxArg);
+}
+
+async function runMockAction(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
 

@@ -201,6 +201,44 @@ describe("platform tenant CRUD via routes", () => {
     expect(stored?.settings.emailEnabled).toBe(true);
   });
 
+  it("accepts platform mutations when Origin matches a forwarded host", async () => {
+    const ctx = { params: Promise.resolve({ id }) };
+    const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {
+      method: "PATCH",
+      headers: {
+        host: "internal.platform.local",
+        origin: "https://restaurant-reservation-system.com",
+        "x-forwarded-host": "restaurant-reservation-system.com",
+      },
+      body: { settings: { contactEmail: "forwarded@acme.example" } },
+    }), ctx);
+    expect(res.status).toBe(200);
+    expect((await tenantStoreMod.getTenantStore().getById(id))?.settings.contactEmail).toBe("forwarded@acme.example");
+  });
+
+  it("records a route log when a platform tenant PATCH is rejected", async () => {
+    const ctx = { params: Promise.resolve({ id }) };
+    const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {
+      method: "PATCH",
+      headers: { origin: "https://evil.example.com" },
+      body: { settings: { contactEmail: "blocked@acme.example" } },
+    }), ctx);
+    expect(res.status).toBe(403);
+
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const events = await listAppEvents({
+      event: "platform.route.non_success",
+      surface: "platform",
+      status: 403,
+      limit: 10,
+    });
+    expect(events.some((event) =>
+      event.reason === "Cross-site request rejected." &&
+      event.metadata?.path === `/api/platform/tenants/${id}` &&
+      event.metadata?.method === "PATCH"
+    )).toBe(true);
+  });
+
   it("maps and unmaps hosts", async () => {
     const ctx = { params: Promise.resolve({ id }) };
     const add = await domainsRoute.POST(authed(`/api/platform/tenants/${id}/domains`, { method: "POST", body: { host: "book.acme.com" } }), ctx);

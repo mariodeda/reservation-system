@@ -3,11 +3,16 @@ import type { RowDataPacket } from "mysql2/promise";
 import { requirePlatform } from "@/lib/reservations/tenant-context";
 import { getPool } from "@/lib/reservations/mysql-pool";
 import { ensureSchema } from "@/lib/reservations/mysql-schema";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  return observePlatformRoute(req, "/api/platform/analytics", getAnalytics, req);
+}
+
+async function getAnalytics(req: NextRequest) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
 

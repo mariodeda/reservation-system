@@ -2,10 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getTenantStore } from "@/lib/reservations/tenant-store";
 import { verifyPassword, hashPassword } from "@/lib/reservations/tenant";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/settings/password", changePassword, req);
+}
+
+async function changePassword(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
 

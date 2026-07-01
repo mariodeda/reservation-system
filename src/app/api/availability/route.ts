@@ -5,12 +5,17 @@ import { offeringSummaries } from "@/lib/reservations/offerings";
 import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-context";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
+import { observePublicRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** CORS preflight (cross-origin marketing sites). */
 export async function OPTIONS(req: NextRequest) {
+  return observePublicRoute(req, "/api/availability", availabilityOptions, req);
+}
+
+async function availabilityOptions(req: NextRequest) {
   return preflight(req, await resolvePublicTenant(req));
 }
 
@@ -19,6 +24,10 @@ export async function OPTIONS(req: NextRequest) {
  * GET /api/availability?date=YYYY-MM-DD -> { date, closed, past, full, services } (drives time slots)
  */
 export async function GET(req: NextRequest) {
+  return observePublicRoute(req, "/api/availability", getAvailability, req);
+}
+
+async function getAvailability(req: NextRequest) {
   const tenant = await resolvePublicTenant(req);
   return withCors(await handle(req), tenant ? allowedOrigin(req, tenant) : null);
 }

@@ -2,12 +2,20 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getStore } from "@/lib/reservations/store";
 import { getEmailLogByReservation } from "@/lib/reservations/email-log-store";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/reservations/[id]/emails — full email send history (debug). */
 export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return observeAdminRoute(req, "/api/admin/reservations/[id]/emails", getReservationEmails, req, { params });
+}
+
+async function getReservationEmails(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {

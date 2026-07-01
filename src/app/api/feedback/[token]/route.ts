@@ -7,6 +7,7 @@ import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import type { Tenant } from "@/lib/reservations/tenant";
 import type { FeedbackRecord } from "@/lib/reservations/feedback-store";
 import { isFeedbackCollectionEnabled } from "@/lib/reservations/email-policy";
+import { observePublicRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,13 @@ export async function OPTIONS(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  return observePublicRoute(req, "/api/feedback/[token]", feedbackOptions, req, { params });
+}
+
+async function feedbackOptions(
+  req: NextRequest,
+  { params }: { params: Promise<{ token: string }> },
+) {
   const { token } = await params;
   const ctx = await feedbackContext(token);
   return preflight(
@@ -31,6 +39,13 @@ export async function OPTIONS(
 }
 
 export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ token: string }> },
+) {
+  return observePublicRoute(req, "/api/feedback/[token]", getFeedback, req, { params });
+}
+
+async function getFeedback(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
@@ -70,6 +85,13 @@ export async function GET(
 }
 
 export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ token: string }> },
+) {
+  return observePublicRoute(req, "/api/feedback/[token]", postFeedback, req, { params });
+}
+
+async function postFeedback(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {

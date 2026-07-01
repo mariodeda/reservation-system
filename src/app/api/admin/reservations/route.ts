@@ -13,12 +13,17 @@ import { RESERVATION_STATUSES } from "@/lib/reservations/types";
 import { emitReservation } from "@/lib/reservations/events";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/reservations?date=&from=&to=&status= */
 export async function GET(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/reservations", listReservations, req);
+}
+
+async function listReservations(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
   const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: ctx.tenant, session: ctx.session, route: "/api/admin/reservations" });
@@ -90,6 +95,10 @@ export async function GET(req: NextRequest) {
 /** POST /api/admin/reservations — manual booking (walk-in / phone). Bypasses
  *  capacity/lead checks so staff can always record a guest. */
 export async function POST(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/reservations", createReservation, req);
+}
+
+async function createReservation(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
   const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: ctx.tenant, session: ctx.session, route: "/api/admin/reservations" });

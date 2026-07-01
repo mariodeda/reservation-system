@@ -3,6 +3,7 @@ import { getStore, referenceOf } from "@/lib/reservations/store";
 import { getWaitlistStore } from "@/lib/reservations/waitlist-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { nowInTz, scheduleForDate } from "@/lib/reservations/availability";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,10 @@ export const runtime = "nodejs";
  * first service the offering runs that day.
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/waitlist/[id]/seat", seatWaitlistEntry, req, ctx);
+}
+
+async function seatWaitlistEntry(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;

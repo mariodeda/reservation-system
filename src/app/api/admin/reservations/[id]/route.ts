@@ -7,11 +7,16 @@ import { sendFeedbackRequestForReservation } from "@/lib/reservations/feedback-a
 import { emitReservation } from "@/lib/reservations/events";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { requestContext } from "@/lib/observability/request-context";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
 /** PATCH /api/admin/reservations/[id] — update status or editable fields. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/reservations/[id]", patchReservation, req, ctx);
+}
+
+async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;
@@ -140,6 +145,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 /** DELETE /api/admin/reservations/[id] */
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/reservations/[id]", deleteReservation, req, ctx);
+}
+
+async function deleteReservation(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;

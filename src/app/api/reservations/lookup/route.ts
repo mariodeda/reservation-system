@@ -9,6 +9,7 @@ import { canBook as canBookReservation, normalizeEmail, normalizePhone } from "@
 import { log } from "@/lib/observability/logger";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
+import { observePublicRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
@@ -19,20 +20,36 @@ const fakeLookupOk = () => NextResponse.json({ reservations: [] }, { status: 200
 
 /** CORS preflight for cross-origin marketing sites. */
 export async function OPTIONS(req: NextRequest) {
+  return observePublicRoute(req, "/api/reservations/lookup", lookupOptions, req);
+}
+
+async function lookupOptions(req: NextRequest) {
   return preflight(req, await resolvePublicTenant(req));
 }
 
 export async function POST(req: NextRequest) {
+  return observePublicRoute(req, "/api/reservations/lookup", lookupReservations, req);
+}
+
+async function lookupReservations(req: NextRequest) {
   const tenant = await resolvePublicTenant(req);
   return withCors(await handle(req), tenant ? allowedOrigin(req, tenant) : null);
 }
 
 export async function PATCH(req: NextRequest) {
+  return observePublicRoute(req, "/api/reservations/lookup", modifyReservation, req);
+}
+
+async function modifyReservation(req: NextRequest) {
   const tenant = await resolvePublicTenant(req);
   return withCors(await mutate(req, "modify"), tenant ? allowedOrigin(req, tenant) : null);
 }
 
 export async function DELETE(req: NextRequest) {
+  return observePublicRoute(req, "/api/reservations/lookup", cancelReservation, req);
+}
+
+async function cancelReservation(req: NextRequest) {
   const tenant = await resolvePublicTenant(req);
   return withCors(await mutate(req, "cancel"), tenant ? allowedOrigin(req, tenant) : null);
 }

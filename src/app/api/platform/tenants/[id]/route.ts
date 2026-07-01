@@ -6,6 +6,7 @@ import { tenantView } from "@/lib/reservations/platform-view";
 import type { Tenant, TenantSettings } from "@/lib/reservations/tenant";
 import { getPlatformStore } from "@/lib/reservations/platform-store";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
@@ -13,6 +14,10 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/platform/tenants/[id] — full (redacted) detail. */
 export async function GET(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  return observePlatformRoute(req, "/api/platform/tenants/[id]", getTenantDetail, req, ctxArg);
+}
+
+async function getTenantDetail(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
@@ -24,6 +29,10 @@ export async function GET(req: NextRequest, ctxArg: { params: Promise<{ id: stri
 
 /** PATCH /api/platform/tenants/[id] — update settings and/or status. */
 export async function PATCH(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  return observePlatformRoute(req, "/api/platform/tenants/[id]", patchTenant, req, ctxArg);
+}
+
+async function patchTenant(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
@@ -97,6 +106,10 @@ export async function PATCH(req: NextRequest, ctxArg: { params: Promise<{ id: st
 
 /** DELETE /api/platform/tenants/[id] — remove the tenant and all its data. */
 export async function DELETE(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  return observePlatformRoute(req, "/api/platform/tenants/[id]", deleteTenant, req, ctxArg);
+}
+
+async function deleteTenant(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;

@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getPool } from "@/lib/reservations/mysql-pool";
 import { ensureSchema } from "@/lib/reservations/mysql-schema";
 import { nowInTz } from "@/lib/reservations/availability";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ function periodDates(period: string, timezone: string): { from: string; to: stri
 }
 
 export async function GET(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/analytics", getAnalytics, req);
+}
+
+async function getAnalytics(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
   const tid = ctx.tenant.id;

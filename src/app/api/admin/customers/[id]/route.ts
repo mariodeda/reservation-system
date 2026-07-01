@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getCustomerStore } from "@/lib/reservations/customer-store";
 import { referenceOf } from "@/lib/reservations/store";
 import { getFeedbackStatusBatch } from "@/lib/reservations/feedback-store";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,10 @@ type Ctx = { params: Promise<{ id: string }> };
 /** GET /api/admin/customers/[id] — detail + reservation history.
  *  [id] is encodeURIComponent(email). */
 export async function GET(req: NextRequest, ctx: Ctx) {
+  return observeAdminRoute(req, "/api/admin/customers/[id]", getCustomer, req, ctx);
+}
+
+async function getCustomer(req: NextRequest, ctx: Ctx) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
 
@@ -37,6 +42,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
 /** PATCH /api/admin/customers/[id] — update vip / notes. */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  return observeAdminRoute(req, "/api/admin/customers/[id]", patchCustomer, req, ctx);
+}
+
+async function patchCustomer(req: NextRequest, ctx: Ctx) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
 

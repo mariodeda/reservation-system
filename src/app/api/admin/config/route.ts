@@ -3,11 +3,16 @@ import { getStore } from "@/lib/reservations/store";
 import { sanitizeConfig } from "@/lib/reservations/sanitize-config";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import type { AvailabilityConfig } from "@/lib/reservations/types";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/config", getConfig, req);
+}
+
+async function getConfig(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
   try {
@@ -20,6 +25,10 @@ export async function GET(req: NextRequest) {
 
 /** PUT /api/admin/config — replace the whole availability config (sanitized). */
 export async function PUT(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/config", putConfig, req);
+}
+
+async function putConfig(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
   let body: { config?: Partial<AvailabilityConfig> };

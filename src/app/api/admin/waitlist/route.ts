@@ -3,12 +3,17 @@ import { getStore } from "@/lib/reservations/store";
 import { getWaitlistStore } from "@/lib/reservations/waitlist-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import type { NewWaitlistInput } from "@/lib/reservations/types";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/waitlist?date=YYYY-MM-DD[&active=1] — list the day's queue. */
 export async function GET(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/waitlist", listWaitlist, req);
+}
+
+async function listWaitlist(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const sp = req.nextUrl.searchParams;
@@ -29,6 +34,10 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/admin/waitlist — add a party to the queue. */
 export async function POST(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/waitlist", addWaitlistEntry, req);
+}
+
+async function addWaitlistEntry(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   let body: Partial<NewWaitlistInput>;

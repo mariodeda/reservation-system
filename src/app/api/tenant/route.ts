@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { tenantByHost, tenantByPublicKey } from "@/lib/reservations/tenant-context";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import type { Tenant } from "@/lib/reservations/tenant";
+import { observePublicRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
@@ -26,10 +27,18 @@ async function resolve(req: NextRequest): Promise<Tenant | null> {
 }
 
 export async function OPTIONS(req: NextRequest) {
+  return observePublicRoute(req, "/api/tenant", tenantOptions, req);
+}
+
+async function tenantOptions(req: NextRequest) {
   return preflight(req, await resolve(req));
 }
 
 export async function GET(req: NextRequest) {
+  return observePublicRoute(req, "/api/tenant", getTenantBranding, req);
+}
+
+async function getTenantBranding(req: NextRequest) {
   const tenant = await resolve(req);
   if (!tenant) {
     return NextResponse.json({ error: "Unknown tenant" }, { status: 404 });

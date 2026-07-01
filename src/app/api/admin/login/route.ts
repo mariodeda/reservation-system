@@ -5,11 +5,16 @@ import { tenantBySlug } from "@/lib/reservations/tenant-context";
 import { verifyTenantLogin } from "@/lib/reservations/tenant";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { hashValue } from "@/lib/observability/logger";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/login", login, req);
+}
+
+async function login(req: NextRequest) {
   let body: { slug?: string; username?: string; password?: string };
   try {
     body = await req.json();

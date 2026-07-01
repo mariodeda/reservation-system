@@ -2,11 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getTableStore } from "@/lib/reservations/table-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import type { NewTableInput } from "@/lib/reservations/types";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 
 /** PATCH /api/admin/tables/[id] — update a managed table. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/tables/[id]", patchTable, req, ctx);
+}
+
+async function patchTable(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;
@@ -27,6 +32,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 /** DELETE /api/admin/tables/[id] — soft-delete (deactivate). */
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/tables/[id]", deleteTable, req, ctx);
+}
+
+async function deleteTable(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;

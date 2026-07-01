@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getTenantStore } from "@/lib/reservations/tenant-store";
 import { requirePlatform } from "@/lib/reservations/tenant-context";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
@@ -10,6 +11,10 @@ const hostRe = /^[a-z0-9.-]+$/;
 
 /** POST /api/platform/tenants/[id]/domains  { host } — map a host to the tenant. */
 export async function POST(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  return observePlatformRoute(req, "/api/platform/tenants/[id]/domains", addDomain, req, ctxArg);
+}
+
+async function addDomain(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
@@ -49,6 +54,10 @@ export async function POST(req: NextRequest, ctxArg: { params: Promise<{ id: str
 
 /** DELETE /api/platform/tenants/[id]/domains  { host } — unmap a host. */
 export async function DELETE(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  return observePlatformRoute(req, "/api/platform/tenants/[id]/domains", removeDomain, req, ctxArg);
+}
+
+async function removeDomain(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;

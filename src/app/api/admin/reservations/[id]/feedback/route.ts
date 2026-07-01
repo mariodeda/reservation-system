@@ -4,11 +4,19 @@ import { getStore } from "@/lib/reservations/store";
 import { createFeedbackToken, getFeedbackByReservation } from "@/lib/reservations/feedback-store";
 import { sendFeedbackRequestEmail } from "@/lib/reservations/email";
 import { hasGuestAttended, isEmailEventEnabled } from "@/lib/reservations/email-policy";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return observeAdminRoute(req, "/api/admin/reservations/[id]/feedback", sendFeedback, req, { params });
+}
+
+async function sendFeedback(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -45,6 +53,13 @@ export async function POST(
 }
 
 export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return observeAdminRoute(req, "/api/admin/reservations/[id]/feedback", getFeedback, req, { params });
+}
+
+async function getFeedback(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {

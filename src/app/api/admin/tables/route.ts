@@ -3,6 +3,7 @@ import { getStore } from "@/lib/reservations/store";
 import { getTableStore } from "@/lib/reservations/table-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import type { NewTableInput } from "@/lib/reservations/types";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,10 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/tables?date=YYYY-MM-DD → floor view: tables + day state
  */
 export async function GET(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/tables", listTables, req);
+}
+
+async function listTables(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const date = req.nextUrl.searchParams.get("date");
@@ -32,6 +37,10 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/admin/tables — create a managed table. */
 export async function POST(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/tables", createTable, req);
+}
+
+async function createTable(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   let body: Partial<NewTableInput>;

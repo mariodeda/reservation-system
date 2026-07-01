@@ -2,12 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getStore } from "@/lib/reservations/store";
 import { getTableStore } from "@/lib/reservations/table-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/reservations/[id]/table — suggest the best free table. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return observeAdminRoute(req, "/api/admin/reservations/[id]/table", suggestTable, req, ctx);
+}
+
+async function suggestTable(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.res;
   const { id } = await ctx.params;

@@ -21,28 +21,47 @@ export function hostOf(req: NextRequest): string {
   return (req.headers.get("host") || "").split(":")[0].trim().toLowerCase();
 }
 
+function forwardedHosts(req: NextRequest): string[] {
+  const forwarded = req.headers.get("forwarded") ?? "";
+  const forwardedHostParts = forwarded
+    .split(",")
+    .flatMap((part) => [...part.matchAll(/(?:^|;)\s*host="?([^";,]+)"?/gi)].map((m) => m[1]));
+  return [
+    req.headers.get("x-forwarded-host"),
+    req.headers.get("x-original-host"),
+    ...forwardedHostParts,
+    req.headers.get("host"),
+    req.nextUrl.host,
+  ]
+    .flatMap((value) => String(value ?? "").split(","))
+    .map((value) => value.trim().toLowerCase().replace(/:(443|80)$/, ""))
+    .filter(Boolean);
+}
+
+function originHost(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).host.toLowerCase().replace(/:(443|80)$/, "");
+  } catch {
+    return null;
+  }
+}
+
 function sameOriginMutation(req: NextRequest): boolean {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return true;
   // Accept the forwarded host from a reverse proxy so deployments behind
   // nginx/Caddy don't produce spurious 403s when the internal `Host` header
   // differs from the external origin the browser sees.
-  const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || req.nextUrl.host || "";
-  const host = rawHost.split(",")[0].trim().toLowerCase(); // x-forwarded-host may be comma-separated
+  const hosts = new Set(forwardedHosts(req));
   const origin = req.headers.get("origin");
   if (origin) {
-    try {
-      return new URL(origin).host.toLowerCase() === host;
-    } catch {
-      return false;
-    }
+    const host = originHost(origin);
+    return !!host && hosts.has(host);
   }
   const referer = req.headers.get("referer");
   if (referer) {
-    try {
-      return new URL(referer).host.toLowerCase() === host;
-    } catch {
-      return false;
-    }
+    const host = originHost(referer);
+    return !!host && hosts.has(host);
   }
   return true;
 }

@@ -7,6 +7,7 @@ import { sanitizeTenantSettings } from "@/lib/reservations/sanitize-tenant";
 import { tenantView } from "@/lib/reservations/platform-view";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { log } from "@/lib/observability/logger";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
@@ -16,6 +17,10 @@ const slugRe = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 /** GET /api/platform/tenants — list all restaurants (secrets redacted). */
 export async function GET(req: NextRequest) {
+  return observePlatformRoute(req, "/api/platform/tenants", listTenants, req);
+}
+
+async function listTenants(req: NextRequest) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   try {
@@ -31,6 +36,10 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/platform/tenants — create a restaurant + its login + hosts. */
 export async function POST(req: NextRequest) {
+  return observePlatformRoute(req, "/api/platform/tenants", createTenant, req);
+}
+
+async function createTenant(req: NextRequest) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const obs = requestContext(req, { surface: "platform", actorType: "platform", session: ctx.session, route: "/api/platform/tenants" });

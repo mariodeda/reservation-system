@@ -4,11 +4,16 @@ import { getPlatformStore } from "@/lib/reservations/platform-store";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { hashValue } from "@/lib/observability/logger";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  return observePlatformRoute(req, "/api/platform/login", login, req);
+}
+
+async function login(req: NextRequest) {
   const obs = requestContext(req, { surface: "platform", actorType: "platform", route: "/api/platform/login" });
   if (!(await rateLimit(`platform-login:${clientIp(req)}`, 5, 15 * 60_000))) {
     await recordAppEvent(eventFromRequest(obs, {

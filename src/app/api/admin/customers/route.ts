@@ -2,12 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getCustomerStore } from "@/lib/reservations/customer-store";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
+import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/customers?q=&page=&limit=&sortBy= */
 export async function GET(req: NextRequest) {
+  return observeAdminRoute(req, "/api/admin/customers", listCustomers, req);
+}
+
+async function listCustomers(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
 

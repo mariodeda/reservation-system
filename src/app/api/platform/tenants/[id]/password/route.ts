@@ -4,12 +4,17 @@ import { requirePlatform } from "@/lib/reservations/tenant-context";
 import { hashPassword } from "@/lib/reservations/tenant";
 import { getPlatformStore } from "@/lib/reservations/platform-store";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
+import { observePlatformRoute } from "@/lib/observability/route-events";
 import { requestContext } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 
 /** POST /api/platform/tenants/[id]/password  { password } — reset a tenant's staff login password. */
 export async function POST(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  return observePlatformRoute(req, "/api/platform/tenants/[id]/password", resetPassword, req, ctxArg);
+}
+
+async function resetPassword(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatform(req);
   if (!ctx.ok) return ctx.res;
   const { id } = await ctxArg.params;
