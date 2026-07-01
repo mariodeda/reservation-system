@@ -279,6 +279,22 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     );
     expect(res.status).toBe(200);
   });
+  it("does not re-send an email when an unfilled feedback token already exists", async () => {
+    const r = await makeCompleted("already@x.io");
+    const existing = await feedbackStore.createFeedbackToken(r.id, tenantId);
+
+    const res = await adminFeedbackRoute.POST(
+      authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
+      { params: Promise.resolve({ id: r.id }) },
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.token).toBe(existing.token);
+    expect(json.alreadySent).toBe(true);
+    expect(json.emailSent).toBe(false);
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /api/admin/reservations/[id] feedback automation", () => {

@@ -201,7 +201,12 @@ export default function ReservationRow({
                   <span className="ml-auto flex gap-3 flex-wrap items-center">
                     {r.status === "completed" && r.email && (
                       feedbackSent ? (
-                        <span className="text-[10px] text-emerald-400">{am.feedback.sent}</span>
+                        <button
+                          disabled
+                          className="rounded-md border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-xs font-medium text-emerald-300 opacity-80"
+                        >
+                          {am.feedback.alreadySent}
+                        </button>
                       ) : (
                         <button
                           onClick={requestFeedback}

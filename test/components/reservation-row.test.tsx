@@ -144,6 +144,33 @@ describe("ReservationRow", () => {
     expect(screen.getByTitle(/Follow up with a phone call/i)).toBeInTheDocument();
   });
 
+  it("lets staff send a review email only from a completed reservation row", async () => {
+    const user = userEvent.setup();
+    render(<ReservationRow r={row({ status: "completed", feedbackSentAt: null })} onChanged={() => {}} />);
+
+    await user.click(screen.getByRole("button", { name: "Send review email" }));
+
+    expect(adminFetch).toHaveBeenCalledWith(
+      "/api/admin/reservations/id-1/feedback",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(toast).toHaveBeenCalledWith("Review email sent");
+    expect(screen.getByRole("button", { name: "Feedback request already sent" })).toBeDisabled();
+  });
+
+  it("shows a disabled already-sent review email button when feedback was sent before", () => {
+    render(<ReservationRow r={row({ status: "completed", feedbackSentAt: "2026-07-01T12:00:00Z" })} onChanged={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Feedback request already sent" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Send review email" })).not.toBeInTheDocument();
+  });
+
+  it("does not show the review email action before completion", () => {
+    render(<ReservationRow r={row({ status: "confirmed" })} onChanged={() => {}} />);
+
+    expect(screen.queryByRole("button", { name: "Send review email" })).not.toBeInTheDocument();
+  });
+
   it("edits every field and sends them all in the PATCH", async () => {
     const user = userEvent.setup();
     render(

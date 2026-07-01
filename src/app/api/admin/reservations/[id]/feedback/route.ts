@@ -39,6 +39,16 @@ async function sendFeedback(
     const existing = await getFeedbackByReservation(id);
     if (existing?.filledAt)
       return NextResponse.json({ error: "Feedback already submitted." }, { status: 409 });
+    if (existing) {
+      const siteUrl = ctx.tenant.settings.url?.replace(/\/$/, "") || "";
+      return NextResponse.json({
+        ok: true,
+        token: existing.token,
+        emailSent: false,
+        alreadySent: true,
+        feedbackUrl: `${siteUrl}/feedback/${existing.token}`,
+      });
+    }
 
     const record = await createFeedbackToken(id, ctx.tenant.id);
     const siteUrl = ctx.tenant.settings.url?.replace(/\/$/, "") || "";

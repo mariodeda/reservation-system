@@ -135,10 +135,11 @@ export const it = {
     toggleDark: "Passa alla modalità scura",
   },
   feedback: {
-    send: "Richiedi feedback",
-    sending: "Invio in corso…",
-    sent: "Feedback inviato",
-    sendError: "Impossibile inviare la richiesta di feedback.",
+    send: "Invia email recensione",
+    sending: "Invio email recensione…",
+    sent: "Email recensione inviata",
+    alreadySent: "Richiesta feedback gia inviata",
+    sendError: "Impossibile inviare l'email recensione.",
   },
   email: {
     confirmation: "Conferma",

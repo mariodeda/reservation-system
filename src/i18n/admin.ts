@@ -136,10 +136,11 @@ export const am = {
     toggleDark: "Switch to dark mode",
   },
   feedback: {
-    send: "Request feedback",
-    sending: "Sending…",
-    sent: "Feedback sent",
-    sendError: "Could not send feedback request.",
+    send: "Send review email",
+    sending: "Sending review email…",
+    sent: "Review email sent",
+    alreadySent: "Feedback request already sent",
+    sendError: "Could not send review email.",
   },
   email: {
     confirmation: "Confirmation",
