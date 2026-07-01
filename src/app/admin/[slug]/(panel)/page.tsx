@@ -40,8 +40,8 @@ export default function DashboardPage() {
     return multiOffering && off ? `${off.label} · ${svc}` : svc;
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const data = await adminJson<{ reservations: AdminReservation[] }>(
         `/api/admin/reservations?date=${today}`,
@@ -50,14 +50,14 @@ export default function DashboardPage() {
     } catch {
       toast(am.dashboard.couldNotLoad, "error");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [today]);
 
   useEffect(() => {
-    load();
+    load(true);
     // Refresh every 30s so live-service staff see new walk-in requests and status changes.
-    const id = setInterval(load, 30_000);
+    const id = setInterval(() => load(false), 30_000);
     return () => clearInterval(id);
   }, [load]);
 

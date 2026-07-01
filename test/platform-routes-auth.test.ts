@@ -1,5 +1,9 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+
+vi.mock("@/lib/reservations/smtp-health", () => ({
+  runSmtpHealthChecks: async () => [],
+}));
 
 // No MySQL configured -> platform mutations would 401 before ever hitting a store.
 let tenants: typeof import("@/app/api/platform/tenants/route");
@@ -13,6 +17,7 @@ let bounces: typeof import("@/app/api/platform/bounces/route");
 let pauth: typeof import("@/lib/reservations/platform-auth");
 
 beforeAll(async () => {
+  process.env.SESSION_SECRET = "platform-routes-auth-secret";
   tenants = await import("@/app/api/platform/tenants/route");
   tenantId = await import("@/app/api/platform/tenants/[id]/route");
   domains = await import("@/app/api/platform/tenants/[id]/domains/route");
@@ -26,6 +31,11 @@ beforeAll(async () => {
 afterAll(() => {});
 
 const req = (url: string, method = "GET") => new NextRequest(`http://platform.local${url}`, { method });
+const authed = async (url: string, method = "GET") =>
+  new NextRequest(`http://platform.local${url}`, {
+    method,
+    headers: { cookie: `${pauth.PLATFORM_COOKIE}=${await pauth.createPlatformSession("ops")}` },
+  });
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
 describe("platform routes reject unauthenticated callers (401)", () => {
@@ -48,6 +58,10 @@ describe("platform routes reject unauthenticated callers (401)", () => {
   });
   it("SMTP cron POST", async () => {
     expect((await smtpCron.POST(req("/api/platform/cron/smtp-health", "POST"))).status).toBe(401);
+  });
+  it("SMTP cron POST accepts a platform session for manual checks", async () => {
+    const res = await smtpCron.POST(await authed("/api/platform/cron/smtp-health", "POST"));
+    expect(res.status).toBe(200);
   });
   it("bounce ingest POST", async () => {
     expect((await bounces.POST(req("/api/platform/bounces", "POST"))).status).toBe(401);

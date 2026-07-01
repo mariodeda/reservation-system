@@ -430,6 +430,10 @@ export const it = {
     smtpFailed: "Errore",
     smtpUnknown: "Non verificato",
     smtpNotConfigured: "Non configurato",
+    smtpCheckNow: "Verifica SMTP",
+    smtpChecking: "Verifica SMTP…",
+    smtpCheckFailed: "Impossibile verificare SMTP.",
+    smtpCheckComplete: (n: number) => `SMTP verificato per ${n} ristorant${n === 1 ? "e" : "i"}.`,
     totals: {
       bookings: "Prenotazioni totali",
       last30: "Ultimi 30 giorni",

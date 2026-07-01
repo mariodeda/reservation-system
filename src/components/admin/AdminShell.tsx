@@ -169,7 +169,10 @@ export default function AdminShell({
       <ReservationToastStack
         toasts={toasts}
         slug={slug}
-        onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
+        onDismiss={(id) => {
+          markRead(id);
+          setToasts((prev) => prev.filter((t) => t.id !== id));
+        }}
       />
     </div>
   );

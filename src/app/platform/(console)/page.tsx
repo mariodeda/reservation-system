@@ -26,6 +26,7 @@ export default function PlatformHome() {
   const [tenants, setTenants] = useState<TenantView[] | null>(null);
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [creating, setCreating] = useState(false);
+  const [checkingSmtp, setCheckingSmtp] = useState(false);
 
   async function load() {
     try {
@@ -43,16 +44,40 @@ export default function PlatformHome() {
     load();
   }, []);
 
+  async function checkSmtpNow() {
+    setCheckingSmtp(true);
+    try {
+      const res = await platformFetch("/api/platform/cron/smtp-health", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || am.platform.smtpCheckFailed);
+      toast(am.platform.smtpCheckComplete(Number(data.checked) || 0));
+      await load();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : am.platform.smtpCheckFailed, "error");
+    } finally {
+      setCheckingSmtp(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{am.platform.title}</h1>
-        <button
-          onClick={() => setCreating((c) => !c)}
-          className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110"
-        >
-          {creating ? am.platform.close : am.platform.newRestaurant}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={checkSmtpNow}
+            disabled={checkingSmtp}
+            className="border border-outline-variant/40 text-on-surface-variant px-4 py-2 rounded-lg text-sm font-semibold hover:text-primary hover:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {checkingSmtp ? am.platform.smtpChecking : am.platform.smtpCheckNow}
+          </button>
+          <button
+            onClick={() => setCreating((c) => !c)}
+            className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:brightness-110"
+          >
+            {creating ? am.platform.close : am.platform.newRestaurant}
+          </button>
+        </div>
       </div>
 
       {creating && <CreateForm onCreated={() => { setCreating(false); load(); }} />}

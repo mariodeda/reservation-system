@@ -49,6 +49,8 @@ function originHost(value: string | null): string | null {
 
 function sameOriginMutation(req: NextRequest): boolean {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return true;
+  const site = req.headers.get("sec-fetch-site")?.toLowerCase();
+  if (site === "cross-site") return false;
   // Accept the forwarded host from a reverse proxy so deployments behind
   // nginx/Caddy don't produce spurious 403s when the internal `Host` header
   // differs from the external origin the browser sees.
@@ -60,15 +62,13 @@ function sameOriginMutation(req: NextRequest): boolean {
     // Some production proxy/CDN stacks preserve the browser Origin but rewrite
     // Host without forwarding the external host. Fetch Metadata is browser-set,
     // so it lets us distinguish a real same-origin UI mutation from CSRF.
-    const site = req.headers.get("sec-fetch-site")?.toLowerCase();
-    return site === "same-origin";
+    return site === "same-origin" || site === undefined;
   }
   const referer = req.headers.get("referer");
   if (referer) {
     const host = originHost(referer);
     if (host && hosts.has(host)) return true;
-    const site = req.headers.get("sec-fetch-site")?.toLowerCase();
-    return site === "same-origin";
+    return site === "same-origin" || site === undefined;
   }
   return true;
 }

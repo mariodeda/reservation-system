@@ -668,7 +668,7 @@ describe("admin reservations routes", () => {
   it("rejects cross-site admin mutations by Origin header", async () => {
     const res = await routes.adminRes.POST(adminReq("/api/admin/reservations", {
       method: "POST",
-      headers: { origin: "https://evil.example.com" },
+      headers: { origin: "https://evil.example.com", "sec-fetch-site": "cross-site" },
       body: { date: "2026-06-12", time: "20:00", service: "dinner", name: "X", partySize: 2 },
     }));
     expect(res.status).toBe(403);

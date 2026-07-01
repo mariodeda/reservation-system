@@ -146,7 +146,7 @@ describe("platform tenant CRUD via routes", () => {
   it("rejects cross-site platform mutations by Origin header", async () => {
     const res = await tenantsRoute.POST(authed("/api/platform/tenants", {
       method: "POST",
-      headers: { origin: "https://evil.example.com" },
+      headers: { origin: "https://evil.example.com", "sec-fetch-site": "cross-site" },
       body: { slug: "evil", name: "Evil", username: "u", password: "password1" },
     }));
     expect(res.status).toBe(403);
@@ -232,11 +232,58 @@ describe("platform tenant CRUD via routes", () => {
     expect((await tenantStoreMod.getTenantStore().getById(id))?.settings.contactEmail).toBe("same-origin@acme.example");
   });
 
+  it("saves feedback request template details from the platform tenant form", async () => {
+    const ctx = { params: Promise.resolve({ id }) };
+    const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {
+      method: "PATCH",
+      headers: {
+        host: "internal.platform.local",
+        origin: "https://restaurant-reservation-system.com",
+        referer: `https://restaurant-reservation-system.com/platform/tenants/${id}`,
+        "sec-fetch-site": "same-origin",
+      },
+      body: {
+        settings: {
+          name: "Acme Osteria",
+          url: "https://acme.example",
+          contactEmail: "owner@acme.example",
+          contactPhone: "+390000",
+          locale: "en-US",
+          timezone: "Europe/Rome",
+          autoConfirm: true,
+          emailEnabled: true,
+          emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+          feedbackEnabled: true,
+          feedbackRequestDelayHours: 4,
+          smtp: { host: "smtp.acme.com", port: 587, secure: true, user: "u" },
+          emailTemplates: {
+            confirmation: {
+              subject: "Your reservation at {{restaurantName}} is confirmed",
+              text: "Dear {{guestName}}, your table is confirmed. {{reference}}",
+              html: "<html><body><p>Confirmed {{reference}}</p></body></html>",
+            },
+            feedbackRequest: {
+              subject: "How was your visit, {{guestName}}?",
+              text: "Share your experience here: {{feedbackUrl}}",
+              html: "<!DOCTYPE html><html><body><a href=\"{{feedbackUrl}}\">Share my experience</a></body></html>",
+            },
+          },
+        },
+      },
+    }), ctx);
+    expect(res.status).toBe(200);
+    const stored = await tenantStoreMod.getTenantStore().getById(id);
+    expect(stored?.settings.emailTemplates?.confirmation.subject).toContain("confirmed");
+    expect(stored?.settings.emailTemplates?.feedbackRequest?.subject).toContain("How was your visit");
+    expect(stored?.settings.emailTemplates?.feedbackRequest?.html).toContain("{{feedbackUrl}}");
+    expect(stored?.settings.smtp?.pass).toBe("secret-pw");
+  });
+
   it("records a route log when a platform tenant PATCH is rejected", async () => {
     const ctx = { params: Promise.resolve({ id }) };
     const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {
       method: "PATCH",
-      headers: { origin: "https://evil.example.com" },
+      headers: { origin: "https://evil.example.com", "sec-fetch-site": "cross-site" },
       body: { settings: { contactEmail: "blocked@acme.example" } },
     }), ctx);
     expect(res.status).toBe(403);

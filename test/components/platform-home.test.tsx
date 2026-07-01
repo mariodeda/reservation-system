@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 const { platformJson, platformFetch, toast } = vi.hoisted(() => ({
   platformJson: vi.fn(),
@@ -108,5 +109,21 @@ describe("PlatformHome", () => {
     expect(screen.getByText("Beta Trattoria")).toBeInTheDocument();
     expect(screen.getByText("Email disattivate")).toBeInTheDocument();
     expect(screen.getByText("SMTP: Non configurato")).toBeInTheDocument();
+  });
+
+  it("lets platform admins manually trigger SMTP checks", async () => {
+    const user = userEvent.setup();
+    platformFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, checked: 2 }),
+    });
+    render(<PlatformHome />);
+
+    await screen.findByText("Acme Osteria");
+    await user.click(screen.getByRole("button", { name: "Verifica SMTP" }));
+
+    expect(platformFetch).toHaveBeenCalledWith("/api/platform/cron/smtp-health", { method: "POST" });
+    expect(toast).toHaveBeenCalledWith("SMTP verificato per 2 ristoranti.");
+    expect(platformJson).toHaveBeenCalledWith("/api/platform/tenants");
   });
 });

@@ -435,6 +435,10 @@ export const am = {
     smtpFailed: "Failed",
     smtpUnknown: "Not checked",
     smtpNotConfigured: "Not configured",
+    smtpCheckNow: "Check SMTP",
+    smtpChecking: "Checking SMTP…",
+    smtpCheckFailed: "Could not check SMTP.",
+    smtpCheckComplete: (n: number) => `SMTP checked for ${n} restaurant${n === 1 ? "" : "s"}.`,
     totals: {
       bookings: "Total bookings",
       last30: "Last 30 days",

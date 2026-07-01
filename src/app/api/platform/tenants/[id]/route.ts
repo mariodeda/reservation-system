@@ -12,6 +12,32 @@ import { requestContext } from "@/lib/observability/request-context";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function mergeTenantSettings(
+  existing: TenantSettings,
+  patch: Partial<TenantSettings>,
+  fallbackName: string,
+): TenantSettings {
+  const sanitized = sanitizeTenantSettings({
+    ...existing,
+    ...patch,
+    emailTemplates: patch.emailTemplates
+      ? { ...existing.emailTemplates, ...patch.emailTemplates }
+      : existing.emailTemplates,
+    name: patch.name ?? existing.name ?? fallbackName,
+  });
+  if (patch.smtp === undefined && existing.smtp) {
+    sanitized.smtp = existing.smtp;
+  } else if (sanitized.smtp && !sanitized.smtp.pass && existing.smtp?.pass) {
+    // Preserve the stored SMTP password when the client sends a blank one
+    // (the UI never echoes the secret back).
+    sanitized.smtp.pass = existing.smtp.pass;
+  }
+  if (patch.emailTemplates === undefined && existing.emailTemplates) {
+    sanitized.emailTemplates = existing.emailTemplates;
+  }
+  return sanitized;
+}
+
 /** GET /api/platform/tenants/[id] — full (redacted) detail. */
 export async function GET(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   return observePlatformRoute(req, "/api/platform/tenants/[id]", getTenantDetail, req, ctxArg);
@@ -67,21 +93,7 @@ async function patchTenant(req: NextRequest, ctxArg: { params: Promise<{ id: str
   }
 
   if (body.settings !== undefined) {
-    const next = sanitizeTenantSettings({
-      ...existing.settings,
-      ...body.settings,
-      // Deep-merge emailTemplates so sending only feedbackRequest doesn't wipe
-      // an existing confirmation template (and vice-versa).
-      emailTemplates: body.settings.emailTemplates
-        ? { ...existing.settings.emailTemplates, ...body.settings.emailTemplates }
-        : existing.settings.emailTemplates,
-      name: body.settings.name ?? existing.settings.name ?? existing.name,
-    });
-    // Preserve the stored SMTP password when the client sends a blank one
-    // (the UI never echoes the secret back).
-    if (next.smtp && !next.smtp.pass && existing.settings.smtp?.pass) {
-      next.smtp.pass = existing.settings.smtp.pass;
-    }
+    const next = mergeTenantSettings(existing.settings, body.settings, existing.name);
     await store.updateSettings(id, next);
     const policyChanged = ["emailEnabled", "emailEvents", "feedbackRequestDelayHours", "feedbackEnabled"].some((k) =>
       Object.prototype.hasOwnProperty.call(body.settings, k),

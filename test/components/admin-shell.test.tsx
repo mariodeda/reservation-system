@@ -1,26 +1,56 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { replace, refresh } = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 const pathname = vi.hoisted(() => ({ value: "/admin/acme/reservations" }));
+const reservationEvents = vi.hoisted(() => ({
+  notifications: [] as Array<{
+    id: string;
+    date: string;
+    time: string;
+    service: string;
+    partySize: number;
+    name: string;
+    source: "web" | "admin";
+    receivedAt: number;
+    read: boolean;
+  }>,
+  markRead: vi.fn(),
+  markAllRead: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace, refresh }),
   usePathname: () => pathname.value,
 }));
 // next/link -> plain anchor for the test environment.
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
+vi.mock("@/components/admin/useReservationEvents", () => ({
+  useReservationEvents: () => ({
+    notifications: reservationEvents.notifications,
+    unreadCount: reservationEvents.notifications.filter((n) => !n.read).length,
+    connected: true,
+    markRead: reservationEvents.markRead,
+    markAllRead: reservationEvents.markAllRead,
+  }),
+}));
 
 import AdminShell from "@/components/admin/AdminShell";
 
 beforeEach(() => {
   replace.mockReset();
   refresh.mockReset();
+  reservationEvents.notifications = [];
+  reservationEvents.markRead.mockReset();
+  reservationEvents.markAllRead.mockReset();
   pathname.value = "/admin/acme/reservations";
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("AdminShell", () => {
   it("renders the brand, nav links and children", () => {
@@ -62,5 +92,26 @@ describe("AdminShell", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/logout", { method: "POST" });
     expect(replace).toHaveBeenCalledWith("/admin/acme/login");
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("marks a toast notification read when dismissed", () => {
+    vi.useFakeTimers();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    act(() => { vi.advanceTimersByTime(400); });
+
+    expect(reservationEvents.markRead).toHaveBeenCalledWith("res-1");
   });
 });
