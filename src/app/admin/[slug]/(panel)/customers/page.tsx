@@ -57,7 +57,11 @@ export default function CustomersPage() {
 
   function exportCsv() {
     const cols = ["Name", "Email", "Phone", "Visits", "Total Covers", "No-shows", "Cancellations", "First Visit", "Last Visit", "VIP", "Dietary Notes"];
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const esc = (v: unknown) => {
+      const raw = String(v ?? "");
+      const safe = /^[\s]*[=+\-@]/.test(raw) ? `'${raw}` : raw;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
     const lines = [cols.join(",")].concat(
       customers.map((c) =>
         [c.name, c.email, c.phone, c.visitCount, c.totalCovers, c.noShowCount, c.cancelledCount, c.firstVisit ?? "", c.lastVisit ?? "", c.vip ? "Yes" : "No", c.dietaryNotes ?? ""]
@@ -640,5 +644,4 @@ function XIcon({ className = "h-4 w-4" }: { className?: string }) {
     </svg>
   );
 }
-
 

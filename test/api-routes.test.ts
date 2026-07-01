@@ -648,6 +648,16 @@ describe("admin config routes", () => {
     expect(saved.bookingWindowDays).toBe(730);
     expect(saved.dateOverrides["2026-12-25"]).toEqual({ closed: true, services: [] });
   });
+  it("PUT rejects mismatched Origin when Fetch Metadata is absent", async () => {
+    const cfg = (await (await routes.config.GET(adminReq("/api/admin/config"))).json()).config;
+    const res = await routes.config.PUT(adminReq("/api/admin/config", {
+      method: "PUT",
+      headers: { origin: "https://evil.example.com" },
+      body: { config: cfg },
+    }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/cross-site/i);
+  });
   it("PUT 400s on a body without weekly", async () => {
     const res = await routes.config.PUT(adminReq("/api/admin/config", { method: "PUT", body: { config: { foo: 1 } } }));
     expect(res.status).toBe(400);

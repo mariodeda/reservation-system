@@ -75,6 +75,8 @@ async function getFeedback(
   const { id } = await params;
 
   try {
+    const reservation = await getStore().forTenant(ctx.tenant.id).getReservation(id);
+    if (!reservation) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const record = await getFeedbackByReservation(id);
     return NextResponse.json({ feedback: record ?? null });
   } catch (err) {

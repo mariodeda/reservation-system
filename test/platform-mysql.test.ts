@@ -159,6 +159,16 @@ describe("platform tenant CRUD via routes", () => {
     expect((await res.json()).error).toMatch(/cross-site/i);
   });
 
+  it("rejects mismatched Origin platform mutations when Fetch Metadata is absent", async () => {
+    const res = await tenantsRoute.POST(authed("/api/platform/tenants", {
+      method: "POST",
+      headers: { origin: "https://evil.example.com" },
+      body: { slug: "evil-no-fetch", name: "Evil", username: "u", password: "password1" },
+    }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/cross-site/i);
+  });
+
   it("platform analytics counts active restaurants even before bookings", async () => {
     const res = await analyticsRoute.GET(authed("/api/platform/analytics"));
     expect(res.status).toBe(200);
@@ -502,6 +512,11 @@ describe("platform tenant CRUD via routes", () => {
        VALUES ('00000000-0000-4000-8000-000000000001', ?, ?, ?)`,
       [reservation.id, id, new Date().toISOString()],
     );
+    await pool.query(
+      `INSERT INTO reservation_emails (id, tenant_id, reservation_id, type, status, to_email, created_at)
+       VALUES ('email-cascade', ?, ?, 'bookingConfirmation', 'failed', 'g@x.io', ?)`,
+      [id, reservation.id, new Date().toISOString()],
+    );
 
     const rejected = await tenantIdRoute.DELETE(authed(`/api/platform/tenants/${id}`, { method: "DELETE", body: { operatorPassword: "wrong" } }), ctx);
     expect(rejected.status).toBe(401);
@@ -509,7 +524,7 @@ describe("platform tenant CRUD via routes", () => {
     expect(del.status).toBe(200);
     expect(await tenantStoreMod.getTenantStore().getById(id)).toBeNull();
     expect(await new MySqlStore(id).listReservations()).toHaveLength(0);
-    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_feedback"]) {
+    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_feedback", "reservation_emails"]) {
       const [rows] = await pool.query(`SELECT COUNT(*) AS count FROM ${table} WHERE tenant_id = ?`, [id]);
       expect(Number((rows as { count: number }[])[0].count)).toBe(0);
     }

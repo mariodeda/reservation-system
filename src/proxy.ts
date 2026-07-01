@@ -15,13 +15,20 @@ function noindex<T extends Response>(res: T): T {
 function hasCronAuth(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   const token = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-  return Boolean(secret && token && token === secret);
+  return constantTimeEqual(secret, token);
 }
 
 function hasBounceAuth(req: NextRequest): boolean {
   const secret = process.env.BOUNCE_WEBHOOK_SECRET || process.env.CRON_SECRET;
   const token = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-  return Boolean(secret && token && token === secret);
+  return constantTimeEqual(secret, token);
+}
+
+function constantTimeEqual(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 export async function proxy(req: NextRequest) {

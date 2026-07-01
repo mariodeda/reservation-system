@@ -636,7 +636,7 @@ function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => voi
             srcDoc={html}
             title="Email preview"
             style={{ width: "100%", minHeight: 480, border: "none", display: "block" }}
-            sandbox="allow-same-origin"
+            sandbox=""
           />
         </div>
       </div>

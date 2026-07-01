@@ -70,13 +70,13 @@ function sameOriginMutation(req: NextRequest): boolean {
     // Some production proxy/CDN stacks preserve the browser Origin but rewrite
     // Host without forwarding the external host. Fetch Metadata is browser-set,
     // so it lets us distinguish a real same-origin UI mutation from CSRF.
-    return site === "same-origin" || site === undefined;
+    return site === "same-origin";
   }
   const referer = req.headers.get("referer");
   if (referer) {
     const host = originHost(referer);
     if (host && hosts.has(host)) return true;
-    return site === "same-origin" || site === undefined;
+    return site === "same-origin";
   }
   return true;
 }

@@ -163,7 +163,11 @@ export default function ReservationsPage() {
       "Date", "Time", ...(multiOffering ? ["Offering"] : []), "Service", "Name", "Party",
       "Phone", "Email", "Status", "Occasion", "Notes", "Reference",
     ];
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const esc = (v: unknown) => {
+      const raw = String(v ?? "");
+      const safe = /^[\s]*[=+\-@]/.test(raw) ? `'${raw}` : raw;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
     const lines = [cols.join(",")].concat(
       visible.map((r) =>
         [r.date, r.time, ...(multiOffering ? [offeringLabel(r.offering)] : []), r.service, r.name, r.partySize, r.phone, r.email, r.status, r.occasion ?? "", r.notes ?? "", r.reference]

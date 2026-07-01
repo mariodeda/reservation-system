@@ -418,5 +418,32 @@ describe("GET /api/admin/reservations/[id]/feedback", () => {
     expect(json.feedback.reservationId).toBe(r.id);
   });
 
+  it("does not return feedback records for another tenant's reservation id", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const { hashPassword, templateSettings } = await import("@/lib/reservations/tenant");
+    const otherTenantId = randomUUID();
+    await getTenantStore().create({
+      id: otherTenantId,
+      slug: `other-${otherTenantId.slice(0, 8)}`,
+      name: "Other Restaurant",
+      settings: templateSettings(),
+      adminUsername: "staff",
+      adminPasswordHash: hashPassword("secret1"),
+      hosts: [],
+    });
+    const otherStore = store.getStore().forTenant(otherTenantId);
+    const otherReservation = await otherStore.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Other Guest", email: "other@x.io", phone: "456",
+    });
+    await feedbackStore.createFeedbackToken(otherReservation.id, otherTenantId);
+
+    const res = await adminFeedbackRoute.GET(
+      authed(`/api/admin/reservations/${otherReservation.id}/feedback`),
+      { params: Promise.resolve({ id: otherReservation.id }) },
+    );
+    expect(res.status).toBe(404);
+  });
+
 });
 
