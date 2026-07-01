@@ -40,6 +40,28 @@ describe("Availability — Special dates", () => {
     expect(within(section).getByText("None.")).toBeInTheDocument(); // no overrides yet
   });
 
+  it("shows resolved duration values instead of default labels", async () => {
+    const cfg = config();
+    cfg.turnMinutes = 90;
+    adminJson.mockResolvedValueOnce({ config: cfg });
+    render(<AvailabilityPage />);
+
+    const globalDuration = await screen.findByLabelText("Default table duration") as HTMLSelectElement;
+    expect(globalDuration.selectedOptions[0].textContent).toBe("1h 30min");
+
+    const serviceDuration = screen.getAllByLabelText("Duration")[0] as HTMLSelectElement;
+    expect(serviceDuration.value).toBe("");
+    expect(serviceDuration.selectedOptions[0].textContent).toBe("1h 30min");
+  });
+
+  it("shows the concrete system duration when the global duration is unset", async () => {
+    render(<AvailabilityPage />);
+
+    const globalDuration = await screen.findByLabelText("Default table duration") as HTMLSelectElement;
+    expect(globalDuration.value).toBe("");
+    expect(globalDuration.selectedOptions[0].textContent).toBe("2h");
+  });
+
   it("adds a special date with a default service editor, then removes it", async () => {
     const user = userEvent.setup();
     render(<AvailabilityPage />);

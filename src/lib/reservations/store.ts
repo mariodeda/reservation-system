@@ -15,6 +15,7 @@ export interface ReservationStore {
   getConfig(): Promise<AvailabilityConfig>;
   saveConfig(config: AvailabilityConfig): Promise<AvailabilityConfig>;
   listReservations(filter?: ReservationFilter): Promise<Reservation[]>;
+  searchReservations(query: string, filter?: ReservationSearchFilter): Promise<Reservation[]>;
   getReservation(id: string): Promise<Reservation | null>;
   createReservation(input: NewReservationInput): Promise<Reservation>;
   /**
@@ -32,6 +33,8 @@ export interface ReservationStore {
   deleteReservation(id: string): Promise<boolean>;
   /** Find reservations matching BOTH normalized email AND phone. Used for guest self-service lookup. */
   findByContact(email: string, phone: string): Promise<Reservation[]>;
+  /** Count active reservations from a date onward that match either normalized email or phone. */
+  countActiveByContact(from: string, email: string, phone: string): Promise<number>;
 }
 
 export interface ReservationFilter {
@@ -39,6 +42,11 @@ export interface ReservationFilter {
   from?: string;
   to?: string;
   status?: ReservationStatus;
+}
+
+export interface ReservationSearchFilter {
+  status?: ReservationStatus;
+  limit?: number;
 }
 
 /**

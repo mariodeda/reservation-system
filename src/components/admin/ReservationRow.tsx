@@ -158,14 +158,53 @@ export default function ReservationRow({
 
           {/* Table assignment — full-width, always visible */}
           {!editing && (
-            <TableAssign
-              reservationId={r.id}
-              value={r.tableLabel}
-              tableId={r.tableId}
-              tables={tables}
-              offering={r.offering || "main"}
-              onChanged={onChanged}
-            />
+            <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <TableAssign
+                  reservationId={r.id}
+                  value={r.tableLabel}
+                  tableId={r.tableId}
+                  tables={tables}
+                  offering={r.offering || "main"}
+                  status={r.status}
+                  onChanged={onChanged}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
+                {r.status === "completed" && r.email && (
+                  feedbackSent ? (
+                    <button
+                      disabled
+                      className="h-9 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 text-xs font-medium text-emerald-300 opacity-80"
+                    >
+                      {am.feedback.alreadySent}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={requestFeedback}
+                      disabled={feedbackBusy}
+                      className="h-9 rounded-lg border border-sky-400/30 bg-sky-400/10 px-3 text-xs font-semibold text-sky-300 hover:bg-sky-400/15 disabled:opacity-50"
+                    >
+                      {feedbackBusy ? am.feedback.sending : am.feedback.send}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => { if (canEditOrDelete) setEditing(true); }}
+                  disabled={!canEditOrDelete}
+                  className="h-9 rounded-lg border border-outline-variant/40 px-3 text-xs font-semibold text-primary hover:bg-primary/10 disabled:text-on-surface-variant/40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                >
+                  {am.row.edit}
+                </button>
+                <button
+                  onClick={remove}
+                  disabled={!canEditOrDelete}
+                  className="h-9 rounded-lg border border-rose-500/40 px-3 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 disabled:border-outline-variant/30 disabled:text-on-surface-variant/40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                >
+                  {am.row.delete}
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Details — expanded by default, horizontal layout */}
@@ -173,66 +212,32 @@ export default function ReservationRow({
             <>
               {open && <EmailStatusSection r={r} />}
               {open && (
-                <div className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5 text-sm text-on-surface-variant pt-0.5">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-on-surface-variant pt-0.5">
                   {r.email && (
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5" title={`${am.row.email}: ${r.email}`}>
                       <EmailIcon />
                       {r.email}
                     </span>
                   )}
                   {r.phone && (
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5" title={`${am.row.phone}: ${r.phone}`}>
                       <PhoneIcon />
                       {r.phone}
                     </span>
                   )}
                   {r.occasion && (
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5" title={`${am.row.occasion}: ${r.occasion}`}>
                       <OccasionIcon />
                       {r.occasion}
                     </span>
                   )}
-                  {r.notes && <span className="italic">"{r.notes}"</span>}
+                  {r.notes && <span className="italic" title={`${am.row.notes}: ${r.notes}`}>"{r.notes}"</span>}
                   {r.dietaryNotes && (
-                    <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium" title={am.customers.dietaryAlert}>
+                    <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium" title={`${am.customers.dietaryAlert}: ${r.dietaryNotes}`}>
                       <WarningIcon />
                       {r.dietaryNotes}
                     </span>
                   )}
-                  <span className="ml-auto flex gap-3 flex-wrap items-center">
-                    {r.status === "completed" && r.email && (
-                      feedbackSent ? (
-                        <button
-                          disabled
-                          className="rounded-md border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-xs font-medium text-emerald-300 opacity-80"
-                        >
-                          {am.feedback.alreadySent}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={requestFeedback}
-                          disabled={feedbackBusy}
-                          className="text-xs text-sky-400 hover:text-sky-300 disabled:opacity-50"
-                        >
-                          {feedbackBusy ? am.feedback.sending : am.feedback.send}
-                        </button>
-                      )
-                    )}
-                    <button
-                      onClick={() => { if (canEditOrDelete) setEditing(true); }}
-                      disabled={!canEditOrDelete}
-                      className="text-primary hover:underline text-xs disabled:text-on-surface-variant/40 disabled:no-underline disabled:cursor-not-allowed"
-                    >
-                      {am.row.edit}
-                    </button>
-                    <button
-                      onClick={remove}
-                      disabled={!canEditOrDelete}
-                      className="text-rose-400 hover:text-rose-300 text-xs disabled:text-on-surface-variant/40 disabled:cursor-not-allowed"
-                    >
-                      {am.row.delete}
-                    </button>
-                  </span>
                 </div>
               )}
               <button
@@ -293,6 +298,7 @@ function TableAssign({
   tableId,
   tables = [],
   offering = "main",
+  status,
   onChanged,
 }: {
   reservationId: string;
@@ -300,6 +306,7 @@ function TableAssign({
   tableId?: string;
   tables?: RestaurantTable[];
   offering?: string;
+  status: ReservationStatus;
   onChanged: () => void;
 }) {
   const applicable = tables.filter(
@@ -311,6 +318,7 @@ function TableAssign({
         reservationId={reservationId}
         tableId={tableId}
         tables={applicable}
+        status={status}
         onChanged={onChanged}
       />
     );
@@ -323,11 +331,13 @@ function ManagedTableAssign({
   reservationId,
   tableId,
   tables,
+  status,
   onChanged,
 }: {
   reservationId: string;
   tableId?: string;
   tables: RestaurantTable[];
+  status: ReservationStatus;
   onChanged: () => void;
 }) {
   const [saving, setSaving] = useState(false);
@@ -366,6 +376,7 @@ function ManagedTableAssign({
   }
 
   const assigned = tableId && tables.some((t) => t.id === tableId);
+  const canSuggest = status !== "seated" && status !== "completed";
 
   return (
     <div className={`flex items-center gap-0 w-full rounded-lg border h-9 overflow-hidden ${assigned ? "border-primary/50 bg-primary/10" : "border-dashed border-outline-variant/50"}`}>
@@ -388,7 +399,7 @@ function ManagedTableAssign({
           </option>
         ))}
       </select>
-      {!assigned && (
+      {!assigned && canSuggest && (
         <button
           onClick={suggest}
           disabled={saving}

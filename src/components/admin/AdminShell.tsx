@@ -336,15 +336,8 @@ function ChevronDownIcon() {
 function GearIcon() {
   return (
     <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="10" cy="10" r="2.6" />
-      <path d="M10 1.8v2" />
-      <path d="M10 16.2v2" />
-      <path d="m4.2 4.2 1.4 1.4" />
-      <path d="m14.4 14.4 1.4 1.4" />
-      <path d="M1.8 10h2" />
-      <path d="M16.2 10h2" />
-      <path d="m4.2 15.8 1.4-1.4" />
-      <path d="m14.4 5.6 1.4-1.4" />
+      <path d="M8.7 2.1h2.6l.5 2.1c.5.2.9.4 1.3.7l2-.7 1.3 2.2-1.6 1.4c.1.5.1 1 .1 1.5l1.6 1.4-1.3 2.2-2-.7c-.4.3-.8.5-1.3.7l-.5 2.1H8.7l-.5-2.1c-.5-.2-.9-.4-1.3-.7l-2 .7-1.3-2.2 1.6-1.4c-.1-.5-.1-1 0-1.5L3.6 6.4l1.3-2.2 2 .7c.4-.3.8-.5 1.3-.7l.5-2.1Z" />
+      <circle cx="10" cy="9.5" r="2.4" />
     </svg>
   );
 }

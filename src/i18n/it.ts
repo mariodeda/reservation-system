@@ -350,7 +350,7 @@ export const it = {
     none: "Nessuno.",
     remove: "Rimuovi",
     addService: "+ Aggiungi servizio",
-    serviceName: "Nome",
+    serviceName: "Nome servizio",
     serviceFrom: "Da",
     serviceTo: "A",
     serviceInterval: "Ogni (min)",
@@ -380,6 +380,7 @@ export const it = {
     tableDuration: "Durata predefinita al tavolo",
     tableDurationHint: "Per quanto tempo un tavolo prenotato rimane occupato — usato per il controllo dei conflitti.",
     serviceDuration: "Durata",
+    actions: "Azioni",
     durDefault: "Predefinito di sistema (2h)",
     durInherit: "Valore globale",
     durLabel: (min: number) => {

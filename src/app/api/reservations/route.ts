@@ -172,19 +172,14 @@ async function handle(req: NextRequest) {
     // Max concurrent active future reservations per contact.
     // Prevents holding-pattern spam (booking every slot and cancelling).
     const today = nowInTz(config.timezone).dateStr;
-    const futureReservations = await store.listReservations({ from: today });
-    const activeByContact = futureReservations.filter(
-      (r) =>
-        ACTIVE_STATUSES.includes(r.status) &&
-        (normalizeEmail(r.email) === normEmail || normalizePhone(r.phone) === normPhone),
-    );
-    if (activeByContact.length >= MAX_ACTIVE_PER_CONTACT) {
+    const activeByContact = await store.countActiveByContact(today, normEmail, normPhone);
+    if (activeByContact >= MAX_ACTIVE_PER_CONTACT) {
       await recordAppEvent(eventFromRequest(obs, {
         level: "warn",
         event: "public.booking.rejected.max_active_contact",
         status: 409,
         reason: "max_active_contact",
-        metadata: { activeCount: activeByContact.length },
+        metadata: { activeCount: activeByContact },
       }));
       return NextResponse.json(
         { error: "You already have the maximum number of active reservations. Please contact us to make changes." },

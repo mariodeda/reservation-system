@@ -58,6 +58,7 @@ const WEEKDAYS = [
 const field =
   "h-8 bg-surface-container-high border border-outline-variant/30 rounded-md px-2 py-1 text-sm focus:border-primary outline-none [color-scheme:dark]";
 
+const SYSTEM_TURN_MINUTES = 120;
 const DUR_OPTIONS = [45, 60, 75, 90, 105, 120, 150, 180, 240];
 
 export default function AvailabilityPage() {
@@ -139,6 +140,7 @@ export default function AvailabilityPage() {
 
   const offerings = config.offerings ?? [];
   const active = offerings.find((o) => o.id === activeId) ?? offerings[0];
+  const globalTurnMinutes = config.turnMinutes ?? SYSTEM_TURN_MINUTES;
 
   return (
     <div className="space-y-6 pb-24">
@@ -195,7 +197,7 @@ export default function AvailabilityPage() {
               onChange={(e) => update((c) => { c.turnMinutes = e.target.value ? Number(e.target.value) : undefined; })}
               className={`${field} w-full`}
             >
-              <option value="">{am.availability.durDefault}</option>
+              <option value="">{am.availability.durLabel(SYSTEM_TURN_MINUTES)}</option>
               {DUR_OPTIONS.map((m) => (
                 <option key={m} value={m}>{am.availability.durLabel(m)}</option>
               ))}
@@ -257,6 +259,7 @@ export default function AvailabilityPage() {
                   {isOpen ? (
                     <DayServicesEditor
                       services={day.services}
+                      inheritedTurnMinutes={globalTurnMinutes}
                       wide
                       mutate={(fn) => updateOffering((o) => fn((o.weekly[i] ??= { closed: false, services: [] })))}
                     />
@@ -315,6 +318,7 @@ export default function AvailabilityPage() {
                 {!sched.closed && (
                   <DayServicesEditor
                     services={sched.services}
+                    inheritedTurnMinutes={globalTurnMinutes}
                     mutate={(fn) => updateOffering((o) => fn(o.dateOverrides[date]))}
                   />
                 )}
@@ -556,10 +560,12 @@ function OfferingsBar({
 function DayServicesEditor({
   services,
   mutate,
+  inheritedTurnMinutes,
   wide = false,
 }: {
   services: ServiceWindow[];
   mutate: (fn: (day: DaySchedule) => void) => void;
+  inheritedTurnMinutes: number;
   wide?: boolean;
 }) {
   const wideColumns =
@@ -574,7 +580,7 @@ function DayServicesEditor({
           <span>{am.availability.serviceInterval}</span>
           <span>{am.availability.serviceCapacity}</span>
           <span>{am.availability.serviceDuration}</span>
-          <span />
+          <span>{am.availability.actions}</span>
         </div>
       )}
       {services.map((s, si) => (
@@ -595,7 +601,7 @@ function DayServicesEditor({
               className={`${field} w-full`}
               aria-label={am.availability.serviceDuration}
             >
-              <option value="">{am.availability.durInherit}</option>
+              <option value="">{am.availability.durLabel(inheritedTurnMinutes)}</option>
               {DUR_OPTIONS.map((m) => (
                 <option key={m} value={m}>{am.availability.durLabel(m)}</option>
               ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type ReservationNotification } from "./useReservationEvents";
 
@@ -167,11 +167,20 @@ export function NotificationBell({
     });
   }, [notifications]);
 
-  const visibleNotifications = notifications.map((n) =>
-    locallyRead.has(n.notificationId) ? { ...n, read: true } : n,
-  );
-  const visibleUnreadCount = visibleNotifications.filter((n) => !n.read).length;
-  const unreadNotifications = visibleNotifications.filter((n) => !n.read);
+  const { visibleUnreadCount, unreadNotifications } = useMemo(() => {
+    let unreadCount = 0;
+    const unread: ReservationNotification[] = [];
+    for (const notification of notifications) {
+      const visible = locallyRead.has(notification.notificationId)
+        ? { ...notification, read: true }
+        : notification;
+      if (!visible.read) {
+        unreadCount += 1;
+        unread.push(visible);
+      }
+    }
+    return { visibleUnreadCount: unreadCount, unreadNotifications: unread };
+  }, [locallyRead, notifications]);
 
   // Close on outside click
   useEffect(() => {

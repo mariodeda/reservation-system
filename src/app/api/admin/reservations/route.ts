@@ -36,18 +36,8 @@ async function listReservations(req: NextRequest) {
 
     // Global search across all dates (name / email / phone / reference)
     if (q) {
-      const all = await store.listReservations({ status: validStatus });
-      const matched = all
-        .map((r) => ({ ...r, reference: referenceOf(r.id) }))
-        .filter(
-          (r) =>
-            r.name.toLowerCase().includes(q) ||
-            r.email.toLowerCase().includes(q) ||
-            r.phone.toLowerCase().includes(q) ||
-            r.reference.toLowerCase().includes(q),
-        )
-        .slice(0, 200);
-      return NextResponse.json({ reservations: matched });
+      const matched = await store.searchReservations(q, { status: validStatus, limit: 200 });
+      return NextResponse.json({ reservations: matched.map((r) => ({ ...r, reference: referenceOf(r.id) })) });
     }
 
     const reservations = await store.listReservations({

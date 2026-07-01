@@ -1,11 +1,12 @@
 import { type RowDataPacket } from "mysql2/promise";
-import { buildReservation, type ReservationFilter, type ReservationStore } from "./store";
+import { buildReservation, type ReservationFilter, type ReservationSearchFilter, type ReservationStore } from "./store";
 import { getPool } from "./mysql-pool";
 import { ensureSchema } from "./mysql-schema";
-import type {
-  AvailabilityConfig,
-  NewReservationInput,
-  Reservation,
+import {
+  ACTIVE_STATUSES,
+  type AvailabilityConfig,
+  type NewReservationInput,
+  type Reservation,
 } from "./types";
 import { defaultAvailability } from "@/reservation.config";
 import { normalizePhone } from "./availability";
@@ -154,6 +155,28 @@ export class MySqlStore implements ReservationStore {
     return rows.map(toReservation);
   }
 
+  async searchReservations(query: string, filter: ReservationSearchFilter = {}): Promise<Reservation[]> {
+    await ensureSchema();
+    const q = query.trim().toLowerCase().slice(0, 200);
+    if (!q) return [];
+    const limit = Math.min(500, Math.max(1, Math.trunc(filter.limit ?? 200)));
+    const where: string[] = ["tenant_id = ?"];
+    const params: unknown[] = [this.tenantId];
+    if (filter.status) {
+      where.push("status = ?");
+      params.push(filter.status);
+    }
+    const like = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
+    where.push("(LOWER(name) LIKE ? ESCAPE '\\\\' OR LOWER(email) LIKE ? ESCAPE '\\\\' OR phone LIKE ? ESCAPE '\\\\' OR REPLACE(LOWER(id), '-', '') LIKE ? ESCAPE '\\\\')");
+    params.push(like, like, like, like);
+    params.push(limit);
+    const [rows] = await getPool().query<ResRow[]>(
+      `SELECT ${RES_COLUMNS} FROM reservations WHERE ${where.join(" AND ")} ORDER BY \`date\`, \`time\` LIMIT ?`,
+      params,
+    );
+    return rows.map(toReservation);
+  }
+
   async getReservation(id: string): Promise<Reservation | null> {
     await ensureSchema();
     const [rows] = await getPool().query<ResRow[]>(
@@ -260,5 +283,33 @@ export class MySqlStore implements ReservationStore {
     );
     const normPhone = normalizePhone(phone);
     return rows.map(toReservation).filter((r) => normalizePhone(r.phone) === normPhone);
+  }
+
+  async countActiveByContact(from: string, email: string, phone: string): Promise<number> {
+    await ensureSchema();
+    const normEmail = email.trim().toLowerCase();
+    const normPhone = normalizePhone(phone);
+    const contactWhere: string[] = [];
+    const contactParams: unknown[] = [];
+    if (normEmail) {
+      contactWhere.push("LOWER(TRIM(email)) = ?");
+      contactParams.push(normEmail);
+    }
+    if (normPhone) {
+      contactWhere.push("RIGHT(REGEXP_REPLACE(phone, '[^0-9]', ''), 9) = ?");
+      contactParams.push(normPhone);
+    }
+    if (contactWhere.length === 0) return 0;
+    const statuses = ACTIVE_STATUSES.map(() => "?").join(",");
+    const [rows] = await getPool().query<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT id) AS count
+       FROM reservations
+       WHERE tenant_id = ?
+         AND \`date\` >= ?
+         AND status IN (${statuses})
+         AND (${contactWhere.join(" OR ")})`,
+      [this.tenantId, from, ...ACTIVE_STATUSES, ...contactParams],
+    );
+    return Number(rows[0]?.count ?? 0);
   }
 }

@@ -164,6 +164,7 @@ const MIGRATIONS: Migration[] = [
           updated_at VARCHAR(32) NOT NULL,
           INDEX idx_tenant_date (tenant_id, \`date\`),
           INDEX idx_tenant_date_time (tenant_id, \`date\`, \`time\`),
+          INDEX idx_tenant_date_status_email (tenant_id, \`date\`, status, email),
           INDEX idx_tenant_status (tenant_id, status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
       `);
@@ -390,6 +391,24 @@ const MIGRATIONS: Migration[] = [
       if ((idx as RowDataPacket[]).length === 0) {
         await pool.query(
           "ALTER TABLE tenants ADD UNIQUE KEY uq_tenants_public_key (public_key)",
+        );
+      }
+    },
+  },
+  {
+    // Supports the public max-active-by-contact guard without scanning every
+    // future reservation for a tenant. The phone side still uses a normalized
+    // expression, but tenant/date/status/email can use this index directly.
+    version: 18,
+    run: async (pool) => {
+      const [idx] = await pool.query<RowDataPacket[]>(
+        `SELECT 1 FROM information_schema.statistics
+         WHERE table_schema = DATABASE() AND table_name = 'reservations'
+           AND index_name = 'idx_tenant_date_status_email'`,
+      );
+      if ((idx as RowDataPacket[]).length === 0) {
+        await pool.query(
+          "ALTER TABLE reservations ADD INDEX idx_tenant_date_status_email (tenant_id, `date`, status, email)",
         );
       }
     },

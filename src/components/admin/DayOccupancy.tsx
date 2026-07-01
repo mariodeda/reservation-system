@@ -70,8 +70,13 @@ export default function DayOccupancy({
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 space-y-3">
       {Heading}
       {day.services.map((svc) => {
-        const booked = svc.slots.reduce((s, x) => s + x.booked, 0);
-        const capacity = svc.slots.reduce((s, x) => s + x.capacity, 0);
+        const { booked, capacity } = svc.slots.reduce(
+          (totals, slot) => ({
+            booked: totals.booked + slot.booked,
+            capacity: totals.capacity + slot.capacity,
+          }),
+          { booked: 0, capacity: 0 },
+        );
         const available = Math.max(0, capacity - booked);
         const status = coverAvailabilityStatus(available, capacity);
         const pct = capacity > 0 ? Math.round((available / capacity) * 100) : 0;

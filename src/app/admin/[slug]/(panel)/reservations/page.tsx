@@ -118,6 +118,7 @@ export default function ReservationsPage() {
     [config],
   );
   const multiOffering = offerings.length > 1;
+  const activeTables = useMemo(() => tables.filter((t) => t.active), [tables]);
 
   // global search across all dates (debounced)
   useEffect(() => {
@@ -141,18 +142,27 @@ export default function ReservationsPage() {
     return () => clearTimeout(id);
   }, [query, searching]);
 
-  const applyFilters = (list: AdminReservation[]) =>
-    list.filter(
+  const visible = useMemo(
+    () => items.filter(
       (r) =>
         (statusFilter === "all" || r.status === statusFilter) &&
         (offeringFilter === "all" || (r.offering || "main") === offeringFilter),
-    );
-  const visible = applyFilters(items);
-  const searchResults = applyFilters(results ?? []);
+    ),
+    [items, offeringFilter, statusFilter],
+  );
+  const searchResults = useMemo(
+    () => (results ?? []).filter(
+      (r) =>
+        (statusFilter === "all" || r.status === statusFilter) &&
+        (offeringFilter === "all" || (r.offering || "main") === offeringFilter),
+    ),
+    [results, offeringFilter, statusFilter],
+  );
 
-  const activeCovers = items
-    .filter((r) => !["cancelled", "no_show"].includes(r.status))
-    .reduce((s, r) => s + r.partySize, 0);
+  const activeCovers = useMemo(
+    () => items.reduce((sum, r) => (r.status === "cancelled" || r.status === "no_show" ? sum : sum + r.partySize), 0),
+    [items],
+  );
 
   function exportCsv() {
     const offeringLabel = (id?: string) =>
@@ -213,7 +223,7 @@ export default function ReservationsPage() {
           date={date}
           offerings={offerings}
           tz={tz}
-          tables={tables.filter((t) => t.active)}
+          tables={activeTables}
           onCreated={() => { setShowWalkIn(false); load(); }}
         />
       )}

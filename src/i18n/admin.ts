@@ -354,7 +354,7 @@ export const am = {
     remove: "Remove",
     // Service window editor
     addService: "+ Add service",
-    serviceName: "Name",
+    serviceName: "Service name",
     serviceFrom: "From",
     serviceTo: "To",
     serviceInterval: "Every (min)",
@@ -385,6 +385,7 @@ export const am = {
     tableDuration: "Default table duration",
     tableDurationHint: "How long a booked table stays occupied — used for table conflict detection.",
     serviceDuration: "Duration",
+    actions: "Actions",
     durDefault: "System default (2h)",
     durInherit: "Global default",
     durLabel: (min: number) => {

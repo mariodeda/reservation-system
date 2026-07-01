@@ -92,6 +92,15 @@ export function runStoreContract(name: string, makeStore: () => Promise<Reservat
       expect(cancelled[0].date).toBe("2026-06-14");
     });
 
+    it("searches reservations by text with a bounded store query", async () => {
+      const zelda = await store.createReservation(input({ name: "Zelda Fitzgerald", email: "z@x.io", phone: "555-000", status: "confirmed" }));
+      await store.createReservation(input({ name: "Other Guest", email: "other@x.io", phone: "999", status: "cancelled" }));
+
+      expect((await store.searchReservations("zelda")).map((r) => r.id)).toEqual([zelda.id]);
+      expect(await store.searchReservations("other", { status: "confirmed" })).toHaveLength(0);
+      expect((await store.searchReservations(zelda.id.replace(/-/g, "").slice(0, 6))).map((r) => r.id)).toEqual([zelda.id]);
+    });
+
     it("updates a reservation, preserving id/createdAt and bumping updatedAt", async () => {
       const r = await store.createReservation(input());
       const updated = await store.updateReservation(r.id, { status: "seated", partySize: 6 });
@@ -177,6 +186,17 @@ export function runStoreContract(name: string, makeStore: () => Promise<Reservat
       expect(await store.listReservations({ from: "2026-06-15" })).toHaveLength(2);
       expect(await store.listReservations({ to: "2026-06-15" })).toHaveLength(2);
       expect(await store.listReservations({ from: "2026-06-21" })).toHaveLength(0);
+    });
+
+    it("counts active future reservations by normalized contact without loading rows", async () => {
+      await store.createReservation(input({ date: "2026-06-10", email: "old@example.com", phone: "+39 333 111 222" }));
+      await store.createReservation(input({ date: "2026-06-15", email: "Guest@Example.com", phone: "+39 333 111 222", status: "confirmed" }));
+      await store.createReservation(input({ date: "2026-06-20", email: "other@example.com", phone: "333111222", status: "seated" }));
+      await store.createReservation(input({ date: "2026-06-21", email: "guest@example.com", phone: "999", status: "cancelled" }));
+
+      expect(await store.countActiveByContact("2026-06-11", "guest@example.com", "")).toBe(1);
+      expect(await store.countActiveByContact("2026-06-11", "", "333111222")).toBe(2);
+      expect(await store.countActiveByContact("2026-06-11", "missing@example.com", "333111222")).toBe(2);
     });
 
     it("round-trips a richly-nested config (overrides, blocked slots, closures)", async () => {

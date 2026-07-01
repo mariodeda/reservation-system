@@ -79,6 +79,19 @@ describe("managed table assignment", () => {
     expect(body.tableId).toBe("t2");
   });
 
+  it.each(["seated", "completed"] as const)("does not show Suggest once a reservation is %s", (status) => {
+    render(
+      <ReservationRow
+        r={row({ status })}
+        onChanged={() => {}}
+        tables={[table({ id: "t1" }), table({ id: "t2", label: "9" })]}
+      />,
+    );
+
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest" })).not.toBeInTheDocument();
+  });
+
   it("toasts the server error on a table conflict (409)", async () => {
     const user = userEvent.setup();
     adminFetch.mockResolvedValueOnce({ ok: false, json: async () => ({ error: "Table 5 is already taken at 20:00 (Bob)." }) });
