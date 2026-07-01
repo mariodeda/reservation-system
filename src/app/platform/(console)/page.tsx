@@ -59,23 +59,6 @@ export default function PlatformHome() {
     }
   }
 
-  async function impersonateTenant(tenant: TenantView) {
-    const operatorPassword = window.prompt(am.platform.tenant.platformPasswordPrompt);
-    if (!operatorPassword) return;
-    try {
-      const res = await platformFetch(`/api/platform/tenants/${tenant.id}/impersonation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operatorPassword }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Could not start impersonation.");
-      window.open(String(data.url || `/admin/${tenant.slug}`), "_blank", "noopener");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not start impersonation.", "error");
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -161,14 +144,6 @@ export default function PlatformHome() {
                     )}
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => impersonateTenant(t)}
-                  disabled={t.status !== "active"}
-                  className="ml-3 rounded-lg border border-outline-variant/40 px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Impersonate
-                </button>
                 <Link href={`/platform/tenants/${t.id}`} aria-label={`Open ${t.name}`} className="ml-3 shrink-0 text-on-surface-variant hover:text-primary">
                   <ChevronRightIcon className="h-4 w-4" />
                 </Link>

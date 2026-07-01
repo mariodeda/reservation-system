@@ -199,6 +199,23 @@ export default function TenantDetail() {
     if (res.ok) { toast(am.platform.tenant.deleted); router.push("/platform"); } else toast(data.error || am.platform.tenant.couldNotDelete, "error");
   }
 
+  async function impersonateTenant() {
+    const operatorPassword = window.prompt(am.platform.tenant.platformPasswordPrompt);
+    if (!operatorPassword) return;
+    try {
+      const res = await platformFetch(`/api/platform/tenants/${id}/impersonation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operatorPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || am.platform.tenant.couldNotImpersonate);
+      window.open(String(data.url || `/admin/${view!.slug}`), "_blank", "noopener");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : am.platform.tenant.couldNotImpersonate, "error");
+    }
+  }
+
   async function mockRun(action: string, label: string, confirmMsg?: string) {
     if (confirmMsg && !confirm(confirmMsg)) return;
     setMockBusy(action);
@@ -228,6 +245,14 @@ export default function TenantDetail() {
           <p className="text-xs text-on-surface-variant">/{view.slug} · {view.status === "active" ? am.platform.statusActive : am.platform.statusDisabled}</p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={impersonateTenant}
+            disabled={view.status !== "active"}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 text-on-surface-variant hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {am.platform.tenant.impersonate}
+          </button>
           <button onClick={toggleStatus} className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary">
             {view.status === "active" ? am.platform.tenant.disable : am.platform.tenant.enable}
           </button>

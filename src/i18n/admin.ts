@@ -484,6 +484,8 @@ export const am = {
       saved: "Settings saved",
       saveSettings: "Save settings",
       saving: "Saving…",
+      impersonate: "Impersonate",
+      couldNotImpersonate: "Could not start impersonation.",
       disable: "Disable",
       enable: "Enable",
       delete: "Delete",

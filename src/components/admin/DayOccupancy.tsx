@@ -72,7 +72,7 @@ export default function DayOccupancy({
       {day.services.map((svc) => {
         const booked = svc.slots.reduce((s, x) => s + x.booked, 0);
         const capacity = svc.slots.reduce((s, x) => s + x.capacity, 0);
-        const available = svc.slots.reduce((s, x) => s + (x.available ? x.remaining : 0), 0);
+        const available = Math.max(0, capacity - booked);
         const status = coverAvailabilityStatus(available, capacity);
         const pct = capacity > 0 ? Math.round((available / capacity) * 100) : 0;
         const statusTitle = `${am.availability.coversAvailable(available, capacity, pct)}. ${status.label}`;

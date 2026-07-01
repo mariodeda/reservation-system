@@ -478,6 +478,8 @@ export const it = {
       saved: "Impostazioni salvate",
       saveSettings: "Salva impostazioni",
       saving: "Salvataggio…",
+      impersonate: "Impersona",
+      couldNotImpersonate: "Impossibile avviare l'impersonificazione.",
       disable: "Disabilita",
       enable: "Abilita",
       delete: "Elimina",

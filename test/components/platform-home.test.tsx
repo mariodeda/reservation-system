@@ -131,25 +131,10 @@ describe("PlatformHome", () => {
     expect(platformJson).toHaveBeenCalledWith("/api/platform/tenants");
   });
 
-  it("starts impersonation and opens the tenant admin in a new tab", async () => {
-    const user = userEvent.setup();
-    const prompt = vi.spyOn(window, "prompt").mockReturnValue("operator-pass");
-    const open = vi.spyOn(window, "open").mockImplementation(() => null);
-    platformFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ ok: true, url: "/admin/acme" }),
-    });
+  it("does not show impersonation actions on restaurant summary cards", async () => {
     render(<PlatformHome />);
 
     await screen.findByText("Acme Osteria");
-    await user.click(screen.getAllByRole("button", { name: "Impersonate" })[0]);
-
-    expect(prompt).toHaveBeenCalled();
-    expect(platformFetch).toHaveBeenCalledWith("/api/platform/tenants/tenant-1/impersonation", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ operatorPassword: "operator-pass" }),
-    });
-    expect(open).toHaveBeenCalledWith("/admin/acme", "_blank", "noopener");
+    expect(screen.queryByRole("button", { name: /imperson/i })).not.toBeInTheDocument();
   });
 });
