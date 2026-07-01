@@ -6,7 +6,9 @@
  */
 
 export const SESSION_COOKIE = "rsv_session";
+export const IMPERSONATION_COOKIE = "rsv_impersonation";
 const TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const IMPERSONATION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const enc = new TextEncoder();
 
 function secret(): string {
@@ -53,8 +55,8 @@ async function hmac(data: string): Promise<string> {
  * embedded expiry). Both the tenant session and the platform session are built
  * on this. Web Crypto only, so it verifies in the Edge proxy too.
  */
-export async function signToken(payload: Record<string, unknown>): Promise<string> {
-  const body = strToB64url(JSON.stringify({ ...payload, exp: Date.now() + TTL_MS }));
+export async function signToken(payload: Record<string, unknown>, ttlMs = TTL_MS): Promise<string> {
+  const body = strToB64url(JSON.stringify({ ...payload, exp: Date.now() + ttlMs }));
   return `${body}.${await hmac(body)}`;
 }
 
@@ -80,14 +82,50 @@ export interface SessionPayload {
   exp: number;
 }
 
+export interface ImpersonationSessionPayload {
+  /** Tenant id the impersonation session is scoped to. */
+  tid: string;
+  /** Synthetic tenant-side username shown in admin contexts. */
+  u: string;
+  /** Platform operator username. */
+  impersonatedBy: string;
+  imp: true;
+  exp: number;
+}
+
 export async function createSession(tenantId: string, username: string): Promise<string> {
   return signToken({ tid: tenantId, u: username });
 }
 
+export async function createImpersonationSession(tenantId: string, operatorUsername: string): Promise<string> {
+  return signToken(
+    { tid: tenantId, u: `platform:${operatorUsername}`, impersonatedBy: operatorUsername, imp: true },
+    IMPERSONATION_TTL_MS,
+  );
+}
+
 export async function verifySession(token: string | undefined): Promise<SessionPayload | null> {
   const data = await verifyToken(token);
-  if (!data || typeof data.tid !== "string" || typeof data.u !== "string") return null;
+  if (!data || data.imp === true || typeof data.tid !== "string" || typeof data.u !== "string") return null;
   return data as unknown as SessionPayload;
+}
+
+export async function verifyImpersonationSession(token: string | undefined): Promise<ImpersonationSessionPayload | null> {
+  const data = await verifyToken(token);
+  if (
+    !data ||
+    data.imp !== true ||
+    typeof data.tid !== "string" ||
+    typeof data.u !== "string" ||
+    typeof data.impersonatedBy !== "string"
+  ) return null;
+  return data as unknown as ImpersonationSessionPayload;
+}
+
+export function isImpersonationSession(
+  session: SessionPayload | ImpersonationSessionPayload,
+): session is ImpersonationSessionPayload {
+  return "imp" in session && session.imp === true;
 }
 
 export const sessionCookieOptions = {
@@ -96,4 +134,9 @@ export const sessionCookieOptions = {
   secure: process.env.NODE_ENV === "production",
   path: "/",
   maxAge: TTL_MS / 1000,
+};
+
+export const impersonationCookieOptions = {
+  ...sessionCookieOptions,
+  maxAge: IMPERSONATION_TTL_MS / 1000,
 };

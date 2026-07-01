@@ -59,6 +59,23 @@ export default function PlatformHome() {
     }
   }
 
+  async function impersonateTenant(tenant: TenantView) {
+    const operatorPassword = window.prompt(am.platform.tenant.platformPasswordPrompt);
+    if (!operatorPassword) return;
+    try {
+      const res = await platformFetch(`/api/platform/tenants/${tenant.id}/impersonation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operatorPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not start impersonation.");
+      window.open(String(data.url || `/admin/${tenant.slug}`), "_blank", "noopener");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not start impersonation.", "error");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -107,12 +124,11 @@ export default function PlatformHome() {
           {tenants.map((t) => {
             const stats = analytics?.byTenant[t.id];
             return (
-              <Link
+              <div
                 key={t.id}
-                href={`/platform/tenants/${t.id}`}
                 className="flex items-center justify-between rounded-xl border border-outline-variant/30 bg-surface-container p-4 hover:border-primary/50 transition"
               >
-                <div className="min-w-0 flex-1">
+                <Link href={`/platform/tenants/${t.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold">{t.name}</span>
                     <span className="text-xs text-on-surface-variant">/{t.slug}</span>
@@ -124,7 +140,7 @@ export default function PlatformHome() {
                     {t.hosts.length ? t.hosts.join(", ") : am.platform.noHostsMapped}
                   </div>
                   <EmailSummary tenant={t} />
-                </div>
+                </Link>
                 {stats && (
                   <div className="flex items-center gap-4 shrink-0 ml-4 text-xs text-on-surface-variant">
                     <span title={am.platform.totals.bookings}>
@@ -145,8 +161,18 @@ export default function PlatformHome() {
                     )}
                   </div>
                 )}
-                <ChevronRightIcon className="h-4 w-4 text-on-surface-variant ml-3 shrink-0" />
-              </Link>
+                <button
+                  type="button"
+                  onClick={() => impersonateTenant(t)}
+                  disabled={t.status !== "active"}
+                  className="ml-3 rounded-lg border border-outline-variant/40 px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Impersonate
+                </button>
+                <Link href={`/platform/tenants/${t.id}`} aria-label={`Open ${t.name}`} className="ml-3 shrink-0 text-on-surface-variant hover:text-primary">
+                  <ChevronRightIcon className="h-4 w-4" />
+                </Link>
+              </div>
             );
           })}
         </div>

@@ -2,12 +2,15 @@ import type { NextRequest } from "next/server";
 import { eventFromRequest, recordAppEvent } from "./app-event-store";
 import { requestContext } from "./request-context";
 import type { ActorType, Surface } from "./logger";
+import { IMPERSONATION_COOKIE, verifyImpersonationSession } from "@/lib/reservations/auth";
 
 type RouteHandler<TResponse extends Response, TArgs extends unknown[]> = (...args: TArgs) => Promise<TResponse>;
 
 interface ObserveRouteOptions {
   surface: Surface;
   actorType?: ActorType;
+  actorId?: string;
+  tenantId?: string;
   route: string;
   event?: string;
 }
@@ -37,10 +40,28 @@ export async function observeRoute<TResponse extends Response, TArgs extends unk
   const ctx = requestContext(req, {
     surface: opts.surface,
     actorType: opts.actorType ?? "unknown",
+    actorId: opts.actorId,
     route: opts.route,
   });
+  if (opts.tenantId) ctx.tenantId = opts.tenantId;
   try {
     const res = await handler(...args);
+    if (
+      opts.surface === "admin" &&
+      opts.actorType === "impersonation" &&
+      !["GET", "HEAD", "OPTIONS"].includes(req.method)
+    ) {
+      await recordAppEvent(eventFromRequest(ctx, {
+        level: levelFor(res.status),
+        event: "admin.impersonation.mutation",
+        status: res.status,
+        reason: res.status >= 400 ? await responseReason(res) : undefined,
+        metadata: {
+          path: req.nextUrl.pathname,
+          method: req.method,
+        },
+      }));
+    }
     if (res.status !== 200) {
       await recordAppEvent(eventFromRequest(ctx, {
         level: levelFor(res.status),
@@ -78,13 +99,19 @@ export function observePlatformRoute<TResponse extends Response, TArgs extends u
   return observeRoute(req, { surface: "platform", actorType: "platform", route }, handler, ...args);
 }
 
-export function observeAdminRoute<TResponse extends Response, TArgs extends unknown[]>(
+export async function observeAdminRoute<TResponse extends Response, TArgs extends unknown[]>(
   req: NextRequest,
   route: string,
   handler: RouteHandler<TResponse, TArgs>,
   ...args: TArgs
 ): Promise<TResponse> {
-  return observeRoute(req, { surface: "admin", actorType: "staff", route }, handler, ...args);
+  const imp = await verifyImpersonationSession(req.cookies.get(IMPERSONATION_COOKIE)?.value);
+  return observeRoute(
+    req,
+    { surface: "admin", actorType: imp ? "impersonation" : "staff", actorId: imp?.impersonatedBy, tenantId: imp?.tid, route },
+    handler,
+    ...args,
+  );
 }
 
 export function observePublicRoute<TResponse extends Response, TArgs extends unknown[]>(

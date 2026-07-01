@@ -83,6 +83,22 @@ describe("AdminShell", () => {
     expect(settings.compareDocumentPosition(signOut) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows and exits the impersonation banner", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => ({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    render(<AdminShell slug="acme" brandName="Osteria" impersonation={{ operator: "ops" }}><span /></AdminShell>);
+
+    expect(screen.getByText("Impersonating Osteria")).toBeInTheDocument();
+    expect(screen.getByText(/platform operator ops/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Exit impersonation" }));
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/impersonation", { method: "DELETE" });
+    expect(replace).toHaveBeenCalledWith("/platform");
+    expect(refresh).toHaveBeenCalled();
+  });
+
   it("groups clients and statistics under one dropdown nav item", () => {
     pathname.value = "/admin/acme/analytics";
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);

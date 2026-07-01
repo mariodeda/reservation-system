@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/reservations/tenant-context";
+import { isImpersonationSession, requireAdmin } from "@/lib/reservations/tenant-context";
 import { getTenantStore } from "@/lib/reservations/tenant-store";
 import { verifyPassword, hashPassword } from "@/lib/reservations/tenant";
 import { observeAdminRoute } from "@/lib/observability/route-events";
@@ -13,6 +13,9 @@ export async function POST(req: NextRequest) {
 async function changePassword(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
+  if (isImpersonationSession(ctx.session)) {
+    return NextResponse.json({ error: "Password changes are disabled during impersonation." }, { status: 403 });
+  }
 
   let body: { currentPassword?: string; newPassword?: string };
   try {

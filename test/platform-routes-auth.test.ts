@@ -10,6 +10,7 @@ let tenants: typeof import("@/app/api/platform/tenants/route");
 let tenantId: typeof import("@/app/api/platform/tenants/[id]/route");
 let domains: typeof import("@/app/api/platform/tenants/[id]/domains/route");
 let password: typeof import("@/app/api/platform/tenants/[id]/password/route");
+let impersonation: typeof import("@/app/api/platform/tenants/[id]/impersonation/route");
 let logout: typeof import("@/app/api/platform/logout/route");
 let logs: typeof import("@/app/api/platform/logs/route");
 let emailLogs: typeof import("@/app/api/platform/email-logs/route");
@@ -23,6 +24,7 @@ beforeAll(async () => {
   tenantId = await import("@/app/api/platform/tenants/[id]/route");
   domains = await import("@/app/api/platform/tenants/[id]/domains/route");
   password = await import("@/app/api/platform/tenants/[id]/password/route");
+  impersonation = await import("@/app/api/platform/tenants/[id]/impersonation/route");
   logout = await import("@/app/api/platform/logout/route");
   logs = await import("@/app/api/platform/logs/route");
   emailLogs = await import("@/app/api/platform/email-logs/route");
@@ -54,6 +56,9 @@ describe("platform routes reject unauthenticated callers (401)", () => {
     expect((await domains.POST(req("/api/platform/tenants/x/domains", "POST"), params("x"))).status).toBe(401);
     expect((await domains.DELETE(req("/api/platform/tenants/x/domains", "DELETE"), params("x"))).status).toBe(401);
     expect((await password.POST(req("/api/platform/tenants/x/password", "POST"), params("x"))).status).toBe(401);
+  });
+  it("impersonation POST", async () => {
+    expect((await impersonation.POST(req("/api/platform/tenants/x/impersonation", "POST"), params("x"))).status).toBe(401);
   });
   it("logs GET", async () => {
     expect((await logs.GET(req("/api/platform/logs"))).status).toBe(401);

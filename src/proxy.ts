@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySession } from "@/lib/reservations/auth";
+import { IMPERSONATION_COOKIE, SESSION_COOKIE, verifyImpersonationSession, verifySession } from "@/lib/reservations/auth";
 import { PLATFORM_COOKIE, verifyPlatformSession } from "@/lib/reservations/platform-auth";
 
 // Next.js 16 renamed the `middleware` convention to `proxy`.
@@ -65,7 +65,9 @@ export async function proxy(req: NextRequest) {
 
   // The edge can't reach the DB, so it only verifies the session cookie's HMAC.
   // The slug<->session binding is enforced server-side (resolveAdminPage).
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
+  const session =
+    await verifySession(req.cookies.get(SESSION_COOKIE)?.value) ||
+    await verifyImpersonationSession(req.cookies.get(IMPERSONATION_COOKIE)?.value);
   if (session) return noindex(NextResponse.next());
 
   if (pathname.startsWith("/api/")) {

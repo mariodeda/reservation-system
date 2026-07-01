@@ -63,7 +63,7 @@ export interface TenantView {
 
 export type PlatformLogLevel = "debug" | "info" | "warn" | "error";
 export type PlatformLogSurface = "public" | "admin" | "platform" | "system";
-export type PlatformLogActorType = "guest" | "staff" | "platform" | "system" | "unknown";
+export type PlatformLogActorType = "guest" | "staff" | "platform" | "impersonation" | "system" | "unknown";
 
 export interface PlatformLogTenant {
   id: string;

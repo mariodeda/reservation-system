@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createImpersonationSession,
   createSession,
+  IMPERSONATION_COOKIE,
+  impersonationCookieOptions,
   SESSION_COOKIE,
   sessionCookieOptions,
+  verifyImpersonationSession,
   verifySession,
 } from "@/lib/reservations/auth";
 import {
@@ -75,6 +79,18 @@ describe("session token", () => {
     vi.stubEnv("SESSION_SECRET", "a-different-secret");
     expect(await verifySession(token)).toBeNull();
   });
+
+  it("keeps impersonation tokens distinct from normal staff sessions", async () => {
+    const token = await createImpersonationSession("default", "ops");
+    expect(await verifySession(token)).toBeNull();
+    const payload = await verifyImpersonationSession(token);
+    expect(payload).toMatchObject({
+      tid: "default",
+      u: "platform:ops",
+      impersonatedBy: "ops",
+      imp: true,
+    });
+  });
 });
 
 describe("malformed payload", () => {
@@ -104,9 +120,14 @@ describe("verifyTenantLogin", () => {
 describe("cookie", () => {
   it("exposes a hardened cookie config", () => {
     expect(SESSION_COOKIE).toBe("rsv_session");
+    expect(IMPERSONATION_COOKIE).toBe("rsv_impersonation");
     expect(sessionCookieOptions.httpOnly).toBe(true);
     expect(sessionCookieOptions.sameSite).toBe("lax");
     expect(sessionCookieOptions.path).toBe("/");
     expect(sessionCookieOptions.maxAge).toBeGreaterThan(0);
+    expect(impersonationCookieOptions.httpOnly).toBe(true);
+    expect(impersonationCookieOptions.sameSite).toBe("lax");
+    expect(impersonationCookieOptions.path).toBe("/");
+    expect(impersonationCookieOptions.maxAge).toBeLessThan(sessionCookieOptions.maxAge);
   });
 });

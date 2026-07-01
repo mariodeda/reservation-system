@@ -48,7 +48,7 @@ const initialFilters: FilterState = {
 
 const levels: PlatformLogLevel[] = ["error", "warn", "info", "debug"];
 const surfaces: PlatformLogSurface[] = ["public", "admin", "platform", "system"];
-const actors: PlatformLogActorType[] = ["guest", "staff", "platform", "system", "unknown"];
+const actors: PlatformLogActorType[] = ["guest", "staff", "platform", "impersonation", "system", "unknown"];
 
 export default function PlatformLogsPage() {
   const [filters, setFilters] = useState<FilterState>(initialFilters);

@@ -13,11 +13,13 @@ export default function AdminShell({
   slug,
   brandName,
   logoUrl,
+  impersonation,
   children,
 }: {
   slug: string;
   brandName: string;
   logoUrl?: string;
+  impersonation?: { operator: string };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -91,6 +93,12 @@ export default function AdminShell({
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.replace(`${base}/login`);
+    router.refresh();
+  }
+
+  async function exitImpersonation() {
+    await fetch("/api/admin/impersonation", { method: "DELETE" });
+    router.replace("/platform");
     router.refresh();
   }
 
@@ -227,6 +235,23 @@ export default function AdminShell({
           </div>
         </div>
         {/* mobile nav — horizontally scrollable; right fade hints there are more items */}
+        {impersonation && (
+          <div className="border-t border-amber-500/20 bg-amber-500/10 px-4 py-2 lg:px-6">
+            <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-amber-200">
+                <span className="font-semibold">Impersonating {brandName}</span>
+                <span className="text-amber-100/80"> as platform operator {impersonation.operator}</span>
+              </div>
+              <button
+                type="button"
+                onClick={exitImpersonation}
+                className="self-start rounded-lg border border-amber-300/40 px-3 py-1 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/10 sm:self-auto"
+              >
+                Exit impersonation
+              </button>
+            </div>
+          </div>
+        )}
         <div className="sm:hidden relative">
           <nav className="flex items-center gap-1 px-4 pb-2 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
             {navBeforeClientStats.map((n) => {

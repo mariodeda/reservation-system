@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const levels = new Set<LogLevel>(["debug", "info", "warn", "error"]);
 const surfaces = new Set<Surface>(["public", "admin", "platform", "system"]);
-const actorTypes = new Set<ActorType>(["guest", "staff", "platform", "system", "unknown"]);
+const actorTypes = new Set<ActorType>(["guest", "staff", "platform", "impersonation", "system", "unknown"]);
 
 function text(params: URLSearchParams, key: string, max = 120): string | undefined {
   const value = String(params.get(key) ?? "").trim();

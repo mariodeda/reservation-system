@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE } from "@/lib/reservations/auth";
-import { resolveAdminPage } from "@/lib/reservations/tenant-context";
+import { IMPERSONATION_COOKIE, SESSION_COOKIE } from "@/lib/reservations/auth";
+import { isImpersonationSession, resolveAdminPage } from "@/lib/reservations/tenant-context";
 import AdminShell from "@/components/admin/AdminShell";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,19 @@ export default async function PanelLayout({
   // (the slug<->session match is the cross-tenant guard; the proxy already
   // ensured a session cookie is present).
   const { slug } = await params;
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const ctx = await resolveAdminPage(slug, token);
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const impersonationToken = cookieStore.get(IMPERSONATION_COOKIE)?.value;
+  const ctx = await resolveAdminPage(slug, token, impersonationToken);
   if (!ctx) redirect(`/admin/${encodeURIComponent(slug)}/login`);
 
   return (
-    <AdminShell slug={slug} brandName={ctx.tenant.name} logoUrl={ctx.tenant.settings.logoUrl}>
+    <AdminShell
+      slug={slug}
+      brandName={ctx.tenant.name}
+      logoUrl={ctx.tenant.settings.logoUrl}
+      impersonation={isImpersonationSession(ctx.session) ? { operator: ctx.session.impersonatedBy } : undefined}
+    >
       {children}
     </AdminShell>
   );

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type Surface = "public" | "admin" | "platform" | "system";
-export type ActorType = "guest" | "staff" | "platform" | "system" | "unknown";
+export type ActorType = "guest" | "staff" | "platform" | "impersonation" | "system" | "unknown";
 
 export interface LogContext {
   event: string;

@@ -5,7 +5,15 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantStore } from "./tenant-store";
-import { SESSION_COOKIE, verifySession, type SessionPayload } from "./auth";
+import {
+  IMPERSONATION_COOKIE,
+  SESSION_COOKIE,
+  isImpersonationSession,
+  verifyImpersonationSession,
+  verifySession,
+  type ImpersonationSessionPayload,
+  type SessionPayload,
+} from "./auth";
 import {
   PLATFORM_COOKIE,
   verifyPlatformSession,
@@ -141,8 +149,15 @@ export async function requireTenant(
 }
 
 export type AdminCtx =
-  | { ok: true; tenant: Tenant; session: SessionPayload }
+  | { ok: true; tenant: Tenant; session: SessionPayload | ImpersonationSessionPayload }
   | { ok: false; res: NextResponse };
+
+async function adminSessionFromRequest(req: NextRequest): Promise<SessionPayload | ImpersonationSessionPayload | null> {
+  return (
+    await verifyImpersonationSession(req.cookies.get(IMPERSONATION_COOKIE)?.value) ||
+    await verifySession(req.cookies.get(SESSION_COOKIE)?.value)
+  );
+}
 
 /**
  * Admin API routes: the session is authoritative for tenancy. On the shared
@@ -153,7 +168,7 @@ export type AdminCtx =
  */
 export async function requireAdmin(req: NextRequest): Promise<AdminCtx> {
   if (!sameOriginMutation(req)) return { ok: false, res: csrfError() };
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
+  const session = await adminSessionFromRequest(req);
   if (!session) return { ok: false, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   const tenant = await getTenantStore().getById(session.tid);
   // Session points at a tenant that no longer exists — treat as logged out.
@@ -172,13 +187,18 @@ export async function requireAdmin(req: NextRequest): Promise<AdminCtx> {
 export async function resolveAdminPage(
   slug: string,
   sessionToken: string | undefined,
-): Promise<{ tenant: Tenant; session: SessionPayload } | null> {
+  impersonationToken?: string | undefined,
+): Promise<{ tenant: Tenant; session: SessionPayload | ImpersonationSessionPayload } | null> {
   const tenant = await tenantBySlug(slug);
   if (!tenant) return null;
-  const session = await verifySession(sessionToken);
+  const session =
+    await verifyImpersonationSession(impersonationToken) ||
+    await verifySession(sessionToken);
   if (!session || session.tid !== tenant.id) return null;
   return { tenant, session };
 }
+
+export { isImpersonationSession };
 
 export type PlatformCtx =
   | { ok: true; session: PlatformSession }

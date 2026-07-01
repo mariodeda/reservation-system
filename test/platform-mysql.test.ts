@@ -15,9 +15,11 @@ let tenantsRoute: typeof import("@/app/api/platform/tenants/route");
 let tenantIdRoute: typeof import("@/app/api/platform/tenants/[id]/route");
 let domainsRoute: typeof import("@/app/api/platform/tenants/[id]/domains/route");
 let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route");
+let impersonationRoute: typeof import("@/app/api/platform/tenants/[id]/impersonation/route");
 let analyticsRoute: typeof import("@/app/api/platform/analytics/route");
 let logsRoute: typeof import("@/app/api/platform/logs/route");
 let emailLogsRoute: typeof import("@/app/api/platform/email-logs/route");
+let adminPasswordRoute: typeof import("@/app/api/admin/settings/password/route");
 
 let cookie = "";
 
@@ -45,9 +47,11 @@ beforeAll(async () => {
   tenantIdRoute = await import("@/app/api/platform/tenants/[id]/route");
   domainsRoute = await import("@/app/api/platform/tenants/[id]/domains/route");
   passwordRoute = await import("@/app/api/platform/tenants/[id]/password/route");
+  impersonationRoute = await import("@/app/api/platform/tenants/[id]/impersonation/route");
   analyticsRoute = await import("@/app/api/platform/analytics/route");
   logsRoute = await import("@/app/api/platform/logs/route");
   emailLogsRoute = await import("@/app/api/platform/email-logs/route");
+  adminPasswordRoute = await import("@/app/api/admin/settings/password/route");
   // Migration 3 seeds the default platform admin. Wipe it so this test file
   // can create its own fixtures with known credentials.
   const { ensureSchema } = await import("@/lib/reservations/mysql-schema");
@@ -232,6 +236,48 @@ describe("platform tenant CRUD via routes", () => {
     }), ctx);
     expect(res.status).toBe(200);
     expect((await tenantStoreMod.getTenantStore().getById(id))?.settings.contactEmail).toBe("same-origin@acme.example");
+  });
+
+  it("starts tenant impersonation only after operator re-auth", async () => {
+    const ctx = { params: Promise.resolve({ id }) };
+    const denied = await impersonationRoute.POST(authed(`/api/platform/tenants/${id}/impersonation`, {
+      method: "POST",
+      body: { operatorPassword: "wrong" },
+    }), ctx);
+    expect(denied.status).toBe(401);
+
+    const res = await impersonationRoute.POST(authed(`/api/platform/tenants/${id}/impersonation`, {
+      method: "POST",
+      body: { operatorPassword: "newpassword123" },
+    }), ctx);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.url).toBe("/admin/acme");
+    const { IMPERSONATION_COOKIE, verifyImpersonationSession } = await import("@/lib/reservations/auth");
+    const token = res.cookies.get(IMPERSONATION_COOKIE)?.value;
+    expect(token).toBeTruthy();
+    const payload = await verifyImpersonationSession(token);
+    expect(payload).toMatchObject({ tid: id, impersonatedBy: "ops", imp: true });
+  });
+
+  it("blocks tenant password changes and audits mutations during impersonation", async () => {
+    const { IMPERSONATION_COOKIE, createImpersonationSession } = await import("@/lib/reservations/auth");
+    const impCookie = `${IMPERSONATION_COOKIE}=${await createImpersonationSession(id, "ops")}`;
+    const res = await adminPasswordRoute.POST(req("/api/admin/settings/password", {
+      method: "POST",
+      cookie: impCookie,
+      body: { currentPassword: "staffpass1", newPassword: "newstaffpass1" },
+    }));
+    expect(res.status).toBe(403);
+
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const events = await listAppEvents({
+      event: "admin.impersonation.mutation",
+      actorType: "impersonation",
+      tenantId: id,
+      status: 403,
+    });
+    expect(events.some((event) => event.metadata?.path === "/api/admin/settings/password")).toBe(true);
   });
 
   it("saves feedback request template details from the platform tenant form", async () => {

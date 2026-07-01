@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -97,6 +97,10 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("PlatformHome", () => {
   it("shows each restaurant's email feature status on the summary card", async () => {
     render(<PlatformHome />);
@@ -125,5 +129,27 @@ describe("PlatformHome", () => {
     expect(platformFetch).toHaveBeenCalledWith("/api/platform/cron/smtp-health", { method: "POST" });
     expect(toast).toHaveBeenCalledWith("SMTP verificato per 2 ristoranti.");
     expect(platformJson).toHaveBeenCalledWith("/api/platform/tenants");
+  });
+
+  it("starts impersonation and opens the tenant admin in a new tab", async () => {
+    const user = userEvent.setup();
+    const prompt = vi.spyOn(window, "prompt").mockReturnValue("operator-pass");
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    platformFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, url: "/admin/acme" }),
+    });
+    render(<PlatformHome />);
+
+    await screen.findByText("Acme Osteria");
+    await user.click(screen.getAllByRole("button", { name: "Impersonate" })[0]);
+
+    expect(prompt).toHaveBeenCalled();
+    expect(platformFetch).toHaveBeenCalledWith("/api/platform/tenants/tenant-1/impersonation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ operatorPassword: "operator-pass" }),
+    });
+    expect(open).toHaveBeenCalledWith("/admin/acme", "_blank", "noopener");
   });
 });

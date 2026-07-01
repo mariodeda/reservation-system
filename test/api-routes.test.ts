@@ -626,6 +626,7 @@ describe("admin auth routes", () => {
     const res = await routes.logout.POST();
     expect(res.status).toBe(200);
     expect(res.cookies.get(routes.auth.SESSION_COOKIE)?.value).toBe("");
+    expect(res.cookies.get(routes.auth.IMPERSONATION_COOKIE)?.value).toBe("");
   });
 });
 

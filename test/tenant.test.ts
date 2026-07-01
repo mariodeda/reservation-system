@@ -9,7 +9,7 @@ import {
   verifyTenantLogin,
   type Tenant,
 } from "@/lib/reservations/tenant";
-import { createSession, SESSION_COOKIE } from "@/lib/reservations/auth";
+import { createImpersonationSession, IMPERSONATION_COOKIE, createSession, SESSION_COOKIE } from "@/lib/reservations/auth";
 import { hostOf } from "@/lib/reservations/tenant-context";
 
 beforeEach(() => {
@@ -106,7 +106,18 @@ describe("session tenant binding", () => {
     expect(res.status).toBe(401);
   });
 
+  it("lets a valid impersonation cookie through the admin proxy gate", async () => {
+    const { proxy } = await import("@/proxy");
+    const token = await createImpersonationSession("tenant-a", "ops");
+    const r = new NextRequest("http://x/api/admin/reservations", {
+      headers: { cookie: `${IMPERSONATION_COOKIE}=${token}` },
+    });
+    const res = await proxy(r);
+    expect(res.status).toBe(200);
+  });
+
   it("session cookie headers are correctly named", async () => {
     expect(SESSION_COOKIE).toBe("rsv_session");
+    expect(IMPERSONATION_COOKIE).toBe("rsv_impersonation");
   });
 });
