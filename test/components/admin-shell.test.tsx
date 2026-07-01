@@ -60,9 +60,9 @@ afterEach(() => {
 describe("AdminShell", () => {
   it("renders the brand, nav links and children", () => {
     render(<AdminShell slug="acme" brandName="Osteria"><p>content</p></AdminShell>);
+    expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("href")).toBe("/admin/acme");
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
     expect(screen.getByText("Osteria")).toBeInTheDocument();
-    // nav appears twice (desktop + mobile)
-    expect(screen.getAllByRole("link", { name: "Dashboard" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("content")).toBeInTheDocument();
   });
 
@@ -70,6 +70,17 @@ describe("AdminShell", () => {
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
     const reservations = screen.getAllByRole("link", { name: "Reservations" })[0];
     expect(reservations.getAttribute("href")).toBe("/admin/acme/reservations");
+  });
+
+  it("renders settings as a gear icon link before sign out", () => {
+    pathname.value = "/admin/acme/settings";
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    const settings = screen.getByRole("link", { name: "Settings" });
+    const signOut = screen.getByRole("button", { name: /sign out/i });
+    expect(settings.getAttribute("href")).toBe("/admin/acme/settings");
+    expect(settings.className).toContain("text-primary");
+    expect(settings.compareDocumentPosition(signOut) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("groups clients and statistics under one dropdown nav item", () => {
@@ -81,6 +92,21 @@ describe("AdminShell", () => {
     expect(combined?.className).toContain("text-primary");
     expect(screen.getByRole("link", { name: "Clients" }).getAttribute("href")).toBe("/admin/acme/customers");
     expect(screen.getByRole("link", { name: "Statistics" }).getAttribute("href")).toBe("/admin/acme/analytics");
+  });
+
+  it("closes the clients/statistics dropdown when clicking outside", async () => {
+    const user = userEvent.setup();
+    render(<AdminShell slug="acme" brandName="O"><button type="button">Outside</button></AdminShell>);
+
+    const dropdown = screen.getAllByText("Clients & Statistics").find((el) => el.tagName.toLowerCase() === "summary");
+    const details = dropdown?.closest("details");
+    expect(details).toBeTruthy();
+
+    await user.click(dropdown!);
+    expect(details).toHaveAttribute("open");
+
+    await user.click(screen.getByRole("button", { name: "Outside" }));
+    expect(details).not.toHaveAttribute("open");
   });
 
   it("navigates to the selected clients/statistics section from the mobile dropdown", async () => {
@@ -103,9 +129,7 @@ describe("AdminShell", () => {
     pathname.value = "/admin/acme/reservations";
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
     const reservations = screen.getAllByRole("link", { name: "Reservations" })[0];
-    const dashboard = screen.getAllByRole("link", { name: "Dashboard" })[0];
     expect(reservations.className).toContain("text-primary");
-    expect(dashboard.className).not.toContain("bg-primary/15"); // dashboard not active on a subpath
   });
 
   it("logs out: POSTs then redirects to the tenant's login", async () => {

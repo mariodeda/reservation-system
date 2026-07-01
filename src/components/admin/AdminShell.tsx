@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
@@ -24,13 +24,9 @@ export default function AdminShell({
   const router = useRouter();
   const base = `/admin/${slug}`;
   const navBeforeClientStats = [
-    { seg: "", label: am.nav.dashboard },
     { seg: "/reservations", label: am.nav.reservations },
     { seg: "/tables", label: am.nav.tables },
     { seg: "/availability", label: am.nav.availability },
-  ].map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
-  const navAfterClientStats = [
-    { seg: "/settings", label: am.nav.settings },
   ].map((n) => ({ href: `${base}${n.seg}`, label: n.label, isHome: n.seg === "" }));
   const clientStatsSections = [
     { href: `${base}/customers`, label: am.nav.customers },
@@ -38,8 +34,12 @@ export default function AdminShell({
   ];
   const clientStatsActive = clientStatsSections.some((s) => pathname.startsWith(s.href));
   const clientStatsValue = clientStatsActive ? clientStatsSections.find((s) => pathname.startsWith(s.href))?.href : "";
+  const settingsHref = `${base}/settings`;
+  const settingsActive = pathname.startsWith(settingsHref);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
+  const [clientStatsOpen, setClientStatsOpen] = useState(false);
+  const clientStatsRef = useRef<HTMLDetailsElement>(null);
   const { notifications, unreadCount, connected, markAllRead, markRead } = useReservationEvents();
   const [toasts, setToasts] = useState<typeof notifications>([]);
 
@@ -60,6 +60,17 @@ export default function AdminShell({
     if (saved === "light") setTheme("light");
     setLocaleState(hydrateLocale());
   }, []);
+
+  useEffect(() => {
+    if (!clientStatsOpen) return;
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!clientStatsRef.current?.contains(event.target as Node)) {
+        setClientStatsOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [clientStatsOpen]);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -88,17 +99,24 @@ export default function AdminShell({
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
         <div className="px-4 lg:px-6 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 lg:gap-5 min-w-0">
-            {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
-            ) : (
-              <div className="flex items-center gap-2 min-w-0">
-                <SystemLogo className="h-7 w-7 text-primary shrink-0" />
-                <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate hidden xl:inline max-w-[240px]">
-                  {brandName}
-                </span>
-              </div>
-            )}
+            <Link
+              href={base}
+              aria-label={am.nav.dashboard}
+              title={am.nav.dashboard}
+              className="shrink-0 min-w-0 flex items-center hover:opacity-80 transition"
+            >
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
+              ) : (
+                <div className="flex items-center gap-2 min-w-0">
+                  <SystemLogo className="h-7 w-7 text-primary shrink-0" />
+                  <span className="font-display-lg text-[16px] text-primary uppercase tracking-tighter truncate hidden xl:inline max-w-[240px]">
+                    {brandName}
+                  </span>
+                </div>
+              )}
+            </Link>
             <nav className="hidden sm:flex items-center gap-1">
               {navBeforeClientStats.map((n) => {
                 const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
@@ -116,8 +134,12 @@ export default function AdminShell({
                   </Link>
                 );
               })}
-              <details className="relative group">
+              <details ref={clientStatsRef} open={clientStatsOpen} className="relative group">
                 <summary
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setClientStatsOpen((open) => !open);
+                  }}
                   className={`list-none cursor-pointer select-none px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5 [&::-webkit-details-marker]:hidden ${
                     clientStatsActive
                       ? "bg-primary/15 text-primary"
@@ -134,6 +156,7 @@ export default function AdminShell({
                       <Link
                         key={section.href}
                         href={section.href}
+                        onClick={() => setClientStatsOpen(false)}
                         className={`block px-3 py-2 rounded-md text-sm transition ${
                           active
                             ? "bg-primary/15 text-primary"
@@ -146,22 +169,6 @@ export default function AdminShell({
                   })}
                 </div>
               </details>
-              {navAfterClientStats.map((n) => {
-                const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
-                return (
-                  <Link
-                    key={n.href}
-                    href={n.href}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                      active
-                        ? "bg-primary/15 text-primary"
-                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
-                    }`}
-                  >
-                    {n.label}
-                  </Link>
-                );
-              })}
             </nav>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -199,6 +206,18 @@ export default function AdminShell({
                 </button>
               ))}
             </div>
+            <Link
+              href={settingsHref}
+              title={am.nav.settings}
+              aria-label={am.nav.settings}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
+                settingsActive
+                  ? "bg-primary/15 text-primary"
+                  : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
+              }`}
+            >
+              <GearIcon />
+            </Link>
             <button
               onClick={logout}
               className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition whitespace-nowrap"
@@ -242,20 +261,6 @@ export default function AdminShell({
                 ))}
               </select>
             </label>
-            {navAfterClientStats.map((n) => {
-              const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
-              return (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className={`shrink-0 px-3 py-2 rounded-lg text-sm transition min-h-[36px] flex items-center ${
-                    active ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:text-on-surface"
-                  }`}
-                >
-                  {n.label}
-                </Link>
-              );
-            })}
           </nav>
           {/* fade hint — masked by the header bg so it's subtle */}
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface-container/95 to-transparent" aria-hidden="true" />
@@ -299,6 +304,22 @@ function ChevronDownIcon() {
   return (
     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="m4 6 4 4 4-4" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="10" cy="10" r="2.6" />
+      <path d="M10 1.8v2" />
+      <path d="M10 16.2v2" />
+      <path d="m4.2 4.2 1.4 1.4" />
+      <path d="m14.4 14.4 1.4 1.4" />
+      <path d="M1.8 10h2" />
+      <path d="M16.2 10h2" />
+      <path d="m4.2 15.8 1.4-1.4" />
+      <path d="m14.4 5.6 1.4-1.4" />
     </svg>
   );
 }
