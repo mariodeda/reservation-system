@@ -112,6 +112,7 @@ beforeEach(async () => {
     emailEnabled: true,
     emailEvents: { bookingConfirmation: true, feedbackRequest: true },
     feedbackRequestDelayHours: 0,
+    reviewUrl: "https://g.page/r/fb-test/review",
     allowedOrigins: [marketingOrigin],
   });
   sendFeedbackRequestEmail.mockClear();
@@ -207,7 +208,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
   });
 
-  it("201-level: creates token, calls sendFeedbackRequestEmail, returns token + feedbackUrl", async () => {
+  it("201-level: creates token, calls sendFeedbackRequestEmail, returns the review URL", async () => {
     const r = await makeCompleted();
     const res = await adminFeedbackRoute.POST(
       authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
@@ -217,7 +218,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     const json = await res.json();
     expect(json.ok).toBe(true);
     expect(json.token).toMatch(/^[0-9a-f-]{36}$/);
-    expect(json.feedbackUrl).toContain("/feedback/");
+    expect(json.reviewUrl).toBe("https://g.page/r/fb-test/review");
     expect(json.emailSent).toBe(true);
     expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
   });
@@ -233,7 +234,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(res.status).toBe(409);
   });
 
-  it("builds feedbackUrl as /feedback/<token> when tenant siteUrl is empty", async () => {
+  it("uses the configured review URL even when tenant siteUrl is empty", async () => {
     // Create a tenant with no siteUrl
     const { getTenantStore } = await import("@/lib/reservations/tenant-store");
     const { hashPassword, templateSettings } = await import("@/lib/reservations/tenant");
@@ -242,7 +243,14 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
       id: emptyUrlTenantId,
       slug: "no-url-tenant",
       name: "No URL Restaurant",
-      settings: { ...templateSettings(), url: "" },
+      settings: {
+        ...templateSettings(),
+        url: "",
+        reviewUrl: "https://reviews.example/no-url",
+        feedbackEnabled: true,
+        emailEnabled: true,
+        emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      },
       adminUsername: "staff2",
       adminPasswordHash: hashPassword("secret2"),
       hosts: ["nourl.localhost"],
@@ -262,7 +270,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     );
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.feedbackUrl).toMatch(/^\/feedback\/[0-9a-f-]{36}$/);
+    expect(json.reviewUrl).toBe("https://reviews.example/no-url");
   });
 
   it("is idempotent — second POST reuses existing unfilled token without re-sending email", async () => {
@@ -504,6 +512,12 @@ describe("GET /api/feedback/[token]", () => {
   });
 
   it("returns form data for a valid token", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      reviewUrl: "https://g.page/r/fb-test/review",
+    });
     const r = await makeCompleted();
     const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
     const res = await publicFeedbackRoute.GET(
@@ -518,6 +532,7 @@ describe("GET /api/feedback/[token]", () => {
     // restaurantName comes from getTenantStore().getById — may vary by store backend in test env
     expect(typeof json.restaurantName).toBe("string");
     expect(json.date).toBe("2026-06-12");
+    expect(json.reviewUrl).toBe("https://g.page/r/fb-test/review");
   });
 
   it("returns filled=true after submission", async () => {
@@ -537,6 +552,18 @@ describe("GET /api/feedback/[token]", () => {
 /* ---- Public feedback route: POST /api/feedback/[token] ---- */
 
 describe("POST /api/feedback/[token]", () => {
+  it("returns 410 because public feedback form submissions are no longer supported", async () => {
+    const r = await makeCompleted();
+    const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);
+    const res = await publicFeedbackRoute.POST(
+      marketingReq(`/api/feedback/${rec.token}`, { method: "POST", body: { rating: 5, comment: "Great." } }),
+      { params: Promise.resolve({ token: rec.token }) },
+    );
+    expect(res.status).toBe(410);
+    expect((await res.json()).error).toMatch(/no longer supported/i);
+  });
+  return;
+
   it("supports cross-origin preflight and submission for marketing sites", async () => {
     const r = await makeCompleted();
     const rec = await feedbackStore.createFeedbackToken(r.id, tenantId);

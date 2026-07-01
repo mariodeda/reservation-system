@@ -17,6 +17,7 @@ const card = "rounded-xl border border-outline-variant/30 bg-surface-container p
 
 type Form = {
   name: string; url: string; contactEmail: string; contactPhone: string;
+  reviewUrl: string;
   locale: string; timezone: string; autoConfirm: boolean; emailEnabled: boolean;
   emailBookingConfirmation: boolean; emailFeedbackRequest: boolean; feedbackRequestDelayHours: string;
   themePrimary: string; themeOnPrimary: string; logoUrl: string;
@@ -43,6 +44,7 @@ function toForm(t: TenantView): Form {
   const feedbackRequestEnabled = s.emailEvents?.feedbackRequest ?? s.feedbackEnabled ?? false;
   return {
     name: s.name, url: s.url, contactEmail: s.contactEmail, contactPhone: s.contactPhone,
+    reviewUrl: s.reviewUrl ?? "",
     locale: s.locale, timezone: s.timezone, autoConfirm: s.autoConfirm, emailEnabled: s.emailEnabled,
     emailBookingConfirmation: s.emailEvents?.bookingConfirmation ?? true,
     emailFeedbackRequest: feedbackRequestEnabled,
@@ -101,6 +103,7 @@ export default function TenantDetail() {
     try {
       const settings: Record<string, unknown> = {
         name: f.name, url: f.url, contactEmail: f.contactEmail, contactPhone: f.contactPhone,
+        reviewUrl: f.reviewUrl || undefined,
         locale: f.locale, timezone: f.timezone, autoConfirm: f.autoConfirm, emailEnabled: f.emailEnabled,
         emailEvents: {
           bookingConfirmation: f.emailBookingConfirmation,
@@ -240,6 +243,7 @@ export default function TenantDetail() {
         <div className="grid sm:grid-cols-2 gap-3">
           <Field label={am.platform.tenant.displayName} v={f.name} on={(v) => set("name", v)} />
           <Field label={am.platform.tenant.publicUrl} v={f.url} on={(v) => set("url", v)} />
+          <Field label={am.platform.tenant.reviewUrl} v={f.reviewUrl} on={(v) => set("reviewUrl", v)} placeholder="https://g.page/r/..." />
           <Field label={am.platform.tenant.contactEmail} v={f.contactEmail} on={(v) => set("contactEmail", v)} />
           <Field label={am.platform.tenant.contactPhone} v={f.contactPhone} on={(v) => set("contactPhone", v)} />
           <Field label={am.platform.tenant.locale} v={f.locale} on={(v) => set("locale", v)} />
@@ -363,7 +367,7 @@ export default function TenantDetail() {
             {["guestName","restaurantName","date","time","service","partySize","reference","contactPhone","contactEmail","siteUrl"].map((v) => (
               <code key={v} className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{`{{${v}}}`}</code>
             ))}.
-            {am.platform.tenant.feedbackTemplateHint} <code className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{"{{feedbackUrl}}"}</code>.
+            {am.platform.tenant.feedbackTemplateHint} <code className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{"{{reviewUrl}}"}</code>.
           </p>
         </div>
 
@@ -416,7 +420,7 @@ export default function TenantDetail() {
           </div>
           <div className="space-y-2">
             <Field label={am.platform.tenant.subject} v={f.feedbackSubject} on={(v) => set("feedbackSubject", v)} placeholder="How was your visit to {{restaurantName}}?" />
-            <TemplateArea label={am.platform.tenant.plainText} v={f.feedbackText} on={(v) => set("feedbackText", v)} rows={5} placeholder="Hi {{guestName}}, thanks for dining with us on {{date}}. Leave feedback: {{feedbackUrl}}" />
+            <TemplateArea label={am.platform.tenant.plainText} v={f.feedbackText} on={(v) => set("feedbackText", v)} rows={5} placeholder="Hi {{guestName}}, thanks for dining with us on {{date}}. Leave a review: {{reviewUrl}}" />
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-on-surface-variant">{am.platform.tenant.htmlBody}</span>

@@ -19,7 +19,7 @@ interface AnalyticsData {
   avgPartySize: number;
   avgLeadDays: number;
   newVsReturning: { new: number; returning: number };
-  feedback: { sent: number; filled: number; avgRating: number | null; byRating: number[] };
+  feedback: { sent: number };
   byOffering?: { offering: string; reservations: number; covers: number }[];
   rates?: { total: number; noShow: number; cancelled: number; noShowRate: number; cancelledRate: number };
   heatmap?: { weekday: number; hour: number; reservations: number; covers: number }[];
@@ -794,7 +794,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Feedback */}
+          {/* Review requests */}
           <div className={section}>
             <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant mb-2">
               {am.analytics.feedbackTitle}
@@ -804,82 +804,14 @@ export default function AnalyticsPage() {
                 {am.analytics.feedbackNone}
               </p>
             ) : (
-              <>
-                <div className="flex flex-wrap gap-6 mb-4">
-                  <div>
-                    <div className="text-2xl font-bold text-primary">
-                      {data.feedback.avgRating != null ? (
-                        <span className="inline-flex items-center gap-1">
-                          <StarIcon className="h-5 w-5" />
-                          {data.feedback.avgRating.toFixed(1)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">
-                      {am.analytics.avgRating}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold">{data.feedback.filled}</div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">
-                      {am.analytics.feedbackResponses(
-                        data.feedback.filled,
-                        Math.round(
-                          (data.feedback.filled / data.feedback.sent) * 100,
-                        ),
-                        data.feedback.sent,
-                      )}
-                    </div>
-                  </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{data.feedback.sent}</div>
+                <div className="text-xs text-on-surface-variant mt-0.5">
+                  {am.analytics.feedbackRequests(data.feedback.sent)}
                 </div>
-                <div
-                  className="space-y-1.5"
-                  onMouseLeave={inlineBarLeave}
-                >
-                  {[5, 4, 3, 2, 1].map((s) => {
-                    const count = data.feedback.byRating[s - 1] ?? 0;
-                    const pct =
-                      data.feedback.filled > 0
-                        ? Math.round((count / data.feedback.filled) * 100)
-                        : 0;
-                    const key = `rating-${s}`;
-                    const dimmed = pageHovered !== null && pageHovered !== key;
-                    return (
-                      <div
-                        key={s}
-                        className="flex items-center gap-2 text-xs transition-opacity"
-                        style={{ opacity: dimmed ? 0.35 : 1 }}
-                        onMouseEnter={(e) =>
-                          inlineBarEnter(e, key, `${s} stars`, [
-                            `${count} ${count === 1 ? "response" : "responses"}`,
-                            `${pct}%`,
-                          ])
-                        }
-                        onMouseMove={inlineBarMove}
-                      >
-                        <span className="w-8 inline-flex items-center justify-end gap-0.5 text-on-surface-variant tabular-nums">
-                          {s}
-                          <StarIcon className="h-3 w-3" />
-                        </span>
-                        <div className="flex-1 bg-surface-container-high rounded-full h-2 overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full transition-all"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="w-8 text-on-surface-variant text-right tabular-nums">
-                          {count}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
+              </div>
             )}
           </div>
-
           {/* By offering */}
           {multiOffering && data.byOffering && data.byOffering.length > 0 && (
             <div className={section}>
@@ -1061,3 +993,4 @@ function StarIcon({ className = "h-4 w-4" }: { className?: string }) {
     </svg>
   );
 }
+

@@ -114,17 +114,10 @@ async function getAnalytics(req: NextRequest) {
       [from, from, tid, tid, from, to],
     );
 
-    // Feedback summary for reservations within the period
+    // Review-request summary for reservations within the period.
     const [fbRows] = await pool.query<RowDataPacket[]>(
       `SELECT
-         COUNT(f.token) AS total_sent,
-         COUNT(f.filled_at) AS total_filled,
-         AVG(f.rating) AS avg_rating,
-         SUM(CASE WHEN f.rating = 1 THEN 1 ELSE 0 END) AS r1,
-         SUM(CASE WHEN f.rating = 2 THEN 1 ELSE 0 END) AS r2,
-         SUM(CASE WHEN f.rating = 3 THEN 1 ELSE 0 END) AS r3,
-         SUM(CASE WHEN f.rating = 4 THEN 1 ELSE 0 END) AS r4,
-         SUM(CASE WHEN f.rating = 5 THEN 1 ELSE 0 END) AS r5
+         COUNT(f.token) AS total_sent
        FROM reservation_feedback f
        JOIN reservations r ON r.id = f.reservation_id
        WHERE f.tenant_id = ? AND r.\`date\` >= ? AND r.\`date\` <= ?`,
@@ -237,9 +230,6 @@ async function getAnalytics(req: NextRequest) {
       },
       feedback: {
         sent: Number(fb.total_sent ?? 0),
-        filled: Number(fb.total_filled ?? 0),
-        avgRating: fb.avg_rating != null ? Math.round(Number(fb.avg_rating) * 10) / 10 : null,
-        byRating: [1, 2, 3, 4, 5].map((s) => Number(fb[`r${s}`] ?? 0)),
       },
       rates,
       heatmap: heatRows.map((r) => ({

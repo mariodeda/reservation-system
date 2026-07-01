@@ -35,27 +35,24 @@ async function sendFeedback(
       return NextResponse.json({ error: "Feedback can only be requested for completed reservations (the guest must have shown up)." }, { status: 422 });
     if (!reservation.email)
       return NextResponse.json({ error: "Reservation has no email address." }, { status: 422 });
+    if (!ctx.tenant.settings.reviewUrl)
+      return NextResponse.json({ error: "Restaurant review URL is not configured." }, { status: 422 });
 
     const existing = await getFeedbackByReservation(id);
-    if (existing?.filledAt)
-      return NextResponse.json({ error: "Feedback already submitted." }, { status: 409 });
     if (existing) {
-      const siteUrl = ctx.tenant.settings.url?.replace(/\/$/, "") || "";
       return NextResponse.json({
         ok: true,
         token: existing.token,
         emailSent: false,
         alreadySent: true,
-        feedbackUrl: `${siteUrl}/feedback/${existing.token}`,
+        reviewUrl: ctx.tenant.settings.reviewUrl,
       });
     }
 
     const record = await createFeedbackToken(id, ctx.tenant.id);
-    const siteUrl = ctx.tenant.settings.url?.replace(/\/$/, "") || "";
-    const feedbackUrl = `${siteUrl}/feedback/${record.token}`;
 
-    const result = await sendFeedbackRequestEmail(reservation, ctx.tenant, feedbackUrl);
-    return NextResponse.json({ ok: true, token: record.token, emailSent: result.sent, feedbackUrl });
+    const result = await sendFeedbackRequestEmail(reservation, ctx.tenant, ctx.tenant.settings.reviewUrl);
+    return NextResponse.json({ ok: true, token: record.token, emailSent: result.sent, reviewUrl: ctx.tenant.settings.reviewUrl });
   } catch (err) {
     console.error("[feedback] send failed:", err);
     return NextResponse.json({ error: "Could not send feedback request." }, { status: 500 });

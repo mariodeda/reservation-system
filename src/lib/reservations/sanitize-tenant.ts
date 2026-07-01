@@ -41,6 +41,19 @@ function sanitizeLogoUrl(input: unknown): string | undefined {
   return undefined;
 }
 
+function sanitizeExternalUrl(input: unknown): string | undefined {
+  if (typeof input !== "string") return undefined;
+  const s = input.trim().slice(0, 1000);
+  if (!s) return undefined;
+  try {
+    const u = new URL(s);
+    if (u.protocol === "http:" || u.protocol === "https:") return s;
+  } catch {
+    /* not a URL */
+  }
+  return undefined;
+}
+
 const SMTP_PORTS = new Set([25, 465, 587, 2525]);
 
 const clampPort = (v: unknown): number => {
@@ -147,6 +160,8 @@ export function sanitizeTenantSettings(input: Partial<TenantSettings>): TenantSe
   };
   const emailFrom = str(input.emailFrom, 200).trim();
   if (emailFrom) settings.emailFrom = emailFrom;
+  const reviewUrl = sanitizeExternalUrl(input.reviewUrl);
+  if (reviewUrl) settings.reviewUrl = reviewUrl;
   if (Object.keys(theme).length) settings.theme = theme;
   const logoUrl = sanitizeLogoUrl(input.logoUrl);
   if (logoUrl) settings.logoUrl = logoUrl;

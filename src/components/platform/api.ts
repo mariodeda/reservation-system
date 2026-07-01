@@ -34,6 +34,7 @@ export interface TenantView {
     url: string;
     contactEmail: string;
     contactPhone: string;
+    reviewUrl?: string;
     locale: string;
     timezone: string;
     autoConfirm: boolean;

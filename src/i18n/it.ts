@@ -478,6 +478,7 @@ export const it = {
       debug: "Debug — dati di test",
       displayName: "Nome visualizzato",
       publicUrl: "URL pubblico",
+      reviewUrl: "URL sito recensioni",
       contactEmail: "Email di contatto",
       contactPhone: "Telefono di contatto",
       locale: "Localizzazione",

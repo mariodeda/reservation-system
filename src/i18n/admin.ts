@@ -485,6 +485,7 @@ export const am = {
       // Identity fields
       displayName: "Display name",
       publicUrl: "Public URL",
+      reviewUrl: "Review site URL",
       contactEmail: "Contact email",
       contactPhone: "Contact phone",
       locale: "Locale",

@@ -49,6 +49,14 @@ describe("sanitizeTenantSettings", () => {
     expect(sanitizeTenantSettings({}).logoUrl).toBeUndefined();
   });
 
+  it("accepts only absolute http(s) URLs as reviewUrl", () => {
+    expect(sanitizeTenantSettings({ reviewUrl: " https://g.page/r/acme/review " }).reviewUrl).toBe("https://g.page/r/acme/review");
+    expect(sanitizeTenantSettings({ reviewUrl: "http://reviews.example/acme" }).reviewUrl).toBe("http://reviews.example/acme");
+    expect(sanitizeTenantSettings({ reviewUrl: "/reviews/acme" }).reviewUrl).toBeUndefined();
+    expect(sanitizeTenantSettings({ reviewUrl: "javascript:alert(1)" }).reviewUrl).toBeUndefined();
+    expect(sanitizeTenantSettings({ reviewUrl: "" }).reviewUrl).toBeUndefined();
+  });
+
   it("keeps only valid hex theme colors", () => {
     expect(sanitizeTenantSettings({ theme: { primary: "#f2ca50", onPrimary: "nope" } }).theme).toEqual({ primary: "#f2ca50" });
     expect(sanitizeTenantSettings({ theme: { primary: "red" } }).theme).toBeUndefined();

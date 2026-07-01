@@ -220,13 +220,13 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
     expect(r).toEqual({ sent: false, skipped: true, reason: "no_recipient" });
   });
 
-  it("substitutes {{feedbackUrl}} in subject, text and html via default templates", async () => {
+  it("substitutes {{reviewUrl}} in subject, text and html via default templates", async () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
-    await sendFeedbackRequestEmail(done(), tenant({ smtp, name: "T1" }), "https://fb.test/feedback/tok");
+    await sendFeedbackRequestEmail(done(), tenant({ smtp, name: "T1", reviewUrl: "https://g.page/r/t1/review" }), "https://fb.test/feedback/tok");
     const arg = sendMail.mock.calls[0][0];
     expect(arg.subject).toContain("T1");
-    expect(arg.text).toContain("https://fb.test/feedback/tok");
-    expect(arg.html).toContain("https://fb.test/feedback/tok");
+    expect(arg.text).toContain("https://g.page/r/t1/review");
+    expect(arg.html).toContain("https://g.page/r/t1/review");
     expect(arg.to).toBe("jane@example.com");
     expect(arg.headers["X-RSV-Email-Type"]).toBe("feedbackRequest");
   });
@@ -238,12 +238,13 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
       tenant({
         smtp,
         name: "T1",
+        reviewUrl: "https://g.page/r/t1/review",
         emailTemplates: {
           confirmation: { subject: "c", text: "ct", html: "ch" },
           feedbackRequest: {
             subject: "Rate {{restaurantName}}",
-            text: "Visit {{feedbackUrl}} please",
-            html: "<a href='{{feedbackUrl}}'>rate us</a>",
+            text: "Private: {{feedbackUrl}} Public: {{reviewUrl}}",
+            html: "<a href='{{feedbackUrl}}'>feedback</a><a href='{{reviewUrl}}'>review</a>",
           },
         },
       }),
@@ -251,13 +252,13 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
     );
     const arg = sendMail.mock.calls[0][0];
     expect(arg.subject).toBe("Rate T1");
-    expect(arg.text).toBe("Visit https://custom.test/feedback/tok please");
-    expect(arg.html).toBe("<a href='https://custom.test/feedback/tok'>rate us</a>");
+    expect(arg.text).toBe("Private: https://custom.test/feedback/tok Public: https://g.page/r/t1/review");
+    expect(arg.html).toBe("<a href='https://custom.test/feedback/tok'>feedback</a><a href='https://g.page/r/t1/review'>review</a>");
   });
 
   it("never throws when SMTP send fails", async () => {
     sendMail.mockRejectedValueOnce(new Error("timeout"));
-    const r = await sendFeedbackRequestEmail(done(), tenant({ smtp }), "https://x/f/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant({ smtp, reviewUrl: "https://g.page/r/t1/review" }), "https://x/f/tok");
     expect(r.sent).toBe(false);
     expect(r.error).toBe("timeout");
   });

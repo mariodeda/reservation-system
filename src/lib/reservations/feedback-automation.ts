@@ -12,6 +12,7 @@ export async function sendFeedbackRequestForReservation(
   if (
     !hasGuestAttended(reservation) ||
     !reservation.email ||
+    !tenant.settings.reviewUrl ||
     !isEmailEventEnabled(tenant.settings, "feedbackRequest") ||
     !isFeedbackRequestDue(reservation, tenant.settings)
   ) {
@@ -22,9 +23,7 @@ export async function sendFeedbackRequestForReservation(
   if (existing) return { sent: false, skipped: true };
 
   const record = await createFeedbackToken(reservation.id, tenant.id);
-  const siteUrl = tenant.settings.url?.replace(/\/$/, "") ?? "";
-  const feedbackUrl = `${siteUrl}/feedback/${record.token}`;
-  const result = await sendFeedbackRequestEmail(reservation, tenant, feedbackUrl);
+  const result = await sendFeedbackRequestEmail(reservation, tenant, tenant.settings.reviewUrl);
   await recordAppEvent({
     level: result.sent ? "info" : result.error ? "error" : "warn",
     event: result.sent ? "feedback.request.sent" : "feedback.request.skipped_or_failed",

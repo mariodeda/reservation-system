@@ -44,6 +44,8 @@ export interface TenantSettings {
   url: string;
   contactEmail: string;
   contactPhone: string;
+  /** External public review destination, e.g. Google/Tripadvisor review link. */
+  reviewUrl?: string;
   locale: string;
   timezone: string;
   autoConfirm: boolean;

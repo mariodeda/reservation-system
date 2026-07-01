@@ -250,6 +250,7 @@ describe("platform tenant CRUD via routes", () => {
           url: "https://acme.example",
           contactEmail: "owner@acme.example",
           contactPhone: "+390000",
+          reviewUrl: "https://g.page/r/acme/review",
           locale: "en-US",
           timezone: "Europe/Rome",
           autoConfirm: true,
@@ -266,8 +267,8 @@ describe("platform tenant CRUD via routes", () => {
             },
             feedbackRequest: {
               subject: "How was your visit, {{guestName}}?",
-              textBase64: Buffer.from("Share your experience here: {{feedbackUrl}}", "utf8").toString("base64"),
-              htmlBase64: Buffer.from("<!DOCTYPE html><html><body><a href=\"{{feedbackUrl}}\">Share my experience</a></body></html>", "utf8").toString("base64"),
+              textBase64: Buffer.from("Share your experience here: {{reviewUrl}}", "utf8").toString("base64"),
+              htmlBase64: Buffer.from("<!DOCTYPE html><html><body><a href=\"{{reviewUrl}}\">Share my experience</a></body></html>", "utf8").toString("base64"),
             },
           },
         },
@@ -277,7 +278,8 @@ describe("platform tenant CRUD via routes", () => {
     const stored = await tenantStoreMod.getTenantStore().getById(id);
     expect(stored?.settings.emailTemplates?.confirmation.subject).toContain("confirmed");
     expect(stored?.settings.emailTemplates?.feedbackRequest?.subject).toContain("How was your visit");
-    expect(stored?.settings.emailTemplates?.feedbackRequest?.html).toContain("{{feedbackUrl}}");
+    expect(stored?.settings.emailTemplates?.feedbackRequest?.html).toContain("{{reviewUrl}}");
+    expect(stored?.settings.reviewUrl).toBe("https://g.page/r/acme/review");
     expect(stored?.settings.smtp?.pass).toBe("secret-pw");
   });
 

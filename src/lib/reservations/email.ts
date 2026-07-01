@@ -48,6 +48,7 @@ export interface FeedbackEmailVars {
   date: string;
   reference: string;
   feedbackUrl: string;
+  reviewUrl: string;
   contactEmail: string;
 }
 
@@ -88,7 +89,7 @@ export function buildEmailVars(r: Reservation, tenant: Tenant, serviceLabel?: st
 }
 
 /** Why a send was skipped — distinguishes deliberate config from misconfig. */
-export type EmailSkipReason = "not_attended" | "event_disabled" | "no_smtp" | "no_recipient";
+export type EmailSkipReason = "not_attended" | "event_disabled" | "no_smtp" | "no_recipient" | "no_review_url";
 export type EmailFailureReason = "recipient_rejected" | "bounced";
 
 export interface SendResult {
@@ -167,10 +168,10 @@ function defaultFeedbackSubject(): string {
   return "How was your visit to {{restaurantName}}?";
 }
 function defaultFeedbackText(): string {
-  return `Hi {{guestName}},\n\nThank you for dining with us on {{date}}.\nWe'd love to hear about your experience — it only takes 30 seconds:\n\n{{feedbackUrl}}\n\nWarm regards,\n{{restaurantName}}`;
+  return `Hi {{guestName}},\n\nThank you for dining with us on {{date}}.\nWe'd love to hear about your experience:\n\n{{reviewUrl}}\n\nWarm regards,\n{{restaurantName}}`;
 }
 function defaultFeedbackHtml(): string {
-  return `<p>Hi {{guestName}},</p><p>Thank you for dining with us on <strong>{{date}}</strong>.</p><p>We'd love to hear about your experience — it only takes 30 seconds:</p><p><a href="{{feedbackUrl}}" style="background:#f2ca50;color:#3c2f00;padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block">Leave feedback →</a></p><p>Warm regards,<br/>{{restaurantName}}</p>`;
+  return `<p>Hi {{guestName}},</p><p>Thank you for dining with us on <strong>{{date}}</strong>.</p><p>We'd love to hear about your experience:</p><p><a href="{{reviewUrl}}" style="background:#f2ca50;color:#3c2f00;padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block">Leave a review →</a></p><p>Warm regards,<br/>{{restaurantName}}</p>`;
 }
 
 /** Send the post-visit feedback request email. Logs the attempt. Never throws. */
@@ -198,6 +199,7 @@ async function runFeedbackSend(
   const smtp = s.smtp;
   if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true, reason: "no_smtp" };
   if (!reservation.email) return { sent: false, skipped: true, reason: "no_recipient" };
+  if (!s.reviewUrl) return { sent: false, skipped: true, reason: "no_review_url" };
   try {
     const transport = smtpTransport(smtp);
     const vars: FeedbackEmailVars = {
@@ -206,6 +208,7 @@ async function runFeedbackSend(
       date: formatDate(reservation.date, s.locale),
       reference: referenceOf(reservation.id),
       feedbackUrl,
+      reviewUrl: s.reviewUrl ?? "",
       contactEmail: s.contactEmail,
     };
     const tpl = s.emailTemplates?.feedbackRequest;

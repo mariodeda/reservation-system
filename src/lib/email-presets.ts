@@ -22,6 +22,7 @@ export const PREVIEW_VARS: Record<string, string> = {
   contactEmail: "info@osteriadelgambero.it",
   siteUrl: "https://osteriadelgambero.it",
   feedbackUrl: "https://osteriadelgambero.it/feedback/abc123xyz",
+  reviewUrl: "https://g.page/r/example/review",
 };
 
 export function renderPreview(template: string): string {
@@ -330,7 +331,7 @@ Dear {{guestName}},
 Thank you for dining with us on {{date}}. We'd love to hear your thoughts.
 
 Share your experience here:
-{{feedbackUrl}}
+{{reviewUrl}}
 
 It takes less than a minute. Your feedback means a great deal to our team.
 
@@ -358,7 +359,7 @@ It takes less than a minute. Your feedback means a great deal to our team.
         <!-- CTA button -->
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 0;"><tr>
           <td style="background:#f2ca50;border-radius:6px;">
-            <a href="{{feedbackUrl}}" style="display:inline-block;padding:14px 36px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#3c2f00;text-decoration:none;letter-spacing:0.2px;">Share my experience &rarr;</a>
+            <a href="{{reviewUrl}}" style="display:inline-block;padding:14px 36px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#3c2f00;text-decoration:none;letter-spacing:0.2px;">Share my experience &rarr;</a>
           </td>
         </tr></table>
         <p style="margin:14px 0 0;font-size:12px;color:#bbbbbb;">Takes less than a minute &middot; Booking {{reference}}</p>
@@ -387,7 +388,7 @@ We hope the evening was everything you'd wished for, and that you left with a fu
 If you have a moment, we'd be grateful to hear how your experience was. Your words — kind or honest — help us serve every guest better.
 
 Leave a review:
-{{feedbackUrl}}
+{{reviewUrl}}
 
 Thank you again for your visit. We hope to see you soon.
 
@@ -418,7 +419,7 @@ The team at {{restaurantName}}
         <!-- CTA -->
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 0;"><tr>
           <td style="background:#c9a44a;border-radius:5px;">
-            <a href="{{feedbackUrl}}" style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">Leave a review &rarr;</a>
+            <a href="{{reviewUrl}}" style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">Leave a review &rarr;</a>
           </td>
         </tr></table>
         <p style="margin:22px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:14px;color:#888888;font-style:italic;line-height:1.7;">Thank you again for your visit. We hope to see you soon.</p>

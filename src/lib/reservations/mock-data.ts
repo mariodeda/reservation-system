@@ -2,7 +2,7 @@
  * Mock-data generators for the platform "debug" tools. Each generator is scoped
  * to one tenant and produces realistic, screen-exercising data so operators can
  * validate every admin view (dashboard, reservations, tables, waitlist,
- * customers, analytics, feedback) without hand-entering anything.
+ * customers, analytics, review requests) without hand-entering anything.
  *
  * Generators are ADDITIVE (they insert alongside existing data) except
  * `clearTenantData`, which wipes a tenant's operational data. Reservations are
@@ -14,7 +14,7 @@ import { getStore } from "./store";
 import { getTableStore } from "./table-store";
 import { getWaitlistStore } from "./waitlist-store";
 import { getCustomerStore } from "./customer-store";
-import { createFeedbackToken, getFeedbackByReservation, submitFeedback } from "./feedback-store";
+import { createFeedbackToken, getFeedbackByReservation } from "./feedback-store";
 import { getPool } from "./mysql-pool";
 import { getOfferings } from "./offerings";
 import { generateSlots, nowInTz, scheduleForDate } from "./availability";
@@ -86,17 +86,6 @@ const GUESTS: Guest[] = GUEST_SEED.map((g) => ({
 
 const OCCASIONS = [null, null, null, "Birthday", "Anniversary", "Business dinner", "Date night"];
 const NOTES = [null, null, null, "Window table if possible", "High chair needed", "Celebrating — bringing a cake"];
-const RATINGS = [5, 5, 5, 5, 4, 4, 4, 3, 5, 4, 2, 5];
-const COMMENTS = [
-  "Wonderful evening, attentive service.",
-  "Food was excellent, will return.",
-  "Lovely atmosphere.",
-  "Great wine pairing.",
-  "A little slow but delicious.",
-  "Perfect anniversary dinner!",
-  "Best pasta in the city.",
-  "",
-];
 
 /* ----------------------------------------------------------------- summaries */
 
@@ -297,18 +286,13 @@ export async function seedFeedback(tenantId: string): Promise<MockSummary> {
   const completed = past.filter((r) => r.status === "completed");
 
   let requested = 0;
-  let filled = 0;
   await inChunks(completed, 15, async (r) => {
     if (!chance(0.55)) return;
     if (await getFeedbackByReservation(r.id)) return; // don't double-up
-    const token = await createFeedbackToken(r.id, tenantId);
+    await createFeedbackToken(r.id, tenantId);
     requested++;
-    if (chance(0.7)) {
-      await submitFeedback(token.token, pick(RATINGS), pick(COMMENTS));
-      filled++;
-    }
   });
-  return { feedbackRequests: requested, feedbackFilled: filled };
+  return { reviewRequests: requested };
 }
 
 /* --------------------------------------------------------------------- all */
