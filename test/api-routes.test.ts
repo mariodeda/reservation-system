@@ -286,6 +286,18 @@ describe("GET /api/availability", () => {
     const json = await res.json();
     expect(json.days).toHaveLength(30);
     expect(json.bookingWindowDays).toBeGreaterThan(0);
+    expect(json.reservationPolicy.maxPartySize).toBe(12);
+  });
+  it("returns public offerings with reservation policy from config", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    await store.saveConfig({ ...config, maxPartySize: 20 });
+
+    const res = await routes.avail.GET(req("/api/availability?offerings=1"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.offerings[0]).toMatchObject({ id: "main" });
+    expect(json.reservationPolicy).toEqual({ maxPartySize: 20 });
   });
   it("400s on a malformed date and month", async () => {
     expect((await routes.avail.GET(req("/api/availability?date=nope"))).status).toBe(400);
@@ -367,10 +379,17 @@ describe("public marketing-site integration", () => {
     expect(brandingPreflight.status).toBe(204);
     expectMarketingCors(brandingPreflight);
 
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    await store.saveConfig({ ...config, maxPartySize: 20 });
+
     const branding = await routes.tenant.GET(marketingReq(`/api/tenant?${tenantParam}`));
     expect(branding.status).toBe(200);
     expectMarketingCors(branding);
-    expect(await branding.json()).toMatchObject({ name: "Test Restaurant" });
+    expect(await branding.json()).toMatchObject({
+      name: "Test Restaurant",
+      reservationPolicy: { maxPartySize: 20 },
+    });
 
     const month = await routes.avail.GET(marketingReq(`/api/availability?month=2026-06&${tenantParam}`));
     expect(month.status).toBe(200);
@@ -378,6 +397,7 @@ describe("public marketing-site integration", () => {
     const monthJson = await month.json();
     expect(monthJson.days).toHaveLength(30);
     expect(monthJson.offerings[0]).toMatchObject({ id: "main" });
+    expect(monthJson.reservationPolicy).toEqual({ maxPartySize: 20 });
 
     const bookingGuest = guest();
 

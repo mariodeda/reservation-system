@@ -15,6 +15,12 @@ public API.
   Marketing sites select their tenant with `?tenant=<publicKey>` (falls back to the
   Host header). Cross-origin access is allowed only from each tenant's configured
   origins.
+  - `GET /api/tenant?tenant=<publicKey>` returns public branding plus
+    `reservationPolicy.maxPartySize`, sourced from the tenant reservation config.
+  - `GET /api/availability?offerings=1&tenant=<publicKey>` returns public offering
+    descriptors plus the same `reservationPolicy.maxPartySize`.
+  - `reservationPolicy.maxPartySize` is the maximum online party size allowed by
+    policy. It is not slot capacity or remaining seats.
 - **Staff admin** `/admin/<slug>` — per-restaurant: reservations, tables,
   waitlist, customers, availability, analytics, settings. Staff sign in at
   `/admin/<slug>/login` (branded with the tenant's logo). Gated by a per-tenant

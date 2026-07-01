@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { tenantByHost, tenantByPublicKey } from "@/lib/reservations/tenant-context";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
+import { getStore } from "@/lib/reservations/store";
 import type { Tenant } from "@/lib/reservations/tenant";
 import { observePublicRoute } from "@/lib/observability/route-events";
+import { publicReservationPolicy, type PublicTenantResponse } from "@/lib/reservations/public-policy";
 
 export const runtime = "nodejs";
 
@@ -10,7 +12,7 @@ export const runtime = "nodejs";
  * Public branding endpoint for the book-now page.
  *   GET /api/tenant?tenant=<publicKey>   (preferred — scalable, host-independent)
  *   GET /api/tenant?host=<host>          (fallback)
- *   -> { name, theme } | 404
+ *   -> { name, theme, reservationPolicy: { maxPartySize } } | 404
  *
  * Returns only non-sensitive branding (name + accent theme), never credentials.
  * Lives with the reservation service after the split (see docs/RESERVATION-SPLIT.md);
@@ -43,9 +45,12 @@ async function getTenantBranding(req: NextRequest) {
   if (!tenant) {
     return NextResponse.json({ error: "Unknown tenant" }, { status: 404 });
   }
-  const res = NextResponse.json({
+  const config = await getStore().forTenant(tenant.id).getConfig();
+  const body: PublicTenantResponse = {
     name: tenant.name,
     theme: tenant.settings.theme ?? undefined,
-  });
+    reservationPolicy: publicReservationPolicy(config),
+  };
+  const res = NextResponse.json(body);
   return withCors(res, allowedOrigin(req, tenant));
 }

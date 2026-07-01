@@ -6,6 +6,7 @@ import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-co
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
 import { observePublicRoute } from "@/lib/observability/route-events";
+import { publicReservationPolicy, type PublicOfferingsResponse } from "@/lib/reservations/public-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,8 +61,12 @@ async function handle(req: NextRequest) {
     // Lightweight offerings list for the public/admin picker (no reservations needed).
     if (wantOfferings && !date && !month) {
       const config = await store.getConfig();
+      const body: PublicOfferingsResponse = {
+        offerings: offeringSummaries(config, resolved.tenant.name),
+        reservationPolicy: publicReservationPolicy(config),
+      };
       return NextResponse.json(
-        { offerings: offeringSummaries(config, resolved.tenant.name) },
+        body,
         { headers: cacheHeaders },
       );
     }
@@ -96,6 +101,7 @@ async function handle(req: NextRequest) {
           offerings,
           minPartySize: config.minPartySize,
           maxPartySize: config.maxPartySize,
+          reservationPolicy: publicReservationPolicy(config),
           bookingWindowDays: config.bookingWindowDays,
         },
         { headers: cacheHeaders },
