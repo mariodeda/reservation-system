@@ -12,12 +12,30 @@ function noindex<T extends Response>(res: T): T {
   return res;
 }
 
+function hasCronAuth(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+  const token = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  return Boolean(secret && token && token === secret);
+}
+
+function hasBounceAuth(req: NextRequest): boolean {
+  const secret = process.env.BOUNCE_WEBHOOK_SECRET || process.env.CRON_SECRET;
+  const token = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  return Boolean(secret && token && token === secret);
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ---- Platform (operator) console: gated by the platform session ----
   if (pathname.startsWith("/platform") || pathname.startsWith("/api/platform")) {
     if (pathname === "/platform/login" || pathname === "/api/platform/login") {
+      return noindex(NextResponse.next());
+    }
+    if (pathname === "/api/platform/cron/smtp-health" && hasCronAuth(req)) {
+      return noindex(NextResponse.next());
+    }
+    if (pathname === "/api/platform/bounces" && hasBounceAuth(req)) {
       return noindex(NextResponse.next());
     }
     const platform = await verifyPlatformSession(req.cookies.get(PLATFORM_COOKIE)?.value);

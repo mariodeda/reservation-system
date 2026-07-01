@@ -132,8 +132,15 @@ export default function PlatformHome() {
 
 function EmailSummary({ tenant }: { tenant: TenantView }) {
   const emailEnabled = tenant.settings.emailEnabled;
-  const confirmation = emailEnabled && (tenant.settings.emailEvents?.bookingConfirmation ?? true);
-  const feedback = emailEnabled && (tenant.settings.emailEvents?.feedbackRequest ?? tenant.settings.feedbackEnabled ?? false);
+  const emailReady = emailEnabled && tenant.settings.smtpPassSet;
+  const feedbackTemplate = tenant.settings.emailTemplates?.feedbackRequest;
+  const feedbackTemplateReady = Boolean(
+    feedbackTemplate?.subject?.trim() &&
+    feedbackTemplate?.text?.trim() &&
+    feedbackTemplate?.html?.trim(),
+  );
+  const confirmation = emailReady && (tenant.settings.emailEvents?.bookingConfirmation ?? true);
+  const feedback = emailReady && feedbackTemplateReady && (tenant.settings.emailEvents?.feedbackRequest ?? tenant.settings.feedbackEnabled ?? false);
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
       <span className="text-on-surface-variant mr-0.5">{am.platform.emailSummary}</span>
@@ -147,7 +154,45 @@ function EmailSummary({ tenant }: { tenant: TenantView }) {
           <EmailChip label={am.platform.emailFeedback} on={feedback} />
         </>
       )}
+      <SmtpHealthChip tenant={tenant} />
     </div>
+  );
+}
+
+function SmtpHealthChip({ tenant }: { tenant: TenantView }) {
+  const health = tenant.smtpHealth;
+  const configComplete = Boolean(tenant.settings.smtp?.host && tenant.settings.smtpPassSet);
+  const status = !configComplete ? "not_configured" : health.status;
+  const tone = status === "ok" ? "ok" : status === "failed" ? "failed" : "idle";
+  const label =
+    status === "ok"
+      ? am.platform.smtpOk
+      : status === "failed"
+        ? am.platform.smtpFailed
+        : status === "not_configured"
+          ? am.platform.smtpNotConfigured
+          : am.platform.smtpUnknown;
+  const title = [
+    `${am.platform.smtpStatus}: ${label}`,
+    health.checkedAt ? new Date(health.checkedAt).toLocaleString() : "",
+    health.reason || "",
+  ].filter(Boolean).join(" · ");
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+        tone === "ok"
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+          : tone === "failed"
+            ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+            : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
+      }`}
+      title={title}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${
+        tone === "ok" ? "bg-emerald-400" : tone === "failed" ? "bg-rose-400" : "bg-on-surface-variant/50"
+      }`} />
+      {am.platform.smtpStatus}: {label}
+    </span>
   );
 }
 

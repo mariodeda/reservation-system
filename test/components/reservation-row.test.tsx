@@ -58,8 +58,8 @@ describe("ReservationRow", () => {
     const onChanged = vi.fn();
     render(<ReservationRow r={row()} onChanged={onChanged} />);
 
-    // Details are open by default — go straight to Edit
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    // Details are open by default — go straight to Edit reservation
+    await user.click(screen.getByRole("button", { name: "Edit reservation" }));
 
     const name = screen.getByPlaceholderText("Name") as HTMLInputElement;
     await user.clear(name);
@@ -86,13 +86,13 @@ describe("ReservationRow", () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
     render(<ReservationRow r={row()} onChanged={onChanged} />);
 
-    // Details are open by default — Delete button is already visible
+    // Details are open by default — Delete reservation button is already visible
     // first click: user cancels the confirm -> no request
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete reservation" }));
     expect(adminFetch).not.toHaveBeenCalled();
 
     // second click: user confirms -> DELETE
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete reservation" }));
     expect(adminFetch).toHaveBeenCalledWith(
       "/api/admin/reservations/id-1",
       expect.objectContaining({ method: "DELETE" }),
@@ -123,6 +123,27 @@ describe("ReservationRow", () => {
     expect(screen.getByText(/jane@x.io/)).toBeInTheDocument();
   });
 
+  it("shows a call-followup warning when the guest email is unreachable", () => {
+    render(
+      <ReservationRow
+        r={row({
+          emails: {
+            bookingConfirmation: {
+              status: "failed",
+              reason: "recipient_rejected",
+              error: "SMTP rejected recipient",
+              at: "2026-07-01T10:00:00Z",
+              attempts: 1,
+            },
+          },
+        })}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByText("Email unreachable")).toBeInTheDocument();
+    expect(screen.getByTitle(/Follow up with a phone call/i)).toBeInTheDocument();
+  });
+
   it("edits every field and sends them all in the PATCH", async () => {
     const user = userEvent.setup();
     render(
@@ -133,7 +154,7 @@ describe("ReservationRow", () => {
       />,
     );
     // Details open by default
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Edit reservation" }));
 
     await user.selectOptions(screen.getByDisplayValue("brunch"), "dinner");
     const party = screen.getByRole("spinbutton") as HTMLInputElement;
@@ -158,10 +179,10 @@ describe("ReservationRow", () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row()} onChanged={() => {}} />);
     // Details open by default
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Edit reservation" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(adminFetch).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit reservation" })).toBeInTheDocument();
   });
 
   it("shows an error toast when the update request fails", async () => {

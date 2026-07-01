@@ -7,23 +7,28 @@ import { type AdminReservation, formatDateLong, todayInTz } from "@/components/a
 import { am } from "@/i18n";
 import ReservationRow from "@/components/admin/ReservationRow";
 import { adminJson, toast } from "@/components/admin/api";
-import { ACTIVE_STATUSES, type AvailabilityConfig } from "@/lib/reservations/types";
+import { ACTIVE_STATUSES, type AvailabilityConfig, type RestaurantTable } from "@/lib/reservations/types";
 import { offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
 
 export default function DashboardPage() {
   const { slug } = useParams<{ slug: string }>();
   const [tz, setTz] = useState("Europe/Rome");
   const [offerings, setOfferings] = useState<OfferingServices[]>([]);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [items, setItems] = useState<AdminReservation[]>([]);
   const [loading, setLoading] = useState(true);
 
   const today = useMemo(() => todayInTz(tz), [tz]);
 
   useEffect(() => {
-    adminJson<{ config: AvailabilityConfig }>("/api/admin/config")
-      .then((d) => {
-        setTz(d.config.timezone || "Europe/Rome");
-        setOfferings(offeringServiceMap(d.config));
+    Promise.all([
+      adminJson<{ config: AvailabilityConfig }>("/api/admin/config"),
+      adminJson<{ tables: RestaurantTable[] }>("/api/admin/tables").catch(() => ({ tables: [] })),
+    ])
+      .then(([configData, tablesData]) => {
+        setTz(configData.config.timezone || "Europe/Rome");
+        setOfferings(offeringServiceMap(configData.config));
+        setTables(tablesData.tables ?? []);
       })
       .catch(() => {});
   }, []);
@@ -114,7 +119,7 @@ export default function DashboardPage() {
       ) : (
         <div className="space-y-2">
           {items.map((r) => (
-            <ReservationRow key={r.id} r={r} onChanged={load} offerings={offerings} />
+            <ReservationRow key={r.id} r={r} onChanged={load} offerings={offerings} tables={tables} />
           ))}
         </div>
       )}

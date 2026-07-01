@@ -50,6 +50,23 @@ type Migration = { version: number; run: (pool: Pool) => Promise<void> };
 
 const MIGRATIONS: Migration[] = [
   {
+    // Latest SMTP connectivity result per tenant, refreshed by the platform
+    // cron endpoint and shown in the operator restaurant summary.
+    version: 17,
+    run: async (pool) => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tenant_smtp_health (
+          tenant_id CHAR(36) NOT NULL PRIMARY KEY,
+          status VARCHAR(20) NOT NULL,
+          reason VARCHAR(160) NULL,
+          checked_at VARCHAR(32) NOT NULL,
+          latency_ms INT NULL,
+          INDEX idx_tsh_status_checked (status, checked_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    },
+  },
+  {
     // Cross-surface operational/audit events. This complements structured
     // stdout logs and the specialized reservation_emails table with a durable,
     // tenant-scoped event stream for support, security, and debugging.

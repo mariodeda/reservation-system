@@ -128,6 +128,17 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
     expect(arg.to).toBe("jane@example.com");
     expect(arg.subject).toContain("Friday, June 12, 2026");
     expect(arg.text).toContain("Dinner");
+    expect(arg.headers["X-RSV-Reservation-ID"]).toBe("abcdef12-3456-7890-abcd-ef1234567890");
+  });
+
+  it("marks SMTP recipient rejection as a failed unreachable email", async () => {
+    sendMail.mockResolvedValueOnce({ rejected: ["jane@example.com"] });
+    const r = await sendConfirmationEmail(reservation(), tenant({ smtp }), "Dinner");
+    expect(r).toEqual({
+      sent: false,
+      reason: "recipient_rejected",
+      error: "SMTP rejected recipient: jane@example.com",
+    });
   });
 
   it("uses the tenant SMTP auth, secure flag and custom From", async () => {
@@ -217,6 +228,7 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
     expect(arg.text).toContain("https://fb.test/feedback/tok");
     expect(arg.html).toContain("https://fb.test/feedback/tok");
     expect(arg.to).toBe("jane@example.com");
+    expect(arg.headers["X-RSV-Email-Type"]).toBe("feedbackRequest");
   });
 
   it("uses a custom feedbackRequest template when configured", async () => {

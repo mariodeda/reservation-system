@@ -2,6 +2,7 @@
 import type { TenantStore } from "./tenant-store";
 import type { Tenant, TenantSettings } from "./tenant";
 import { redactSettings } from "./sanitize-tenant";
+import { getSmtpHealth, type SmtpHealth } from "./smtp-health-store";
 
 export interface TenantView {
   id: string;
@@ -13,6 +14,7 @@ export interface TenantView {
   createdAt: string;
   hosts: string[];
   settings: TenantSettings & { smtpPassSet: boolean };
+  smtpHealth: SmtpHealth | { status: "unknown" };
 }
 
 export async function tenantView(store: TenantStore, t: Tenant): Promise<TenantView> {
@@ -25,5 +27,6 @@ export async function tenantView(store: TenantStore, t: Tenant): Promise<TenantV
     createdAt: t.createdAt,
     hosts: await store.listDomains(t.id),
     settings: redactSettings(t.settings),
+    smtpHealth: (await getSmtpHealth(t.id)) ?? { status: "unknown" },
   };
 }

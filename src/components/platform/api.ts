@@ -52,6 +52,12 @@ export interface TenantView {
       feedbackRequest?: { subject: string; text: string; html: string };
     };
   };
+  smtpHealth: {
+    status: "unknown" | "not_configured" | "ok" | "failed";
+    reason?: string;
+    checkedAt?: string;
+    latencyMs?: number;
+  };
 }
 
 export type PlatformLogLevel = "debug" | "info" | "warn" | "error";

@@ -7,8 +7,8 @@ import { createSession, SESSION_COOKIE } from "@/lib/reservations/auth";
 beforeEach(() => vi.stubEnv("SESSION_SECRET", "proxy-platform-secret"));
 afterEach(() => vi.unstubAllEnvs());
 
-const make = (path: string, cookie?: string) =>
-  new NextRequest(`http://platform.local${path}`, { headers: cookie ? { cookie } : {} });
+const make = (path: string, cookie?: string, headers: Record<string, string> = {}) =>
+  new NextRequest(`http://platform.local${path}`, { headers: cookie ? { ...headers, cookie } : headers });
 
 describe("proxy platform gating", () => {
   it("lets the platform login through unauthenticated", async () => {
@@ -30,6 +30,26 @@ describe("proxy platform gating", () => {
   it("allows a valid platform session", async () => {
     const cookie = `${PLATFORM_COOKIE}=${await createPlatformSession("ops")}`;
     expect((await proxy(make("/api/platform/tenants", cookie))).status).toBe(200);
+  });
+
+  it("allows the SMTP cron endpoint with the cron bearer secret", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    expect((await proxy(make("/api/platform/cron/smtp-health", undefined, {
+      authorization: "Bearer cron-secret",
+    }))).status).toBe(200);
+    expect((await proxy(make("/api/platform/cron/smtp-health", undefined, {
+      authorization: "Bearer wrong",
+    }))).status).toBe(401);
+  });
+
+  it("allows the bounce endpoint with the bounce bearer secret", async () => {
+    vi.stubEnv("BOUNCE_WEBHOOK_SECRET", "bounce-secret");
+    expect((await proxy(make("/api/platform/bounces", undefined, {
+      authorization: "Bearer bounce-secret",
+    }))).status).toBe(200);
+    expect((await proxy(make("/api/platform/bounces", undefined, {
+      authorization: "Bearer wrong",
+    }))).status).toBe(401);
   });
 
   it("does not accept a platform session on the tenant admin, nor vice-versa", async () => {

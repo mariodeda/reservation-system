@@ -49,8 +49,17 @@ beforeEach(() => {
               timezone: "Europe/Rome",
               autoConfirm: true,
               emailEnabled: true,
-              emailEvents: { bookingConfirmation: true, feedbackRequest: false },
-              smtpPassSet: false,
+              emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+              smtpPassSet: true,
+              smtp: { host: "smtp.acme.com", port: 587, secure: false, user: "mailer" },
+              emailTemplates: {
+                confirmation: { subject: "Confirmed", text: "Text", html: "<p>Html</p>" },
+              },
+            },
+            smtpHealth: {
+              status: "ok",
+              checkedAt: "2026-07-01T10:00:00Z",
+              latencyMs: 42,
             },
           },
           {
@@ -72,6 +81,7 @@ beforeEach(() => {
               emailEnabled: false,
               smtpPassSet: false,
             },
+            smtpHealth: { status: "unknown" },
           },
         ],
       });
@@ -93,8 +103,10 @@ describe("PlatformHome", () => {
     expect(await screen.findByText("Acme Osteria")).toBeInTheDocument();
     expect(screen.getByTitle("Conferme: Attiva")).toBeInTheDocument();
     expect(screen.getByTitle("Feedback: Disattiva")).toBeInTheDocument();
+    expect(screen.getByText("SMTP: Connesso")).toBeInTheDocument();
 
     expect(screen.getByText("Beta Trattoria")).toBeInTheDocument();
     expect(screen.getByText("Email disattivate")).toBeInTheDocument();
+    expect(screen.getByText("SMTP: Non configurato")).toBeInTheDocument();
   });
 });

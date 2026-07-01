@@ -5,7 +5,7 @@ import { defaultConfirmationTemplate, type Tenant, type TenantSmtp } from "./ten
 import { hasGuestAttended, isEmailEventEnabled, type TenantEmailEvent } from "./email-policy";
 import { recordEmailAttempt, type EmailLogStatus } from "./email-log-store";
 
-function smtpTransport(smtp: TenantSmtp) {
+export function smtpTransport(smtp: TenantSmtp) {
   const port = Number(smtp.port);
   // 465 = implicit TLS (connect already encrypted).
   // 587 / 25 = STARTTLS (plain connect, then upgrade).
@@ -89,12 +89,39 @@ export function buildEmailVars(r: Reservation, tenant: Tenant, serviceLabel?: st
 
 /** Why a send was skipped — distinguishes deliberate config from misconfig. */
 export type EmailSkipReason = "not_attended" | "event_disabled" | "no_smtp" | "no_recipient";
+export type EmailFailureReason = "recipient_rejected" | "bounced";
 
 export interface SendResult {
   sent: boolean;
   skipped?: boolean;
-  reason?: EmailSkipReason;
+  reason?: EmailSkipReason | EmailFailureReason;
   error?: string;
+}
+
+function rejectedRecipients(info: unknown): string[] {
+  const rejected = (info as { rejected?: unknown })?.rejected;
+  return Array.isArray(rejected) ? rejected.map(String).filter(Boolean) : [];
+}
+
+function resultFromSendInfo(info: unknown, recipient: string): SendResult {
+  const rejected = rejectedRecipients(info);
+  if (rejected.some((email) => email.toLowerCase() === recipient.toLowerCase()) || rejected.length > 0) {
+    return {
+      sent: false,
+      reason: "recipient_rejected",
+      error: `SMTP rejected recipient${rejected.length ? `: ${rejected.join(", ")}` : ""}`,
+    };
+  }
+  return { sent: true };
+}
+
+function trackingHeaders(tenant: Tenant, reservation: Reservation, type: TenantEmailEvent) {
+  return {
+    "X-RSV-Tenant-ID": tenant.id,
+    "X-RSV-Reservation-ID": reservation.id,
+    "X-RSV-Email-Type": type,
+    "X-RSV-Reference": referenceOf(reservation.id),
+  };
 }
 
 function statusOf(r: SendResult): EmailLogStatus {
@@ -186,8 +213,16 @@ async function runFeedbackSend(
     const text = renderFeedbackTemplate(tpl?.text ?? defaultFeedbackText(), vars);
     const html = renderFeedbackTemplate(tpl?.html ?? defaultFeedbackHtml(), vars);
     const from = smtp.from || s.emailFrom || `${s.name} <${smtp.user ?? s.contactEmail}>`;
-    await transport.sendMail({ from, to: reservation.email, replyTo: s.contactEmail, subject, text, html });
-    return { sent: true };
+    const info = await transport.sendMail({
+      from,
+      to: reservation.email,
+      replyTo: s.contactEmail,
+      subject,
+      text,
+      html,
+      headers: trackingHeaders(tenant, reservation, "feedbackRequest"),
+    });
+    return resultFromSendInfo(info, reservation.email);
   } catch (err) {
     console.error("[reservations] feedback email failed:", err);
     return { sent: false, error: err instanceof Error ? err.message : "send failed" };
@@ -226,15 +261,16 @@ async function runConfirmationSend(
     const vars = buildEmailVars(reservation, tenant, serviceLabel);
     const tpl = s.emailTemplates?.confirmation ?? defaultConfirmationTemplate();
     const from = smtp.from || s.emailFrom || `${s.name} <${smtp.user ?? s.contactEmail}>`;
-    await transport.sendMail({
+    const info = await transport.sendMail({
       from,
       to: reservation.email,
       replyTo: s.contactEmail,
       subject: renderTemplate(tpl.subject, vars),
       text: renderTemplate(tpl.text, vars),
       html: renderTemplate(tpl.html, vars),
+      headers: trackingHeaders(tenant, reservation, "bookingConfirmation"),
     });
-    return { sent: true };
+    return resultFromSendInfo(info, reservation.email);
   } catch (err) {
     console.error("[reservations] confirmation email failed:", err);
     return { sent: false, error: err instanceof Error ? err.message : "send failed" };

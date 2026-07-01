@@ -735,16 +735,16 @@ function TableTimelineView({
       </div>
 
       <div className="overflow-x-auto">
-        <div className="relative p-3" style={{ minWidth: `${LABEL_WIDTH_REM + slots.length * SLOT_STEP_REM}rem` }}>
+        <div className="relative p-3 pb-7" style={{ minWidth: `${LABEL_WIDTH_REM + slots.length * SLOT_STEP_REM}rem` }}>
           {showNow && (
             <div
-              className="pointer-events-none absolute bottom-2 top-2 z-20 flex -translate-x-1/2 flex-col items-center"
+              className="pointer-events-none absolute bottom-1.5 top-8 z-20 flex -translate-x-1/2 flex-col items-center"
               style={{ left: `${nowLeftRem}rem` }}
             >
-              <span className="mb-0.5 rounded bg-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none tabular-nums text-on-primary shadow-sm">
+              <span className="min-h-0 flex-1 w-px bg-primary shadow-[0_0_0_1px_rgba(255,255,255,0.35)]" />
+              <span className="mt-0.5 rounded bg-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none tabular-nums text-on-primary shadow-sm">
                 {fmtTime(nowMins)}
               </span>
-              <span className="h-full w-px bg-primary shadow-[0_0_0_1px_rgba(255,255,255,0.35)]" />
             </div>
           )}
           {/* Time header */}

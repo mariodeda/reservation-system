@@ -131,7 +131,15 @@ export default function ReservationRow({
             {r.source === "admin" && (
               <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.row.manual}</span>
             )}
-            {hasEmailFailure(r.emails) && (
+            {hasUnreachableEmail(r.emails) ? (
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-200 border border-rose-500/40"
+                title={unreachableEmailTitle(r.emails)}
+              >
+                <AlertIcon />
+                {am.email.unreachableBadge}
+              </span>
+            ) : hasEmailFailure(r.emails) && (
               <span
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30"
                 title={emailFailureTitle(r.emails)}
@@ -358,11 +366,13 @@ function ManagedTableAssign({
         value={tableId ?? ""}
         disabled={saving}
         onChange={(e) => assign(e.target.value || null)}
-        className="flex-1 h-full bg-transparent px-2.5 text-sm text-on-surface outline-none disabled:opacity-60 [color-scheme:dark] min-w-0"
+        className="flex-1 h-full bg-surface-container text-on-surface px-2.5 text-sm outline-none disabled:opacity-60 min-w-0"
       >
-        <option value="">{am.row.tableUnassigned}</option>
+        <option value="" className="bg-surface-container text-on-surface">
+          {am.row.tableUnassigned}
+        </option>
         {tables.map((t) => (
-          <option key={t.id} value={t.id}>
+          <option key={t.id} value={t.id} className="bg-surface-container text-on-surface">
             {t.label} · {am.row.tableSeats(t.capacity)}
           </option>
         ))}
@@ -700,6 +710,8 @@ function reasonLabel(reason?: string): string | undefined {
     case "no_smtp": return am.email.reasonNoSmtp;
     case "event_disabled": return am.email.reasonEventDisabled;
     case "no_recipient": return am.email.reasonNoRecipient;
+    case "recipient_rejected": return am.email.reasonRecipientRejected;
+    case "bounced": return am.email.reasonBounced;
     default: return undefined;
   }
 }
@@ -738,6 +750,23 @@ function chipTitle(s: EmailStatus): string {
 function hasEmailFailure(emails?: Partial<Record<EmailType, EmailStatus>>): boolean {
   if (!emails) return false;
   return EMAIL_TYPES.some((t) => emails[t]?.status === "failed");
+}
+
+function isUnreachableEmailStatus(s?: EmailStatus): boolean {
+  return s?.status === "failed" && (s.reason === "recipient_rejected" || s.reason === "bounced");
+}
+
+function hasUnreachableEmail(emails?: Partial<Record<EmailType, EmailStatus>>): boolean {
+  if (!emails) return false;
+  return EMAIL_TYPES.some((t) => isUnreachableEmailStatus(emails[t]));
+}
+
+function unreachableEmailTitle(emails?: Partial<Record<EmailType, EmailStatus>>): string {
+  const details = EMAIL_TYPES
+    .filter((t) => isUnreachableEmailStatus(emails?.[t]))
+    .map((t) => `${emailTypeLabel(t)}: ${emails?.[t]?.error ?? reasonLabel(emails?.[t]?.reason) ?? am.email.failed}`)
+    .join("\n");
+  return details ? `${am.email.unreachableCallGuest}\n${details}` : am.email.unreachableCallGuest;
 }
 
 function emailFailureTitle(emails?: Partial<Record<EmailType, EmailStatus>>): string {
