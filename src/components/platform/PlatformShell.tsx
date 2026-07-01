@@ -15,6 +15,7 @@ export default function PlatformShell({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const fullWidth = pathname?.startsWith("/platform/logs") ?? false;
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
 
@@ -39,7 +40,7 @@ export default function PlatformShell({
   return (
     <div data-admin data-theme={theme} className="min-h-screen bg-background text-on-surface">
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+        <div className={`${fullWidth ? "w-full px-4 sm:px-6 lg:px-8" : "max-w-5xl mx-auto px-4"} h-14 flex items-center justify-between gap-4`}>
           <div className="flex items-center gap-6 min-w-0">
             <Link href="/platform" className="flex items-center gap-2 text-primary">
               <SystemLogo className="h-7 w-7" />
@@ -88,7 +89,7 @@ export default function PlatformShell({
           </div>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
+      <main className={fullWidth ? "w-full px-4 py-6 sm:px-6 lg:px-8" : "max-w-5xl mx-auto px-4 py-6"}>{children}</main>
     </div>
   );
 }
