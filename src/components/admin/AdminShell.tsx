@@ -60,6 +60,16 @@ export default function AdminShell({
     localStorage.setItem("admin-theme", next);
   }
 
+  function handleMarkAllRead() {
+    markAllRead();
+    setToasts([]);
+  }
+
+  function handleMarkRead(notificationId: string) {
+    markRead(notificationId);
+    setToasts((prev) => prev.filter((t) => t.notificationId !== notificationId));
+  }
+
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.replace(`${base}/login`);
@@ -107,8 +117,8 @@ export default function AdminShell({
               unreadCount={unreadCount}
               connected={connected}
               slug={slug}
-              onMarkAllRead={markAllRead}
-              onMarkRead={markRead}
+              onMarkAllRead={handleMarkAllRead}
+              onMarkRead={handleMarkRead}
             />
             <button
               onClick={toggleTheme}
@@ -169,10 +179,7 @@ export default function AdminShell({
       <ReservationToastStack
         toasts={toasts}
         slug={slug}
-        onDismiss={(id) => {
-          markRead(id);
-          setToasts((prev) => prev.filter((t) => t.id !== id));
-        }}
+        onDismiss={handleMarkRead}
       />
     </div>
   );

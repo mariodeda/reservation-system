@@ -134,7 +134,7 @@ export function ReservationToastStack({ toasts, slug, onDismiss }: ToastStackPro
   return (
     <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 items-end pointer-events-none">
       {toasts.map((n) => (
-        <ReservationToast key={n.id} n={n} slug={slug} onDismiss={() => onDismiss(n.id)} />
+        <ReservationToast key={n.notificationId} n={n} slug={slug} onDismiss={() => onDismiss(n.notificationId)} />
       ))}
     </div>
   );
@@ -172,7 +172,7 @@ export function NotificationBell({
   }
 
   function goTo(n: ReservationNotification) {
-    onMarkRead(n.id);
+    onMarkRead(n.notificationId);
     setOpen(false);
     router.push(`/admin/${slug}/reservations?date=${n.date}`);
   }
@@ -228,7 +228,7 @@ export function NotificationBell({
             ) : (
               notifications.map((n) => (
                 <button
-                  key={n.id}
+                  key={n.notificationId}
                   onClick={() => goTo(n)}
                   className={`w-full text-left px-4 py-3 border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-high transition group ${
                     !n.read ? "bg-primary/[0.04]" : ""

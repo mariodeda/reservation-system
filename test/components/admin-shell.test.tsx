@@ -9,6 +9,7 @@ const pathname = vi.hoisted(() => ({ value: "/admin/acme/reservations" }));
 const reservationEvents = vi.hoisted(() => ({
   notifications: [] as Array<{
     id: string;
+    notificationId: string;
     date: string;
     time: string;
     service: string;
@@ -98,6 +99,7 @@ describe("AdminShell", () => {
     vi.useFakeTimers();
     reservationEvents.notifications = [{
       id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
       date: "2026-07-01",
       time: "20:00",
       service: "Dinner",
@@ -112,6 +114,31 @@ describe("AdminShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     act(() => { vi.advanceTimersByTime(400); });
 
-    expect(reservationEvents.markRead).toHaveBeenCalledWith("res-1");
+    expect(reservationEvents.markRead).toHaveBeenCalledWith("reservation.created:res-1:1:0");
+  });
+
+  it("clears visible reservation toasts when marking all notifications read", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    await user.click(screen.getByRole("button", { name: /mark all read/i }));
+
+    expect(reservationEvents.markAllRead).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
   });
 });

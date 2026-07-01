@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import type { ReservationEvent } from "@/lib/reservations/events";
 
 export interface ReservationNotification extends ReservationEvent {
+  notificationId: string;
   receivedAt: number;
   read: boolean;
 }
 
 const MAX = 30;
+let nextNotificationSeq = 0;
 
 export function useReservationEvents() {
   const [notifications, setNotifications] = useState<ReservationNotification[]>([]);
@@ -26,7 +28,12 @@ export function useReservationEvents() {
       const handleReservationEvent = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data) as ReservationEvent;
-          const n: ReservationNotification = { ...data, receivedAt: Date.now(), read: false };
+          const n: ReservationNotification = {
+            ...data,
+            notificationId: `${data.type}:${data.id}:${Date.now()}:${nextNotificationSeq++}`,
+            receivedAt: Date.now(),
+            read: false,
+          };
           setNotifications((prev) => [n, ...prev].slice(0, MAX));
           window.dispatchEvent(new CustomEvent("reservation:new", { detail: n }));
         } catch { /* malformed */ }
@@ -55,8 +62,8 @@ export function useReservationEvents() {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
-  function markRead(id: string) {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  function markRead(notificationId: string) {
+    setNotifications((prev) => prev.map((n) => (n.notificationId === notificationId ? { ...n, read: true } : n)));
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
