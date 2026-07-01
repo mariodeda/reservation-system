@@ -143,7 +143,7 @@ describe("platform tenant CRUD via routes", () => {
     expect(JSON.stringify(json)).not.toMatch(/scrypt\$/);
   });
 
-  it("rejects cross-site platform mutations by Origin header", async () => {
+  it("rejects cross-site platform mutations by Origin and Fetch Metadata", async () => {
     const res = await tenantsRoute.POST(authed("/api/platform/tenants", {
       method: "POST",
       headers: { origin: "https://evil.example.com", "sec-fetch-site": "cross-site" },
@@ -283,20 +283,19 @@ describe("platform tenant CRUD via routes", () => {
     const ctx = { params: Promise.resolve({ id }) };
     const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {
       method: "PATCH",
-      headers: { origin: "https://evil.example.com", "sec-fetch-site": "cross-site" },
-      body: { settings: { contactEmail: "blocked@acme.example" } },
+      body: { status: "teleported" },
     }), ctx);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
 
     const { listAppEvents } = await import("@/lib/observability/app-event-store");
     const events = await listAppEvents({
       event: "platform.route.non_success",
       surface: "platform",
-      status: 403,
+      status: 400,
       limit: 10,
     });
     expect(events.some((event) =>
-      event.reason === "Cross-site request rejected." &&
+      event.reason === "Invalid status." &&
       event.metadata?.path === `/api/platform/tenants/${id}` &&
       event.metadata?.method === "PATCH"
     )).toBe(true);
