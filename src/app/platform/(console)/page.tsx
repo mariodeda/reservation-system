@@ -92,29 +92,30 @@ export default function PlatformHome() {
                     <span className="font-semibold">{t.name}</span>
                     <span className="text-xs text-on-surface-variant">/{t.slug}</span>
                     {t.status === "disabled" && (
-                      <span className="text-[10px] uppercase tracking-widest text-rose-300 border border-rose-500/30 rounded px-1.5 py-0.5">disabled</span>
+                      <span className="text-[10px] uppercase tracking-widest text-rose-300 border border-rose-500/30 rounded px-1.5 py-0.5">{am.platform.statusDisabled}</span>
                     )}
                   </div>
                   <div className="text-xs text-on-surface-variant truncate mt-0.5">
                     {t.hosts.length ? t.hosts.join(", ") : am.platform.noHostsMapped}
                   </div>
+                  <EmailSummary tenant={t} />
                 </div>
                 {stats && (
                   <div className="flex items-center gap-4 shrink-0 ml-4 text-xs text-on-surface-variant">
                     <span title={am.platform.totals.bookings}>
-                      <span className="font-semibold text-on-surface">{stats.total}</span> total
+                      <span className="font-semibold text-on-surface">{stats.total}</span> {am.platform.totalShort}
                     </span>
                     <span title={am.platform.totals.last30} className="hidden sm:inline">
-                      <span className="font-semibold text-on-surface">{stats.last30}</span> /30d
+                      <span className="font-semibold text-on-surface">{stats.last30}</span> {am.platform.last30Short}
                     </span>
                     {stats.noShows > 0 && (
-                      <span className="text-rose-400 hidden md:inline" title="No-shows">
-                        {stats.noShows} no-show{stats.noShows > 1 ? "s" : ""}
+                      <span className="text-rose-400 hidden md:inline" title={am.platform.noShowsTitle}>
+                        {am.platform.noShows(stats.noShows)}
                       </span>
                     )}
                     {stats.lastBookingDate && (
-                      <span className="hidden lg:inline" title="Last booking date">
-                        Last: {stats.lastBookingDate}
+                      <span className="hidden lg:inline" title={am.platform.lastBookingTitle}>
+                        {am.platform.lastBooking(stats.lastBookingDate)}
                       </span>
                     )}
                   </div>
@@ -126,6 +127,43 @@ export default function PlatformHome() {
         </div>
       )}
     </div>
+  );
+}
+
+function EmailSummary({ tenant }: { tenant: TenantView }) {
+  const emailEnabled = tenant.settings.emailEnabled;
+  const confirmation = emailEnabled && (tenant.settings.emailEvents?.bookingConfirmation ?? true);
+  const feedback = emailEnabled && (tenant.settings.emailEvents?.feedbackRequest ?? tenant.settings.feedbackEnabled ?? false);
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+      <span className="text-on-surface-variant mr-0.5">{am.platform.emailSummary}</span>
+      {!emailEnabled ? (
+        <span className="rounded-full border border-outline-variant/40 bg-surface-container-high px-2 py-0.5 text-on-surface-variant">
+          {am.platform.emailGloballyOff}
+        </span>
+      ) : (
+        <>
+          <EmailChip label={am.platform.emailConfirmation} on={confirmation} />
+          <EmailChip label={am.platform.emailFeedback} on={feedback} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function EmailChip({ label, on }: { label: string; on: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+        on
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+          : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
+      }`}
+      title={`${label}: ${on ? am.platform.emailOn : am.platform.emailOff}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-400" : "bg-on-surface-variant/50"}`} />
+      {label}
+    </span>
   );
 }
 

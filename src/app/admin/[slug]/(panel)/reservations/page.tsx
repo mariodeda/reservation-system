@@ -16,7 +16,8 @@ import {
   type RestaurantTable,
   type TableState,
 } from "@/lib/reservations/types";
-import { offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
+import { scheduleForDate } from "@/lib/reservations/availability";
+import { getOfferings, offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
 
 /** Floor-view entry returned by GET /api/admin/tables?date= */
 interface FloorEntry {
@@ -269,7 +270,7 @@ export default function ReservationsPage() {
             ))}
           </div>
 
-          {hasTables && <TableTimelineView date={date} refreshKey={refreshKey} />}
+          {hasTables && <TableTimelineView date={date} refreshKey={refreshKey} config={config} tz={tz} />}
 
           {hasTables && <FloorView date={date} refreshKey={refreshKey} />}
 
@@ -435,7 +436,7 @@ function SearchResultsView({
   );
 }
 
-function timeInTz(tz: string): string {
+function timeInTz(tz: string, at = new Date()): string {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
@@ -443,7 +444,7 @@ function timeInTz(tz: string): string {
       minute: "2-digit",
       hour12: false,
     })
-      .formatToParts(new Date())
+      .formatToParts(at)
       .map((x) => [x.type, x.value]),
   );
   const h = String(Number(parts.hour) % 24).padStart(2, "0");
@@ -612,10 +613,23 @@ const TIMELINE_STATUS: Record<string, string> = {
   no_show:   "bg-rose-400/30 border border-rose-400/20",
 };
 
-/** Horizontal per-table timeline showing bookings across the day. */
-function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: number }) {
+type TimelineWindow = { start: number; end: number };
+
+/** Horizontal per-table timeline showing bookings across the configured service day. */
+function TableTimelineView({
+  date,
+  refreshKey,
+  config,
+  tz,
+}: {
+  date: string;
+  refreshKey: number;
+  config: AvailabilityConfig | null;
+  tz: string;
+}) {
   const [floor, setFloor] = useState<FloorEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => new Date());
   const loadedDate = useRef<string | null>(null);
 
   useEffect(() => {
@@ -631,6 +645,11 @@ function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: num
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [date, refreshKey]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   if (loading) return <div className="h-28 rounded-xl bg-surface-container animate-pulse" />;
 
@@ -649,22 +668,51 @@ function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: num
 
   const allReservations = activeTables.flatMap((f) => f.reservations);
   const SLOT = 30;
-  let startMins: number;
-  let endMins: number;
-  if (allReservations.length > 0) {
-    const starts = allReservations.map((r) => toMins(r.time));
-    const ends = allReservations.map((r) => toMins(r.time) + r.durationMins);
-    startMins = Math.floor((Math.min(...starts) - SLOT) / SLOT) * SLOT;
-    endMins = Math.ceil((Math.max(...ends) + SLOT) / SLOT) * SLOT;
-  } else {
-    startMins = 11 * 60;
-    endMins = 23 * 60;
-  }
+  const LABEL_WIDTH_REM = 6;
+  const SLOT_WIDTH_REM = 2.5;
+  const SLOT_GAP_REM = 0.125;
+  const SLOT_STEP_REM = SLOT_WIDTH_REM + SLOT_GAP_REM;
+  const serviceWindows: TimelineWindow[] = config
+    ? getOfferings(config).flatMap((offering) =>
+        scheduleForDate(config, date, offering.id).services
+          .map((service) => {
+            const start = toMins(service.start);
+            const end = Math.min(24 * 60, toMins(service.end) + SLOT);
+            return Number.isFinite(start) && Number.isFinite(end) && end > start ? { start, end } : null;
+          })
+          .filter((window): window is TimelineWindow => Boolean(window)),
+      )
+    : [];
+  const reservationWindows = allReservations
+    .map((r) => {
+      const start = toMins(r.time);
+      const end = start + r.durationMins;
+      return Number.isFinite(start) && Number.isFinite(end) && end > start ? { start, end } : null;
+    })
+    .filter((window): window is TimelineWindow => Boolean(window));
+  const dayWindows = serviceWindows.length > 0 ? [...serviceWindows, ...reservationWindows] : reservationWindows;
+
+  let startMins = dayWindows.length > 0
+    ? Math.floor(Math.min(...dayWindows.map((w) => w.start)) / SLOT) * SLOT
+    : 11 * 60;
+  let endMins = dayWindows.length > 0
+    ? Math.ceil(Math.max(...dayWindows.map((w) => w.end)) / SLOT) * SLOT
+    : 23 * 60;
   startMins = Math.max(0, startMins);
   endMins = Math.min(24 * 60, endMins);
+  if (endMins <= startMins) endMins = Math.min(24 * 60, startMins + SLOT);
 
   const slots: string[] = [];
   for (let m = startMins; m < endMins; m += SLOT) slots.push(fmtTime(m));
+  const isOpenSlot = (slotM: number) =>
+    !config || serviceWindows.some((window) => slotM < window.end && slotM + SLOT > window.start);
+  const nowMins = toMins(timeInTz(tz, now));
+  const showNow = date === todayInTz(tz) && nowMins >= startMins && nowMins <= endMins;
+  const nowLeftRem = LABEL_WIDTH_REM + ((nowMins - startMins) / SLOT) * SLOT_STEP_REM;
+  const closedCellStyle = {
+    backgroundImage:
+      "repeating-linear-gradient(-45deg, rgba(120, 120, 120, 0.18) 0 6px, transparent 6px 12px)",
+  };
 
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container overflow-hidden">
@@ -680,11 +728,25 @@ function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: num
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm bg-surface-container-high border border-outline-variant/30" /> {am.floor.free}
           </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-surface/60 border border-outline-variant/20" style={closedCellStyle} /> {am.floor.closed}
+          </span>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <div className="p-3" style={{ minWidth: `${6 + slots.length * 2.75}rem` }}>
+        <div className="relative p-3" style={{ minWidth: `${LABEL_WIDTH_REM + slots.length * SLOT_STEP_REM}rem` }}>
+          {showNow && (
+            <div
+              className="pointer-events-none absolute bottom-2 top-2 z-20 flex -translate-x-1/2 flex-col items-center"
+              style={{ left: `${nowLeftRem}rem` }}
+            >
+              <span className="mb-0.5 rounded bg-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none tabular-nums text-on-primary shadow-sm">
+                {fmtTime(nowMins)}
+              </span>
+              <span className="h-full w-px bg-primary shadow-[0_0_0_1px_rgba(255,255,255,0.35)]" />
+            </div>
+          )}
           {/* Time header */}
           <div className="flex items-center mb-1.5 pl-24">
             {slots.map((t, i) => (
@@ -714,14 +776,18 @@ function TableTimelineView({ date, refreshKey }: { date: string; refreshKey: num
                     const slotM = toMins(t);
                     const res = occupancy.get(slotM);
                     const isStart = res && toMins(res.time) === slotM;
+                    const open = isOpenSlot(slotM);
                     const cls = res
                       ? (TIMELINE_STATUS[res.status] ?? "bg-primary/35 border border-primary/25")
-                      : "bg-surface-container-high/60";
+                      : open
+                        ? "bg-surface-container-high/60"
+                        : "bg-surface/60 border border-outline-variant/10";
                     return (
                       <div
                         key={t}
                         className={`w-10 h-7 ${isStart ? "rounded-l-sm" : ""} ${res && toMins(res.time) + res.durationMins <= slotM + SLOT ? "rounded-r-sm" : ""} ${!isStart && res ? "border-l-0" : ""} ${cls}`}
-                        title={res ? `${res.time}–${fmtTime(toMins(res.time) + res.durationMins)} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · free`}
+                        style={!res && !open ? closedCellStyle : undefined}
+                        title={res ? `${res.time}–${fmtTime(toMins(res.time) + res.durationMins)} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · ${open ? am.floor.free : am.floor.closed}`}
                       />
                     );
                   })}

@@ -216,6 +216,22 @@ describe("platform tenant CRUD via routes", () => {
     expect((await tenantStoreMod.getTenantStore().getById(id))?.settings.contactEmail).toBe("forwarded@acme.example");
   });
 
+  it("accepts same-origin browser platform mutations when a proxy rewrites Host", async () => {
+    const ctx = { params: Promise.resolve({ id }) };
+    const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {
+      method: "PATCH",
+      headers: {
+        host: "internal.platform.local",
+        origin: "https://restaurant-reservation-system.com",
+        referer: `https://restaurant-reservation-system.com/platform/tenants/${id}`,
+        "sec-fetch-site": "same-origin",
+      },
+      body: { settings: { contactEmail: "same-origin@acme.example" } },
+    }), ctx);
+    expect(res.status).toBe(200);
+    expect((await tenantStoreMod.getTenantStore().getById(id))?.settings.contactEmail).toBe("same-origin@acme.example");
+  });
+
   it("records a route log when a platform tenant PATCH is rejected", async () => {
     const ctx = { params: Promise.resolve({ id }) };
     const res = await tenantIdRoute.PATCH(authed(`/api/platform/tenants/${id}`, {

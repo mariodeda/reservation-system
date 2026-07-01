@@ -82,7 +82,7 @@ export default function TenantDetail() {
       set("feedbackText", preset.text);
       set("feedbackHtml", preset.html);
     }
-    toast(`Loaded "${preset.name}"`);
+    toast(am.platform.tenant.presetLoaded(preset.name));
   }
 
   async function saveSettings() {
@@ -120,7 +120,7 @@ export default function TenantDetail() {
       const res = await platformFetch(`/api/platform/tenants/${id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ settings }),
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || am.platform.tenant.requestFailed);
       toast(am.platform.tenant.saved);
       await load();
     } catch (e) {
@@ -139,7 +139,10 @@ export default function TenantDetail() {
     const res = await platformFetch(`/api/platform/tenants/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }),
     });
-    if (res.ok) { toast(`Restaurant ${next}`); load(); } else toast(am.platform.tenant.couldNotSave, "error");
+    if (res.ok) {
+      toast(am.platform.tenant.statusUpdated(next === "active" ? am.platform.statusActive : am.platform.statusDisabled));
+      load();
+    } else toast(am.platform.tenant.couldNotSave, "error");
   }
 
   async function addHost() {
@@ -163,7 +166,7 @@ export default function TenantDetail() {
 
   async function setPassword() {
     if (newPass.length < 8) { toast(am.platform.tenant.passwordTooShort, "error"); return; }
-    const operatorPassword = window.prompt("Confirm with your platform password");
+    const operatorPassword = window.prompt(am.platform.tenant.platformPasswordPrompt);
     if (!operatorPassword) return;
     const res = await platformFetch(`/api/platform/tenants/${id}/password`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: newPass, operatorPassword }),
@@ -174,7 +177,7 @@ export default function TenantDetail() {
 
   async function remove() {
     if (!confirm(am.platform.tenant.deleteConfirm(view!.name))) return;
-    const operatorPassword = window.prompt("Confirm deletion with your platform password");
+    const operatorPassword = window.prompt(am.platform.tenant.platformPasswordPrompt);
     if (!operatorPassword) return;
     const res = await platformFetch(`/api/platform/tenants/${id}`, {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operatorPassword }),
@@ -196,7 +199,7 @@ export default function TenantDetail() {
       const detail = summary
         ? Object.entries(summary).map(([k, v]) => `${v} ${k}`).join(", ")
         : "";
-      toast(detail ? `${label}: ${detail}` : `${label} done`);
+      toast(detail ? `${label}: ${detail}` : am.platform.tenant.operationDone(label));
     } catch {
       toast(am.platform.tenant.networkError, "error");
     } finally {
@@ -209,7 +212,7 @@ export default function TenantDetail() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{view.name}</h1>
-          <p className="text-xs text-on-surface-variant">/{view.slug} · {view.status}</p>
+          <p className="text-xs text-on-surface-variant">/{view.slug} · {view.status === "active" ? am.platform.statusActive : am.platform.statusDisabled}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={toggleStatus} className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary">
@@ -244,9 +247,7 @@ export default function TenantDetail() {
       <section className={card}>
         <h2 className="font-semibold">{am.platform.tenant.bookingApi}</h2>
         <p className="text-xs text-on-surface-variant">
-          A marketing site books against the shared reservation service by setting
-          its <code>NEXT_PUBLIC_RESERVATIONS_TENANT</code> to this public key, and is
-          allowed to call the API only from the origins listed below.
+          {am.platform.tenant.bookingApiHint}
         </p>
         <label className="block">
           <span className="text-xs text-on-surface-variant">{am.platform.tenant.publicKey}</span>
@@ -257,7 +258,7 @@ export default function TenantDetail() {
               onClick={() => { navigator.clipboard?.writeText(view.publicKey); toast(am.platform.tenant.keyCopied); }}
               className="shrink-0 text-sm border border-outline-variant/40 rounded-lg px-3 hover:text-primary"
             >
-              Copy
+              {am.platform.tenant.copy}
             </button>
           </div>
         </label>
@@ -274,7 +275,7 @@ export default function TenantDetail() {
         <div>
           <h2 className="font-semibold">{am.platform.tenant.emailFlow}</h2>
           <p className="text-xs text-on-surface-variant">
-            Platform-only controls for this restaurant's outbound email automation. Staff cannot edit these from the tenant admin.
+            {am.platform.tenant.emailFlowHint}
           </p>
         </div>
         <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/70 p-3 space-y-3">
@@ -284,7 +285,7 @@ export default function TenantDetail() {
             on={(v) => set("emailEnabled", v)}
           />
           <p className="text-xs text-on-surface-variant">
-            When off, every event below is suppressed even if SMTP credentials and templates are configured.
+            {am.platform.tenant.emailEnabledHint}
           </p>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
@@ -296,7 +297,7 @@ export default function TenantDetail() {
               disabled={!f.emailEnabled}
             />
             <p className="text-xs text-on-surface-variant">
-              Sent after confirmed public bookings when auto-confirm is on, or after any confirmed booking path calls the confirmation event.
+              {am.platform.tenant.confirmationHint}
             </p>
           </div>
           <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/70 p-3 space-y-3">
@@ -348,11 +349,11 @@ export default function TenantDetail() {
         <div>
           <h2 className="font-semibold">{am.platform.tenant.emailTemplates}</h2>
           <p className="text-xs text-on-surface-variant mt-1">
-            Leave blank to use the platform default. Variables:&nbsp;
+            {am.platform.tenant.templatesHint}&nbsp;
             {["guestName","restaurantName","date","time","service","partySize","reference","contactPhone","contactEmail","siteUrl"].map((v) => (
               <code key={v} className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{`{{${v}}}`}</code>
             ))}.
-            Feedback template also accepts <code className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{"{{feedbackUrl}}"}</code>.
+            {am.platform.tenant.feedbackTemplateHint} <code className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{"{{feedbackUrl}}"}</code>.
           </p>
         </div>
 
@@ -443,7 +444,7 @@ export default function TenantDetail() {
       {/* Hosts */}
       <section className={card}>
         <h2 className="font-semibold">{am.platform.tenant.hostsSection}</h2>
-        <p className="text-xs text-on-surface-variant">DNS-alias these hostnames to this deployment. Requests on them resolve to this restaurant.</p>
+        <p className="text-xs text-on-surface-variant">{am.platform.tenant.hostsHint}</p>
         <div className="flex flex-wrap gap-2">
           {view.hosts.length === 0 && <span className="text-on-surface-variant text-sm">{am.platform.tenant.noHosts}</span>}
           {view.hosts.map((h) => (
@@ -464,7 +465,7 @@ export default function TenantDetail() {
       {/* Staff password */}
       <section className={card}>
         <h2 className="font-semibold">{am.platform.tenant.staffLogin}</h2>
-        <p className="text-xs text-on-surface-variant">Reset the password staff use at this restaurant's <code>/admin/{view.slug}/login</code>.</p>
+        <p className="text-xs text-on-surface-variant">{am.platform.tenant.staffLoginHint(view.slug)}</p>
         <div className="flex gap-2">
           <input className={field} type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder={am.platform.tenant.newPassword} />
           <button onClick={setPassword} className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary whitespace-nowrap">{am.platform.tenant.setPassword}</button>
@@ -476,8 +477,7 @@ export default function TenantDetail() {
         <div>
           <h2 className="font-semibold">{am.platform.tenant.debug}</h2>
           <p className="text-xs text-on-surface-variant">
-            Generate realistic test data for <strong>{view.name}</strong> to exercise every admin screen.
-            Generators are additive; use "Clear all data" to reset. For test tenants only.
+            {am.platform.tenant.debugHint(view.name)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -605,14 +605,14 @@ function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => voi
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <div className="flex items-center gap-2">
             <span style={{ fontSize: 12, fontWeight: 600, color: "#c9a44a", letterSpacing: "1px", textTransform: "uppercase" }}>
-              Email Preview
+              {am.platform.tenant.previewTitle}
             </span>
-            <span style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>— sample data</span>
+            <span style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>— {am.platform.tenant.previewSample}</span>
           </div>
           <button
             onClick={onClose}
             style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", color: "#aaa", border: "none", cursor: "pointer" }}
-            aria-label="Close preview"
+            aria-label={am.platform.tenant.closePreview}
           >
             <XIcon className="h-3.5 w-3.5" />
           </button>
