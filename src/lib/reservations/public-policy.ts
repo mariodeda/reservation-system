@@ -1,4 +1,4 @@
-import type { AvailabilityConfig, OfferingSummary } from "./types";
+import type { AvailabilityConfig, DayAvailability, OfferingSummary } from "./types";
 
 export interface PublicReservationPolicy {
   maxPartySize: number;
@@ -11,6 +11,11 @@ export interface PublicTenantResponse {
 }
 
 export interface PublicOfferingsResponse {
+  offerings: OfferingSummary[];
+  reservationPolicy: PublicReservationPolicy;
+}
+
+export interface PublicDayAvailabilityResponse extends DayAvailability {
   offerings: OfferingSummary[];
   reservationPolicy: PublicReservationPolicy;
 }

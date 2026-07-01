@@ -72,13 +72,20 @@ export default function DayOccupancy({
       {day.services.map((svc) => {
         const booked = svc.slots.reduce((s, x) => s + x.booked, 0);
         const capacity = svc.slots.reduce((s, x) => s + x.capacity, 0);
+        const available = svc.slots.reduce((s, x) => s + (x.available ? x.remaining : 0), 0);
+        const status = coverAvailabilityStatus(available, capacity);
+        const pct = capacity > 0 ? Math.round((available / capacity) * 100) : 0;
+        const statusTitle = `${am.availability.coversAvailable(available, capacity, pct)}. ${status.label}`;
         return (
           <div key={svc.id}>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-sm font-semibold">{svc.label}</span>
-              <span className="text-xs text-on-surface-variant tabular-nums">
-                {am.availability.covers(booked, capacity)}
-              </span>
+              <div className="flex items-center gap-2">
+                <CoverAvailabilityIcon className={status.iconClass} title={statusTitle} tone={status.tone} />
+                <span className="text-sm font-semibold text-on-surface tabular-nums">
+                  {am.availability.covers(booked, capacity)}
+                </span>
+              </div>
             </div>
             <div className="flex flex-wrap gap-1">
               {svc.slots.map((s) => {
@@ -114,5 +121,47 @@ export default function DayOccupancy({
         );
       })}
     </div>
+  );
+}
+
+function coverAvailabilityStatus(available: number, capacity: number) {
+  const ratio = capacity > 0 ? available / capacity : 0;
+  if (ratio < 0.05) {
+    return {
+      label: am.availability.coversAvailableCritical,
+      iconClass: "text-rose-400",
+      tone: "critical" as const,
+    };
+  }
+  if (ratio < 0.3) {
+    return {
+      label: am.availability.coversAvailableLow,
+      iconClass: "text-amber-300",
+      tone: "low" as const,
+    };
+  }
+  return {
+    label: am.availability.coversAvailableOk,
+    iconClass: "text-emerald-300",
+    tone: "ok" as const,
+  };
+}
+
+function CoverAvailabilityIcon({ className, title, tone }: { className: string; title: string; tone: "ok" | "low" | "critical" }) {
+  const path = tone === "ok"
+    ? <><circle cx="8" cy="8" r="6" /><path d="m5.2 8.2 1.8 1.8 3.8-4" /></>
+    : tone === "critical"
+      ? <><circle cx="8" cy="8" r="6" /><path d="m5.8 5.8 4.4 4.4" /><path d="m10.2 5.8-4.4 4.4" /></>
+      : <><path d="M8 2.8 1.9 13a1 1 0 0 0 .9 1.5h10.4a1 1 0 0 0 .9-1.5L8 2.8Z" /><path d="M8 6.5v3" /><path d="M8 12h.01" /></>;
+  return (
+    <span
+      className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${className}`}
+      title={title}
+      aria-label={title}
+    >
+      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {path}
+      </svg>
+    </span>
   );
 }

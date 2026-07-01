@@ -6,7 +6,11 @@ import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-co
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
 import { observePublicRoute } from "@/lib/observability/route-events";
-import { publicReservationPolicy, type PublicOfferingsResponse } from "@/lib/reservations/public-policy";
+import {
+  publicReservationPolicy,
+  type PublicDayAvailabilityResponse,
+  type PublicOfferingsResponse,
+} from "@/lib/reservations/public-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,8 +88,13 @@ async function handle(req: NextRequest) {
     if (date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
         return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+      const body: PublicDayAvailabilityResponse = {
+        ...getDayAvailability(config, reservations, date, offering),
+        offerings,
+        reservationPolicy: publicReservationPolicy(config),
+      };
       return NextResponse.json(
-        { ...getDayAvailability(config, reservations, date, offering), offerings },
+        body,
         { headers: cacheHeaders },
       );
     }

@@ -101,6 +101,23 @@ describe("sanitizeConfig", () => {
     expect(cfg.blockedSlots["bad-date"]).toBeUndefined();
     expect(cfg.blockedSlots["2026-06-12"]).toBeUndefined();
   });
+  it("validates disabledServices by date, offering and service id", () => {
+    const cfg = sanitizeConfig({
+      disabledServices: {
+        "2026-06-11": {
+          main: ["lunch", "lunch", "", "dinner"],
+          bar: ["aperitivo"],
+        },
+        "bad-date": { main: ["lunch"] },
+      },
+    });
+    expect(cfg.disabledServices).toEqual({
+      "2026-06-11": {
+        main: ["lunch", "dinner"],
+        bar: ["aperitivo"],
+      },
+    });
+  });
   it("sanitizes dateOverrides and drops invalid date keys", () => {
     const cfg = sanitizeConfig({
       dateOverrides: {

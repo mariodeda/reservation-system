@@ -22,6 +22,7 @@ let routes: {
   adminAvail: typeof import("@/app/api/admin/availability/route");
   adminEmailLogs: typeof import("@/app/api/admin/email-logs/route");
   config: typeof import("@/app/api/admin/config/route");
+  todayControls: typeof import("@/app/api/admin/today-booking-controls/route");
   adminRes: typeof import("@/app/api/admin/reservations/route");
   adminResId: typeof import("@/app/api/admin/reservations/[id]/route");
   proxy: typeof import("@/proxy");
@@ -74,6 +75,7 @@ beforeAll(async () => {
     adminAvail: await import("@/app/api/admin/availability/route"),
     adminEmailLogs: await import("@/app/api/admin/email-logs/route"),
     config: await import("@/app/api/admin/config/route"),
+    todayControls: await import("@/app/api/admin/today-booking-controls/route"),
     adminRes: await import("@/app/api/admin/reservations/route"),
     adminResId: await import("@/app/api/admin/reservations/[id]/route"),
     proxy: await import("@/proxy"),
@@ -284,6 +286,7 @@ describe("GET /api/availability", () => {
     const json = await res.json();
     expect(json.date).toBe("2026-06-12");
     expect(json.services.length).toBeGreaterThan(0);
+    expect(json.reservationPolicy.maxPartySize).toBe(12);
   });
   it("returns a month grid", async () => {
     const res = await routes.avail.GET(req("/api/availability?month=2026-06"));
@@ -653,6 +656,47 @@ describe("admin config routes", () => {
   it("PUT 400s on invalid JSON", async () => {
     const res = await routes.config.PUT(adminReq("/api/admin/config", { method: "PUT", body: "{bad", headers: { "content-type": "application/json" } }));
     expect(res.status).toBe(400);
+  });
+});
+
+describe("admin today booking controls", () => {
+  it("lists today's services and toggles a service-level booking stop", async () => {
+    const before = await routes.todayControls.GET(adminReq("/api/admin/today-booking-controls"));
+    expect(before.status).toBe(200);
+    const beforeJson = await before.json();
+    expect(beforeJson.date).toBe("2026-06-11");
+    const lunch = beforeJson.services.find((s: { service: string }) => s.service === "lunch");
+    expect(lunch).toMatchObject({ disabled: false, cutoffPassed: false });
+
+    const patched = await routes.todayControls.PATCH(adminReq("/api/admin/today-booking-controls", {
+      method: "PATCH",
+      body: { offering: "main", service: "lunch", disabled: true },
+    }));
+    expect(patched.status).toBe(200);
+    const patchedJson = await patched.json();
+    expect(patchedJson.services.find((s: { service: string }) => s.service === "lunch").disabled).toBe(true);
+
+    const config = (await routes.store.getStore().forTenant(tenantId).getConfig());
+    expect(config.disabledServices?.["2026-06-11"]?.main).toContain("lunch");
+  });
+
+  it("does not remove manually blocked individual slots when re-enabling a stopped service", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    await store.saveConfig({
+      ...config,
+      blockedSlots: { "2026-06-11": ["12:00"] },
+      disabledServices: { "2026-06-11": { main: ["lunch"] } },
+    });
+
+    const res = await routes.todayControls.PATCH(adminReq("/api/admin/today-booking-controls", {
+      method: "PATCH",
+      body: { offering: "main", service: "lunch", disabled: false },
+    }));
+    expect(res.status).toBe(200);
+    const saved = await store.getConfig();
+    expect(saved.disabledServices?.["2026-06-11"]?.main).toBeUndefined();
+    expect(saved.blockedSlots["2026-06-11"]).toEqual(["12:00"]);
   });
 });
 

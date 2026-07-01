@@ -60,6 +60,9 @@ export interface Offering {
   blockedSlots: Record<string, string[]>;
 }
 
+/** Per-date service-level booking stops keyed by date -> offering -> service ids. */
+export type DisabledServices = Record<string, Record<OfferingId, ServiceId[]>>;
+
 /** The operational config that drives both admin and the public frontend. */
 export interface AvailabilityConfig {
   timezone: string;
@@ -83,6 +86,8 @@ export interface AvailabilityConfig {
   dateOverrides: Record<string, DaySchedule>;
   /** Individually blocked times per date (applies to every service). */
   blockedSlots: Record<string, string[]>;
+  /** Manually disabled services for specific dates, used for same-day stop-taking-bookings controls. */
+  disabledServices?: DisabledServices;
   /**
    * Multi-offering support. When present, this is the source of truth and the
    * top-level weekly/dateOverrides/blockedSlots mirror offerings[0] for legacy

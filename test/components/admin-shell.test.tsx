@@ -37,6 +37,9 @@ vi.mock("@/components/admin/useReservationEvents", () => ({
     markAllRead: reservationEvents.markAllRead,
   }),
 }));
+vi.mock("@/components/admin/TodayBookingControls", () => ({
+  default: () => <button type="button">Today bookings</button>,
+}));
 
 import AdminShell from "@/components/admin/AdminShell";
 

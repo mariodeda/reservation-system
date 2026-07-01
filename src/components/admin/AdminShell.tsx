@@ -7,6 +7,7 @@ import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
 import { useReservationEvents } from "./useReservationEvents";
 import { NotificationBell, ReservationToastStack } from "./NotificationBell";
+import TodayBookingControls from "./TodayBookingControls";
 
 export default function AdminShell({
   slug,
@@ -113,6 +114,7 @@ export default function AdminShell({
             </nav>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <TodayBookingControls />
             <NotificationBell
               notifications={notifications}
               unreadCount={unreadCount}

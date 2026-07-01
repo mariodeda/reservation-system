@@ -91,6 +91,15 @@ export function isClosed(
   return s.closed || s.services.length === 0;
 }
 
+export function isServiceDisabled(
+  config: AvailabilityConfig,
+  dateStr: string,
+  offeringId: OfferingId,
+  serviceId: ServiceId,
+): boolean {
+  return config.disabledServices?.[dateStr]?.[offeringId]?.includes(serviceId) ?? false;
+}
+
 /**
  * Covers (sum of party sizes) already booked for a date+time across active
  * statuses, scoped to one offering. Reservations with a missing/empty offering
@@ -177,7 +186,8 @@ export function getDayAvailability(
       const booked = bookedCovers(reservations, dateStr, time, resolvedId);
       const remaining = Math.max(0, w.capacity - booked);
       const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
-      const available = !blocked.has(time) && !tooSoon && remaining > 0;
+      const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
+      const available = !disabled && !blocked.has(time) && !tooSoon && remaining >= config.minPartySize;
       return { time, capacity: w.capacity, booked, remaining, available };
     }),
   }));
@@ -284,6 +294,8 @@ export function canBook(
   const schedule = scheduleForOffering(offering, input.date);
   const svc = schedule.services.find((s) => s.id === input.service);
   if (!svc) return { ok: false, error: "That service is not available on this date." };
+  if (isServiceDisabled(config, input.date, offeringId, svc.id))
+    return { ok: false, error: "That service is no longer taking online bookings today." };
   if (!generateSlots(svc).includes(input.time))
     return { ok: false, error: "That time is not a valid slot." };
   if ((offering.blockedSlots[input.date] ?? []).includes(input.time))

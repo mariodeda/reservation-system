@@ -182,12 +182,35 @@ describe("getDayAvailability", () => {
     expect(day.full).toBe(true);
   });
 
+  it("does not advertise a slot when remaining covers are below the minimum party size", () => {
+    setup();
+    const cfg = makeConfig({
+      minPartySize: 2,
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "12:00", capacity: 5 })])),
+    });
+    const day = getDayAvailability(cfg, [res({ date: "2026-06-12", time: "12:00", partySize: 4 })], "2026-06-12");
+    expect(day.services[0].slots[0]).toMatchObject({
+      booked: 4,
+      remaining: 1,
+      available: false,
+    });
+    expect(day.full).toBe(true);
+  });
+
   it("respects blocked slots", () => {
     setup();
     const cfg = makeConfig({ blockedSlots: { "2026-06-12": ["13:00"] } });
     const day = getDayAvailability(cfg, [], "2026-06-12");
     expect(day.services[0].slots.find((s) => s.time === "13:00")!.available).toBe(false);
     expect(day.services[0].slots.find((s) => s.time === "12:00")!.available).toBe(true);
+  });
+
+  it("marks every slot in a manually disabled service unavailable", () => {
+    setup();
+    const cfg = makeConfig({ disabledServices: { "2026-06-12": { main: ["lunch"] } } });
+    const day = getDayAvailability(cfg, [], "2026-06-12");
+    expect(day.services[0].slots.every((s) => !s.available)).toBe(true);
+    expect(day.full).toBe(true);
   });
 
   it("enforces lead time for same-day slots", () => {
@@ -245,6 +268,17 @@ describe("getMonthAvailability", () => {
       weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "12:00", capacity: 2 })])),
     });
     const days = getMonthAvailability(cfg, [res({ date: "2026-06-12", time: "12:00", partySize: 2 })], 2026, 6);
+    expect(days.find((d) => d.date === "2026-06-12")!.status).toBe("full");
+  });
+
+  it("marks a day full when every remaining slot is below the minimum party size", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(NOW));
+    const cfg = makeConfig({
+      minPartySize: 2,
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "12:00", capacity: 5 })])),
+    });
+    const days = getMonthAvailability(cfg, [res({ date: "2026-06-12", time: "12:00", partySize: 4 })], 2026, 6);
     expect(days.find((d) => d.date === "2026-06-12")!.status).toBe("full");
   });
 });
@@ -316,6 +350,12 @@ describe("canBook", () => {
   it("rejects a blocked slot", () => {
     setup();
     expect(canBook(makeConfig({ blockedSlots: { "2026-06-12": ["13:00"] } }), [], input()).ok).toBe(false);
+  });
+  it("rejects a manually disabled service", () => {
+    setup();
+    const check = canBook(makeConfig({ disabledServices: { "2026-06-12": { main: ["lunch"] } } }), [], input());
+    expect(check.ok).toBe(false);
+    expect(check.error).toMatch(/no longer taking online bookings/i);
   });
   it("rejects a same-day slot inside the lead window", () => {
     setup();

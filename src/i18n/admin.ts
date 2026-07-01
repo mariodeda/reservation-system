@@ -135,6 +135,21 @@ export const am = {
     toggleLight: "Switch to light mode",
     toggleDark: "Switch to dark mode",
   },
+  bookingControls: {
+    button: "Today bookings",
+    title: "Today booking controls",
+    subtitle: "Stop online bookings for a service immediately for today.",
+    loading: "Loading services...",
+    none: "No services configured for today.",
+    stopped: "Stopped",
+    accepting: "Accepting",
+    stop: "Stop bookings",
+    cutoffPassed: "Booking cutoff passed",
+    cutoffHint: (time: string) => `Can change until ${time}`,
+    activeCount: (n: number) => `${n} stopped`,
+    saved: "Booking controls updated",
+    saveError: "Could not update booking controls.",
+  },
   feedback: {
     send: "Send review email",
     sending: "Sending review email…",
@@ -385,6 +400,11 @@ export const am = {
     slotStatus: (booked: number, capacity: number, remaining: number) =>
       `${booked}/${capacity} covers booked · ${remaining} left`,
     covers: (booked: number, capacity: number) => `${booked}/${capacity} covers`,
+    coversAvailable: (available: number, capacity: number, pct: number) =>
+      `${available}/${capacity} covers available (${pct}%)`,
+    coversAvailableOk: "Healthy availability",
+    coversAvailableLow: "Low availability: fewer than 30% of covers are still bookable.",
+    coversAvailableCritical: "Critical availability: fewer than 5% of covers are still bookable.",
   },
   print: {
     subtitle: "Service run sheet",

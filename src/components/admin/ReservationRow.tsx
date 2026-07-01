@@ -39,6 +39,7 @@ export default function ReservationRow({
   const [editing, setEditing] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(!!r.feedbackSentAt);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const canEditOrDelete = r.status !== "seated" && r.status !== "completed";
 
   async function setStatus(status: ReservationStatus) {
     setBusy(true);
@@ -218,12 +219,17 @@ export default function ReservationRow({
                       )
                     )}
                     <button
-                      onClick={() => setEditing(true)}
-                      className="text-primary hover:underline text-xs"
+                      onClick={() => { if (canEditOrDelete) setEditing(true); }}
+                      disabled={!canEditOrDelete}
+                      className="text-primary hover:underline text-xs disabled:text-on-surface-variant/40 disabled:no-underline disabled:cursor-not-allowed"
                     >
                       {am.row.edit}
                     </button>
-                    <button onClick={remove} className="text-rose-400 hover:text-rose-300 text-xs">
+                    <button
+                      onClick={remove}
+                      disabled={!canEditOrDelete}
+                      className="text-rose-400 hover:text-rose-300 text-xs disabled:text-on-surface-variant/40 disabled:cursor-not-allowed"
+                    >
                       {am.row.delete}
                     </button>
                   </span>

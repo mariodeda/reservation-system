@@ -12,6 +12,7 @@ import {
   type AvailabilityConfig,
   type DaySchedule,
   DEFAULT_OFFERING_ID,
+  type DisabledServices,
   type Offering,
   type ServiceWindow,
 } from "./types";
@@ -78,6 +79,30 @@ function sanitizeScheduleBundle(
   return { weekly, dateOverrides, blockedSlots };
 }
 
+function sanitizeDisabledServices(input: Partial<AvailabilityConfig>): DisabledServices | undefined {
+  const out: DisabledServices = {};
+  const value = input.disabledServices;
+  if (!value || typeof value !== "object") return undefined;
+  for (const [date, byOffering] of Object.entries(value)) {
+    if (!isDate(date) || !byOffering || typeof byOffering !== "object") continue;
+    for (const [offeringId, serviceIds] of Object.entries(byOffering)) {
+      if (!Array.isArray(serviceIds)) continue;
+      const oid = String(offeringId).slice(0, 40);
+      const valid = Array.from(
+        new Set(
+          serviceIds
+            .map((id) => String(id).slice(0, 40))
+            .filter((id) => id.length > 0),
+        ),
+      ).slice(0, 32);
+      if (!valid.length) continue;
+      out[date] ??= {};
+      out[date][oid] = valid;
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function sanitizeConfig(input: Partial<AvailabilityConfig>): AvailabilityConfig {
   // Build the canonical offerings array. If the input carries offerings, use
   // them; otherwise synthesize a single primary offering from the top-level
@@ -141,5 +166,7 @@ export function sanitizeConfig(input: Partial<AvailabilityConfig>): Availability
   };
   // Optional default table turn time; only persisted when explicitly set.
   if (input.turnMinutes != null) out.turnMinutes = clamp(input.turnMinutes, 15, 1440, 120);
+  const disabledServices = sanitizeDisabledServices(input);
+  if (disabledServices) out.disabledServices = disabledServices;
   return out;
 }

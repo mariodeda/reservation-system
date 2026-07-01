@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReservationEvent } from "@/lib/reservations/events";
 
 export interface ReservationNotification extends ReservationEvent {
@@ -10,17 +10,19 @@ export interface ReservationNotification extends ReservationEvent {
 }
 
 const MAX = 30;
-let nextNotificationSeq = 0;
 
 export function useReservationEvents() {
   const [notifications, setNotifications] = useState<ReservationNotification[]>([]);
   const [connected, setConnected] = useState(false);
+  const seenCreatedIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let es: EventSource;
-    let retryTimeout: ReturnType<typeof setTimeout>;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
 
     function connect() {
+      if (stopped) return;
       es = new EventSource("/api/admin/events");
 
       es.addEventListener("connected", () => setConnected(true));
@@ -28,31 +30,42 @@ export function useReservationEvents() {
       const handleReservationEvent = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data) as ReservationEvent;
+          if (data.type !== "reservation.created") return;
+          const notificationId = `${data.type}:${data.id}`;
+          if (seenCreatedIds.current.has(data.id)) return;
+          seenCreatedIds.current.add(data.id);
           const n: ReservationNotification = {
             ...data,
-            notificationId: `${data.type}:${data.id}:${Date.now()}:${nextNotificationSeq++}`,
+            notificationId,
             receivedAt: Date.now(),
             read: false,
           };
-          setNotifications((prev) => [n, ...prev].slice(0, MAX));
+          setNotifications((prev) => (
+            prev.some((item) => item.id === data.id) ? prev : [n, ...prev].slice(0, MAX)
+          ));
           window.dispatchEvent(new CustomEvent("reservation:new", { detail: n }));
         } catch { /* malformed */ }
       };
 
       es.addEventListener("reservation.created", handleReservationEvent);
-      es.addEventListener("reservation.updated", handleReservationEvent);
 
       es.onerror = () => {
         setConnected(false);
         es.close();
-        // Exponential-ish backoff: retry after 5 s
-        retryTimeout = setTimeout(connect, 5_000);
+        if (retryTimeout) return;
+        // Back off reconnects and make sure repeated onerror calls don't open
+        // parallel SSE subscriptions for the same browser tab.
+        retryTimeout = setTimeout(() => {
+          retryTimeout = null;
+          connect();
+        }, 5_000);
       };
     }
 
     connect();
     return () => {
-      clearTimeout(retryTimeout);
+      stopped = true;
+      if (retryTimeout) clearTimeout(retryTimeout);
       es?.close();
       setConnected(false);
     };

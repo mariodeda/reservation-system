@@ -35,6 +35,7 @@ describe("DayOccupancy", () => {
     expect(adminJson).toHaveBeenCalledWith("/api/admin/availability?date=2026-06-12");
     expect(await screen.findByText("Lunch")).toBeInTheDocument();
     expect(screen.getByText("27/40 covers")).toBeInTheDocument(); // 4+8+10+5 booked / 4*10 cap
+    expect(screen.getByLabelText(/8\/40 covers available \(20%\).*low availability/i)).toBeInTheDocument();
     // a chip per slot, coloured per fullness (open/amber/full/blocked)
     for (const t of ["12:00", "12:30", "13:00", "13:30"]) {
       expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
@@ -76,5 +77,32 @@ describe("DayOccupancy", () => {
     adminJson.mockResolvedValue(day());
     render(<DayOccupancy date="2026-06-12" />);
     expect(await screen.findByRole("button", { name: "12:00" })).toBeDisabled();
+  });
+
+  it("shows green, warning and critical cover availability icons by service", async () => {
+    adminJson.mockResolvedValue(day({
+      services: [
+        {
+          id: "healthy",
+          label: "Healthy",
+          slots: [{ time: "12:00", capacity: 100, booked: 40, remaining: 60, available: true }],
+        },
+        {
+          id: "low",
+          label: "Low",
+          slots: [{ time: "13:00", capacity: 100, booked: 75, remaining: 25, available: true }],
+        },
+        {
+          id: "critical",
+          label: "Critical",
+          slots: [{ time: "14:00", capacity: 100, booked: 96, remaining: 4, available: true }],
+        },
+      ],
+    }));
+    render(<DayOccupancy date="2026-06-12" />);
+
+    expect(await screen.findByLabelText(/60\/100 covers available \(60%\).*healthy availability/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/25\/100 covers available \(25%\).*low availability/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/4\/100 covers available \(4%\).*critical availability/i)).toBeInTheDocument();
   });
 });

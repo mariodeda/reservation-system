@@ -134,6 +134,21 @@ export const it = {
     toggleLight: "Passa alla modalità chiara",
     toggleDark: "Passa alla modalità scura",
   },
+  bookingControls: {
+    button: "Prenotazioni oggi",
+    title: "Controlli prenotazioni di oggi",
+    subtitle: "Ferma subito le prenotazioni online per un servizio di oggi.",
+    loading: "Caricamento servizi...",
+    none: "Nessun servizio configurato per oggi.",
+    stopped: "Fermato",
+    accepting: "Aperto",
+    stop: "Ferma prenotazioni",
+    cutoffPassed: "Anticipo prenotazione superato",
+    cutoffHint: (time: string) => `Modificabile fino alle ${time}`,
+    activeCount: (n: number) => `${n} fermat${n === 1 ? "o" : "i"}`,
+    saved: "Controlli prenotazioni aggiornati",
+    saveError: "Impossibile aggiornare i controlli prenotazioni.",
+  },
   feedback: {
     send: "Invia email recensione",
     sending: "Invio email recensione…",
@@ -379,6 +394,11 @@ export const it = {
     slotStatus: (booked: number, capacity: number, remaining: number) =>
       `${booked}/${capacity} coperti prenotati · ${remaining} rimanenti`,
     covers: (booked: number, capacity: number) => `${booked}/${capacity} coperti`,
+    coversAvailable: (available: number, capacity: number, pct: number) =>
+      `${available}/${capacity} coperti disponibili (${pct}%)`,
+    coversAvailableOk: "Disponibilita buona",
+    coversAvailableLow: "Disponibilita bassa: meno del 30% dei coperti e ancora prenotabile.",
+    coversAvailableCritical: "Disponibilita critica: meno del 5% dei coperti e ancora prenotabile.",
   },
   print: {
     subtitle: "Foglio di servizio",

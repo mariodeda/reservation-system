@@ -101,6 +101,24 @@ describe("ReservationRow", () => {
     confirmSpy.mockRestore();
   });
 
+  it.each(["seated", "completed"] as const)("disables edit and delete once a reservation is %s", async (status) => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm");
+    render(<ReservationRow r={row({ status })} onChanged={() => {}} />);
+
+    const edit = screen.getByRole("button", { name: "Edit reservation" });
+    const del = screen.getByRole("button", { name: "Delete reservation" });
+    expect(edit).toBeDisabled();
+    expect(del).toBeDisabled();
+
+    await user.click(edit);
+    await user.click(del);
+
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(adminFetch).not.toHaveBeenCalled();
+  });
+
   it("shows a 'manual' badge for admin-sourced bookings and a Reinstate action when cancelled", async () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row({ source: "admin", status: "cancelled" })} onChanged={() => {}} />);
