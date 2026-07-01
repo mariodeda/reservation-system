@@ -171,6 +171,7 @@ export function NotificationBell({
     locallyRead.has(n.notificationId) ? { ...n, read: true } : n,
   );
   const visibleUnreadCount = visibleNotifications.filter((n) => !n.read).length;
+  const unreadNotifications = visibleNotifications.filter((n) => !n.read);
 
   // Close on outside click
   useEffect(() => {
@@ -228,7 +229,7 @@ export function NotificationBell({
               {!connected && (
                 <span className="text-[10px] text-amber-400 font-medium">Reconnecting…</span>
               )}
-              {notifications.length > 0 && (
+              {visibleUnreadCount > 0 && (
                 <button
                   onClick={markAllReadNow}
                   className="text-[11px] text-primary hover:text-primary/70 font-medium transition"
@@ -241,16 +242,16 @@ export function NotificationBell({
 
           {/* list */}
           <div className="max-h-[420px] overflow-y-auto">
-            {notifications.length === 0 ? (
+            {unreadNotifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-on-surface-variant/50">
                 <BellIcon className="w-6 h-6 mx-auto mb-2" />
-                <p>No notifications yet</p>
+                <p>{notifications.length === 0 ? "No notifications yet" : "No unread notifications"}</p>
                 <p className="text-xs mt-1 text-on-surface-variant/40">
                   {connected ? "Listening for new reservations…" : "Connecting…"}
                 </p>
               </div>
             ) : (
-              visibleNotifications.map((n) => (
+              unreadNotifications.map((n) => (
                 <button
                   key={n.notificationId}
                   onClick={() => goTo(n)}

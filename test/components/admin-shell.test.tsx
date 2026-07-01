@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { replace, refresh } = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
+const { push, replace, refresh } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
 const pathname = vi.hoisted(() => ({ value: "/admin/acme/reservations" }));
 const reservationEvents = vi.hoisted(() => ({
   notifications: [] as Array<{
@@ -23,7 +23,7 @@ const reservationEvents = vi.hoisted(() => ({
   markAllRead: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace, refresh }),
+  useRouter: () => ({ push, replace, refresh }),
   usePathname: () => pathname.value,
 }));
 // next/link -> plain anchor for the test environment.
@@ -41,6 +41,7 @@ vi.mock("@/components/admin/useReservationEvents", () => ({
 import AdminShell from "@/components/admin/AdminShell";
 
 beforeEach(() => {
+  push.mockReset();
   replace.mockReset();
   refresh.mockReset();
   reservationEvents.notifications = [];
@@ -140,6 +141,35 @@ describe("AdminShell", () => {
 
     expect(reservationEvents.markAllRead).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
+    expect(screen.queryByText("Jane")).not.toBeInTheDocument();
+    expect(screen.getByText("No unread notifications")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
+  });
+
+  it("removes a notification from the bell popup when it is opened", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    await user.click(screen.getByRole("button", { name: /Jane/ }));
+
+    expect(reservationEvents.markRead).toHaveBeenCalledWith("reservation.created:res-1:1:0");
+    expect(push).toHaveBeenCalledWith("/admin/acme/reservations?date=2026-07-01");
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(screen.queryByText("Jane")).not.toBeInTheDocument();
+    expect(screen.getByText("No unread notifications")).toBeInTheDocument();
   });
 });
