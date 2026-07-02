@@ -57,6 +57,8 @@ export interface TenantSettings {
   feedbackRequestDelayHours?: number;
   /** Optional explicit From header. */
   emailFrom?: string;
+  /** Optional booking-confirmation calendar event title template. */
+  calendarEventTitle?: string;
   /** Brand accent colors injected as CSS variables on the reservation page. */
   theme?: { primary?: string; onPrimary?: string };
   /**

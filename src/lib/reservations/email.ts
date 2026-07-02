@@ -168,8 +168,11 @@ function buildReservationCalendarEvent(
     ?? (config ? turnMinutesFor(config, reservation.offering, reservation.service, reservation.date) : 120);
   const end = addMinutesToLocal(reservation.date, reservation.time, durationMins);
   const timezone = tenant.settings.timezone || config?.timezone || "UTC";
+  const vars = buildEmailVars(reservation, tenant, serviceLabel);
   const reference = referenceOf(reservation.id);
   const service = serviceLabel ?? reservation.service;
+  const summary = renderTemplate(tenant.settings.calendarEventTitle || "{{restaurantName}} reservation", vars).trim()
+    || `${tenant.settings.name} reservation`;
   const description = [
     `Reservation reference: ${reference}`,
     `Guest: ${reservation.name}`,
@@ -191,7 +194,7 @@ function buildReservationCalendarEvent(
     `DTSTAMP:${icsUtcDateTime()}`,
     `DTSTART;TZID=${icsText(timezone)}:${icsLocalDateTime(reservation.date, reservation.time)}`,
     `DTEND;TZID=${icsText(timezone)}:${icsLocalDateTime(end.date, end.time)}`,
-    `SUMMARY:${icsText(`${tenant.settings.name} reservation`)}`,
+    `SUMMARY:${icsText(summary)}`,
     `LOCATION:${icsText(tenant.settings.name)}`,
     `DESCRIPTION:${icsText(description)}`,
     ...(tenant.settings.url ? [`URL:${icsText(tenant.settings.url)}`] : []),

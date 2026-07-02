@@ -533,6 +533,8 @@ export const it = {
       smtpSecure: "Usa TLS (sicuro)",
       bookingConfirmationTpl: "Conferma prenotazione",
       feedbackRequestTpl: "Richiesta recensione",
+      calendarEventTitle: "Titolo evento calendario",
+      calendarEventTitleHint: "L'allegato calendario della conferma prenotazione usa questo titolo; se vuoto usa \"{{restaurantName}} reservation\".",
       subject: "Oggetto",
       plainText: "Testo semplice",
       htmlBody: "Corpo HTML",

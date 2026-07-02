@@ -23,6 +23,7 @@ type Form = {
   themePrimary: string; themeOnPrimary: string; logoUrl: string;
   allowedOrigins: string;
   smtpHost: string; smtpPort: string; smtpSecure: boolean; smtpUser: string; smtpFrom: string; smtpPass: string;
+  calendarEventTitle: string;
   confirmSubject: string; confirmText: string; confirmHtml: string;
   feedbackSubject: string; feedbackText: string; feedbackHtml: string;
 };
@@ -54,6 +55,7 @@ function toForm(t: TenantView): Form {
     allowedOrigins: (s.allowedOrigins ?? []).join("\n"),
     smtpHost: s.smtp?.host ?? "", smtpPort: String(s.smtp?.port ?? 587), smtpSecure: s.smtp?.secure ?? false,
     smtpUser: s.smtp?.user ?? "", smtpFrom: s.smtp?.from ?? "", smtpPass: "",
+    calendarEventTitle: s.calendarEventTitle ?? "",
     confirmSubject: ct?.subject ?? "", confirmText: ct?.text ?? "", confirmHtml: ct?.html ?? "",
     feedbackSubject: ft?.subject ?? "", feedbackText: ft?.text ?? "", feedbackHtml: ft?.html ?? "",
   };
@@ -111,6 +113,7 @@ export default function TenantDetail() {
         },
         feedbackRequestDelayHours: Number(f.feedbackRequestDelayHours) || 0,
         feedbackEnabled: f.emailFeedbackRequest,
+        calendarEventTitle: f.calendarEventTitle || undefined,
         theme: { primary: f.themePrimary || undefined, onPrimary: f.themeOnPrimary || undefined },
         logoUrl: f.logoUrl || undefined,
         allowedOrigins: f.allowedOrigins.split(/[\n,]/).map((o) => o.trim()).filter(Boolean),
@@ -394,6 +397,9 @@ export default function TenantDetail() {
             ))}.
             {am.platform.tenant.feedbackTemplateHint} <code className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{"{{reviewUrl}}"}</code>.
           </p>
+          <p className="text-xs text-on-surface-variant mt-1">
+            {am.platform.tenant.calendarEventTitleHint}
+          </p>
         </div>
 
         {/* Booking confirmation */}
@@ -408,6 +414,7 @@ export default function TenantDetail() {
             ))}
           </div>
           <div className="space-y-2">
+            <Field label={am.platform.tenant.calendarEventTitle} v={f.calendarEventTitle} on={(v) => set("calendarEventTitle", v)} placeholder="{{restaurantName}} reservation" />
             <Field label={am.platform.tenant.subject} v={f.confirmSubject} on={(v) => set("confirmSubject", v)} placeholder="Your reservation at {{restaurantName}} is confirmed" />
             <TemplateArea label={am.platform.tenant.plainText} v={f.confirmText} on={(v) => set("confirmText", v)} rows={5} placeholder="Hi {{guestName}}, your table for {{partySize}} on {{date}}…" />
             <div>

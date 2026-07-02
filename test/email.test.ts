@@ -150,6 +150,18 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
     expect(arg.icalEvent.content).toContain("DTEND;TZID=Europe/Rome:20260612T210000");
   });
 
+  it("uses the configured calendar event title template", async () => {
+    sendMail.mockResolvedValueOnce({ messageId: "x" });
+    await sendConfirmationEmail(
+      reservation(),
+      tenant({ smtp, calendarEventTitle: "{{restaurantName}} · {{guestName}} · {{reference}}" }),
+      "Dinner",
+    );
+
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.icalEvent.content).toContain("SUMMARY:Osteria Cancello dei Macci · Jane Doe · ABCDEF");
+  });
+
   it("marks SMTP recipient rejection as a failed unreachable email", async () => {
     sendMail.mockResolvedValueOnce({ rejected: ["jane@example.com"] });
     const r = await sendConfirmationEmail(reservation(), tenant({ smtp }), "Dinner");

@@ -314,6 +314,7 @@ describe("platform tenant CRUD via routes", () => {
           emailEvents: { bookingConfirmation: true, feedbackRequest: true },
           feedbackEnabled: true,
           feedbackRequestDelayHours: 4,
+          calendarEventTitle: "{{restaurantName}} booking for {{guestName}}",
           smtp: { host: "smtp.acme.com", port: 587, secure: true, user: "u" },
           emailTemplates: {
             confirmation: {
@@ -335,6 +336,7 @@ describe("platform tenant CRUD via routes", () => {
     expect(stored?.settings.emailTemplates?.confirmation.subject).toContain("confirmed");
     expect(stored?.settings.emailTemplates?.feedbackRequest?.subject).toContain("How was your visit");
     expect(stored?.settings.emailTemplates?.feedbackRequest?.html).toContain("{{reviewUrl}}");
+    expect(stored?.settings.calendarEventTitle).toBe("{{restaurantName}} booking for {{guestName}}");
     expect(stored?.settings.reviewUrl).toBe("https://g.page/r/acme/review");
     expect(stored?.settings.smtp?.pass).toBe("secret-pw");
   });

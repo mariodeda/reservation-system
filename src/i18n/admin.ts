@@ -545,6 +545,8 @@ export const am = {
       // Email templates
       bookingConfirmationTpl: "Booking confirmation",
       feedbackRequestTpl: "Feedback request",
+      calendarEventTitle: "Calendar event title",
+      calendarEventTitleHint: "The booking confirmation calendar attachment uses the calendar event title; blank means \"{{restaurantName}} reservation\".",
       subject: "Subject",
       plainText: "Plain text body",
       htmlBody: "HTML body",

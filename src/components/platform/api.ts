@@ -43,6 +43,7 @@ export interface TenantView {
     feedbackRequestDelayHours?: number;
     feedbackEnabled?: boolean;
     emailFrom?: string;
+    calendarEventTitle?: string;
     theme?: { primary?: string; onPrimary?: string };
     logoUrl?: string;
     allowedOrigins?: string[];

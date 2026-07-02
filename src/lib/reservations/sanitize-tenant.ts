@@ -160,6 +160,8 @@ export function sanitizeTenantSettings(input: Partial<TenantSettings>): TenantSe
   };
   const emailFrom = str(input.emailFrom, 200).trim();
   if (emailFrom) settings.emailFrom = emailFrom;
+  const calendarEventTitle = str(input.calendarEventTitle, 200).trim();
+  if (calendarEventTitle) settings.calendarEventTitle = calendarEventTitle;
   const reviewUrl = sanitizeExternalUrl(input.reviewUrl);
   if (reviewUrl) settings.reviewUrl = reviewUrl;
   if (Object.keys(theme).length) settings.theme = theme;
