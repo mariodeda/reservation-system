@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { am } from "@/i18n";
 import { adminFetch, adminJson, toast } from "./api";
+import Tooltip from "@/components/ui/Tooltip";
 
 interface TodayBookingControlService {
   offering: string;
@@ -81,24 +82,25 @@ export default function TodayBookingControls() {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        title={am.bookingControls.title}
-        aria-label={am.bookingControls.button}
-        className={`relative h-8 px-2.5 flex items-center gap-1.5 rounded-lg border transition text-xs font-semibold ${
-          stopped > 0
-            ? "border-amber-400/40 bg-amber-400/15 text-amber-200 hover:bg-amber-400/20"
-            : "border-outline-variant/40 text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
-        }`}
-      >
-        <PauseIcon />
-        <span className="hidden lg:inline">{am.bookingControls.button}</span>
-        {stopped > 0 && (
-          <span className="min-w-[16px] h-4 rounded-full bg-amber-400 text-surface text-[9px] font-bold flex items-center justify-center px-1 leading-none tabular-nums">
-            {stopped}
-          </span>
-        )}
-      </button>
+      <Tooltip content={am.bookingControls.title}>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-label={am.bookingControls.button}
+          className={`relative h-8 px-2.5 flex items-center gap-1.5 rounded-lg border transition text-xs font-semibold ${
+            stopped > 0
+              ? "border-amber-400/40 bg-amber-400/15 text-amber-200 hover:bg-amber-400/20"
+              : "border-outline-variant/40 text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
+          }`}
+        >
+          <PauseIcon />
+          <span className="hidden lg:inline">{am.bookingControls.button}</span>
+          {stopped > 0 && (
+            <span className="min-w-[16px] h-4 rounded-full bg-amber-400 text-surface text-[9px] font-bold flex items-center justify-center px-1 leading-none tabular-nums">
+              {stopped}
+            </span>
+          )}
+        </button>
+      </Tooltip>
 
       {open && (
         <div className="absolute right-0 top-10 w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">

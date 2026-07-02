@@ -198,7 +198,6 @@ class MySqlTenantStore implements TenantStore {
     await ensureSchema();
     const pool = getPool();
     // cascade: data first, then domains, then the tenant row
-    await pool.query("DELETE FROM reservation_feedback WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM reservation_emails WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM tenant_smtp_health WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM waitlist WHERE tenant_id = ?", [tenantId]);

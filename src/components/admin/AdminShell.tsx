@@ -8,6 +8,7 @@ import SystemLogo from "@/components/SystemLogo";
 import { useReservationEvents } from "./useReservationEvents";
 import { NotificationBell, ReservationToastStack } from "./NotificationBell";
 import TodayBookingControls from "./TodayBookingControls";
+import Tooltip from "@/components/ui/Tooltip";
 
 export default function AdminShell({
   slug,
@@ -107,10 +108,10 @@ export default function AdminShell({
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
         <div className="px-4 lg:px-6 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 lg:gap-5 min-w-0">
+            <Tooltip content={am.nav.dashboard}>
             <Link
               href={base}
               aria-label={am.nav.dashboard}
-              title={am.nav.dashboard}
               className="shrink-0 min-w-0 flex items-center hover:opacity-80 transition"
             >
               {logoUrl ? (
@@ -125,6 +126,7 @@ export default function AdminShell({
                 </div>
               )}
             </Link>
+            </Tooltip>
             <nav className="hidden sm:flex items-center gap-1">
               {navBeforeClientStats.map((n) => {
                 const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
@@ -189,20 +191,20 @@ export default function AdminShell({
               onMarkAllRead={handleMarkAllRead}
               onMarkRead={handleMarkRead}
             />
-            <button
-              onClick={toggleTheme}
-              title={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
-              aria-label={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
-            >
-              {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-            </button>
+            <Tooltip content={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}>
+              <button
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
+              >
+                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+              </button>
+            </Tooltip>
             <div className="flex items-center rounded-lg border border-outline-variant/40 overflow-hidden">
               {(["it", "en"] as Locale[]).map((l) => (
+                <Tooltip key={l} content={l === "it" ? "Italiano" : "English"}>
                 <button
-                  key={l}
                   onClick={() => { if (locale !== l) setLocale(l); }}
-                  title={l === "it" ? "Italiano" : "English"}
                   aria-label={l === "it" ? "Italiano" : "English"}
                   className={`px-2 py-1 text-sm leading-none transition ${
                     locale === l
@@ -212,20 +214,22 @@ export default function AdminShell({
                 >
                   {l === "it" ? "🇮🇹" : "🇬🇧"}
                 </button>
+                </Tooltip>
               ))}
             </div>
-            <Link
-              href={settingsHref}
-              title={am.nav.settings}
-              aria-label={am.nav.settings}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
-                settingsActive
-                  ? "bg-primary/15 text-primary"
-                  : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
-              }`}
-            >
-              <GearIcon />
-            </Link>
+            <Tooltip content={am.nav.settings}>
+              <Link
+                href={settingsHref}
+                aria-label={am.nav.settings}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
+                  settingsActive
+                    ? "bg-primary/15 text-primary"
+                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
+                }`}
+              >
+                <GearIcon />
+              </Link>
+            </Tooltip>
             <button
               onClick={logout}
               className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition whitespace-nowrap"

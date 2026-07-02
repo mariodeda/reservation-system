@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getCustomerStore } from "@/lib/reservations/customer-store";
 import { referenceOf } from "@/lib/reservations/store";
-import { getFeedbackStatusBatch } from "@/lib/reservations/feedback-store";
+import { getSentEmailStatusBatch } from "@/lib/reservations/email-log-store";
 import { observeAdminRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
@@ -25,9 +25,9 @@ async function getCustomer(req: NextRequest, ctx: Ctx) {
   try {
     const detail = await getCustomerStore(admin.tenant.id).getCustomerDetail(email);
     if (!detail) return NextResponse.json({ error: "Customer not found." }, { status: 404 });
-    // Attach reference codes and feedback data to reservations
+    // Attach reference codes and review-request email state to reservations.
     const ids = detail.reservations.map((r) => r.id);
-    const feedbackMap = await getFeedbackStatusBatch(ids).catch(() => new Map());
+    const feedbackMap = await getSentEmailStatusBatch(ids, "feedbackRequest").catch(() => new Map());
     const reservations = detail.reservations.map((r) => ({
       ...r,
       reference: referenceOf(r.id),

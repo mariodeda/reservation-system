@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type ReservationNotification } from "./useReservationEvents";
+import Tooltip from "@/components/ui/Tooltip";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -213,9 +214,9 @@ export function NotificationBell({
 
   return (
     <div ref={ref} className="relative">
+      <Tooltip content={connected ? "Notifications" : "Reconnecting..."}>
       <button
         onClick={toggleOpen}
-        title={connected ? "Notifications" : "Reconnecting…"}
         aria-label={`Notifications${visibleUnreadCount > 0 ? `, ${visibleUnreadCount} unread` : ""}`}
         className="relative w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
       >
@@ -228,6 +229,7 @@ export function NotificationBell({
         {/* connectivity dot */}
         <span className={`absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
       </button>
+      </Tooltip>
 
       {open && (
         <div className="absolute right-0 top-10 w-80 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">

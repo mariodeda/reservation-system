@@ -5,6 +5,7 @@ import { am } from "@/i18n";
 import { adminJson, adminFetch, toast } from "@/components/admin/api";
 import type { CustomerProfile, Reservation } from "@/lib/reservations/types";
 import { STATUS_META, formatDateLong } from "@/components/admin/shared";
+import Tooltip from "@/components/ui/Tooltip";
 
 type SortBy = "lastVisit" | "name" | "visits";
 
@@ -247,16 +248,20 @@ function CustomerRow({
               </span>
             )}
             {customer.dietaryNotes && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-300 shrink-0" title={customer.dietaryNotes}>
-                <AlertIcon className="h-3 w-3" />
-                {am.customers.dietaryAlert}
-              </span>
+              <Tooltip content={customer.dietaryNotes}>
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-300 shrink-0">
+                  <AlertIcon className="h-3 w-3" />
+                  {am.customers.dietaryAlert}
+                </span>
+              </Tooltip>
             )}
             {customer.noShowCount > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] text-rose-400 shrink-0" title={`${customer.noShowCount} no-show${customer.noShowCount > 1 ? "s" : ""}`}>
-                <XIcon className="h-3 w-3" />
-                {customer.noShowCount} {am.customers.noShows.toLowerCase()}
-              </span>
+              <Tooltip content={`${customer.noShowCount} no-show${customer.noShowCount > 1 ? "s" : ""}`}>
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-rose-400 shrink-0">
+                  <XIcon className="h-3 w-3" />
+                  {customer.noShowCount} {am.customers.noShows.toLowerCase()}
+                </span>
+              </Tooltip>
             )}
           </div>
           <div className="text-xs text-on-surface-variant mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">

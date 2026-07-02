@@ -1,6 +1,6 @@
-import { createFeedbackToken, getFeedbackByReservation } from "./feedback-store";
 import { sendFeedbackRequestEmail } from "./email";
 import { hasGuestAttended, isEmailEventEnabled, isFeedbackRequestDue } from "./email-policy";
+import { hasSentEmail } from "./email-log-store";
 import type { Tenant } from "./tenant";
 import type { Reservation } from "./types";
 import { recordAppEvent } from "@/lib/observability/app-event-store";
@@ -19,11 +19,10 @@ export async function sendFeedbackRequestForReservation(
     return { sent: false, skipped: true };
   }
 
-  const existing = await getFeedbackByReservation(reservation.id).catch(() => null);
-  if (existing) return { sent: false, skipped: true };
+  const alreadySent = await hasSentEmail(reservation.id, "feedbackRequest").catch(() => false);
+  if (alreadySent) return { sent: false, skipped: true };
 
-  const record = await createFeedbackToken(reservation.id, tenant.id);
-  const result = await sendFeedbackRequestEmail(reservation, tenant, tenant.settings.reviewUrl);
+  const result = await sendFeedbackRequestEmail(reservation, tenant);
   await recordAppEvent({
     level: result.sent ? "info" : result.error ? "error" : "warn",
     event: result.sent ? "feedback.request.sent" : "feedback.request.skipped_or_failed",

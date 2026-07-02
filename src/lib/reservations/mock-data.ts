@@ -14,7 +14,7 @@ import { getStore } from "./store";
 import { getTableStore } from "./table-store";
 import { getWaitlistStore } from "./waitlist-store";
 import { getCustomerStore } from "./customer-store";
-import { createFeedbackToken, getFeedbackByReservation } from "./feedback-store";
+import { hasSentEmail, recordEmailAttempt } from "./email-log-store";
 import { getPool } from "./mysql-pool";
 import { getOfferings } from "./offerings";
 import { generateSlots, nowInTz, scheduleForDate } from "./availability";
@@ -288,8 +288,14 @@ export async function seedFeedback(tenantId: string): Promise<MockSummary> {
   let requested = 0;
   await inChunks(completed, 15, async (r) => {
     if (!chance(0.55)) return;
-    if (await getFeedbackByReservation(r.id)) return; // don't double-up
-    await createFeedbackToken(r.id, tenantId);
+    if (await hasSentEmail(r.id, "feedbackRequest")) return; // don't double-up
+    await recordEmailAttempt({
+      tenantId,
+      reservationId: r.id,
+      type: "feedbackRequest",
+      status: "sent",
+      toEmail: r.email || undefined,
+    });
     requested++;
   });
   return { reviewRequests: requested };
@@ -299,7 +305,7 @@ export async function seedFeedback(tenantId: string): Promise<MockSummary> {
 
 export async function seedAll(tenantId: string): Promise<MockSummary> {
   // Order matters: tables + customers first so reservations can reference them;
-  // feedback last so it can attach to the freshly-seeded completed history.
+  // review-request logs last so they can attach to freshly-seeded completed history.
   const out: MockSummary = {};
   const merge = (s: MockSummary) => Object.assign(out, s);
   merge(await seedTables(tenantId));
@@ -325,7 +331,7 @@ export async function clearTenantData(tenantId: string): Promise<MockSummary> {
     out[key] = (res as { affectedRows?: number }).affectedRows ?? 0;
   };
   // Order respects FK-free deletes but mirrors logical dependencies.
-  await del("feedback", "DELETE FROM reservation_feedback WHERE tenant_id = ?");
+  await del("emails", "DELETE FROM reservation_emails WHERE tenant_id = ?");
   await del("waitlist", "DELETE FROM waitlist WHERE tenant_id = ?");
   await del("reservations", "DELETE FROM reservations WHERE tenant_id = ?");
   await del("tables", "DELETE FROM tables WHERE tenant_id = ?");

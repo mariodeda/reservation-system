@@ -508,11 +508,6 @@ describe("platform tenant CRUD via routes", () => {
       [id, new Date().toISOString()],
     );
     await pool.query(
-      `INSERT INTO reservation_feedback (token, reservation_id, tenant_id, sent_at)
-       VALUES ('00000000-0000-4000-8000-000000000001', ?, ?, ?)`,
-      [reservation.id, id, new Date().toISOString()],
-    );
-    await pool.query(
       `INSERT INTO reservation_emails (id, tenant_id, reservation_id, type, status, to_email, created_at)
        VALUES ('email-cascade', ?, ?, 'bookingConfirmation', 'failed', 'g@x.io', ?)`,
       [id, reservation.id, new Date().toISOString()],
@@ -524,7 +519,7 @@ describe("platform tenant CRUD via routes", () => {
     expect(del.status).toBe(200);
     expect(await tenantStoreMod.getTenantStore().getById(id)).toBeNull();
     expect(await new MySqlStore(id).listReservations()).toHaveLength(0);
-    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_feedback", "reservation_emails"]) {
+    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_emails"]) {
       const [rows] = await pool.query(`SELECT COUNT(*) AS count FROM ${table} WHERE tenant_id = ?`, [id]);
       expect(Number((rows as { count: number }[])[0].count)).toBe(0);
     }

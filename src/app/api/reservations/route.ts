@@ -235,7 +235,7 @@ async function handle(req: NextRequest) {
           : offeringLabel
         : serviceLabel;
     const email = result.reservation.status === "confirmed"
-      ? await sendConfirmationEmail(result.reservation, tenant, emailLabel)
+      ? await sendConfirmationEmail(result.reservation, tenant, emailLabel, config)
       : { sent: false };
 
     emitReservation({

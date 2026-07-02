@@ -61,7 +61,7 @@ describe("AdminShell", () => {
   it("renders the brand, nav links and children", () => {
     render(<AdminShell slug="acme" brandName="Osteria"><p>content</p></AdminShell>);
     expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("href")).toBe("/admin/acme");
-    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+    expect(screen.getByRole("tooltip", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Osteria")).toBeInTheDocument();
     expect(screen.getByText("content")).toBeInTheDocument();
   });

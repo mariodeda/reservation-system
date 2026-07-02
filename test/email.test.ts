@@ -18,6 +18,7 @@ import {
   sendFeedbackRequestEmail,
   type EmailVars,
 } from "@/lib/reservations/email";
+import { defaultAvailability } from "@/reservation.config";
 import type { Reservation } from "@/lib/reservations/types";
 import { hashPassword, templateSettings, type Tenant } from "@/lib/reservations/tenant";
 
@@ -129,6 +130,24 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
     expect(arg.subject).toContain("Friday, June 12, 2026");
     expect(arg.text).toContain("Dinner");
     expect(arg.headers["X-RSV-Reservation-ID"]).toBe("abcdef12-3456-7890-abcd-ef1234567890");
+    expect(arg.icalEvent).toMatchObject({ method: "PUBLISH", filename: "reservation.ics" });
+    expect(arg.icalEvent.content).toContain("BEGIN:VCALENDAR");
+    expect(arg.icalEvent.content).toContain("METHOD:PUBLISH");
+    expect(arg.icalEvent.content).toContain("SUMMARY:Osteria Cancello dei Macci reservation");
+    expect(arg.icalEvent.content).toContain("DTSTART;TZID=Europe/Rome:20260612T193000");
+    expect(arg.icalEvent.content).toContain("DTEND;TZID=Europe/Rome:20260612T213000");
+    expect(arg.icalEvent.content).toContain("Reservation reference: ABCDEF");
+  });
+
+  it("uses configured service turn duration for the calendar event end time", async () => {
+    sendMail.mockResolvedValueOnce({ messageId: "x" });
+    const config = structuredClone(defaultAvailability);
+    config.turnMinutes = 90;
+    await sendConfirmationEmail(reservation(), tenant({ smtp }), "Dinner", config);
+
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.icalEvent.content).toContain("DTSTART;TZID=Europe/Rome:20260612T193000");
+    expect(arg.icalEvent.content).toContain("DTEND;TZID=Europe/Rome:20260612T210000");
   });
 
   it("marks SMTP recipient rejection as a failed unreachable email", async () => {
@@ -182,20 +201,20 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
   it.each(["pending", "confirmed", "seated", "cancelled", "no_show"] as const)(
     "never sends the rating email for a %s reservation (guest did not complete a visit)",
     async (status) => {
-      const r = await sendFeedbackRequestEmail(reservation({ status }), tenant({ smtp }), "https://fb.test/feedback/tok");
+      const r = await sendFeedbackRequestEmail(reservation({ status }), tenant({ smtp }));
       expect(r).toEqual({ sent: false, skipped: true, reason: "not_attended" });
       expect(createTransport).not.toHaveBeenCalled();
     },
   );
 
   it("skips when emailEnabled is false", async () => {
-    const r = await sendFeedbackRequestEmail(done(), tenant({ emailEnabled: false, smtp }), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant({ emailEnabled: false, smtp }));
     expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
   it("skips when tenant feedback is disabled", async () => {
-    const r = await sendFeedbackRequestEmail(done(), tenant({ feedbackEnabled: false, smtp }), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant({ feedbackEnabled: false, smtp }));
     expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
@@ -204,25 +223,24 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
     const r = await sendFeedbackRequestEmail(
       done(),
       tenant({ smtp, emailEvents: { bookingConfirmation: true, feedbackRequest: false } }),
-      "https://fb.test/feedback/tok",
     );
     expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 
   it("skips when no SMTP is configured", async () => {
-    const r = await sendFeedbackRequestEmail(done(), tenant(), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant());
     expect(r).toEqual({ sent: false, skipped: true, reason: "no_smtp" });
   });
 
   it("skips when reservation has no email address", async () => {
-    const r = await sendFeedbackRequestEmail(done({ email: "" }), tenant({ smtp }), "https://fb.test/feedback/tok");
+    const r = await sendFeedbackRequestEmail(done({ email: "" }), tenant({ smtp }));
     expect(r).toEqual({ sent: false, skipped: true, reason: "no_recipient" });
   });
 
   it("substitutes {{reviewUrl}} in subject, text and html via default templates", async () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
-    await sendFeedbackRequestEmail(done(), tenant({ smtp, name: "T1", reviewUrl: "https://g.page/r/t1/review" }), "https://fb.test/feedback/tok");
+    await sendFeedbackRequestEmail(done(), tenant({ smtp, name: "T1", reviewUrl: "https://g.page/r/t1/review" }));
     const arg = sendMail.mock.calls[0][0];
     expect(arg.subject).toContain("T1");
     expect(arg.text).toContain("https://g.page/r/t1/review");
@@ -243,22 +261,21 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
           confirmation: { subject: "c", text: "ct", html: "ch" },
           feedbackRequest: {
             subject: "Rate {{restaurantName}}",
-            text: "Private: {{feedbackUrl}} Public: {{reviewUrl}}",
-            html: "<a href='{{feedbackUrl}}'>feedback</a><a href='{{reviewUrl}}'>review</a>",
+            text: "Public: {{reviewUrl}}",
+            html: "<a href='{{reviewUrl}}'>review</a>",
           },
         },
       }),
-      "https://custom.test/feedback/tok",
     );
     const arg = sendMail.mock.calls[0][0];
     expect(arg.subject).toBe("Rate T1");
-    expect(arg.text).toBe("Private: https://custom.test/feedback/tok Public: https://g.page/r/t1/review");
-    expect(arg.html).toBe("<a href='https://custom.test/feedback/tok'>feedback</a><a href='https://g.page/r/t1/review'>review</a>");
+    expect(arg.text).toBe("Public: https://g.page/r/t1/review");
+    expect(arg.html).toBe("<a href='https://g.page/r/t1/review'>review</a>");
   });
 
   it("never throws when SMTP send fails", async () => {
     sendMail.mockRejectedValueOnce(new Error("timeout"));
-    const r = await sendFeedbackRequestEmail(done(), tenant({ smtp, reviewUrl: "https://g.page/r/t1/review" }), "https://x/f/tok");
+    const r = await sendFeedbackRequestEmail(done(), tenant({ smtp, reviewUrl: "https://g.page/r/t1/review" }));
     expect(r.sent).toBe(false);
     expect(r.error).toBe("timeout");
   });

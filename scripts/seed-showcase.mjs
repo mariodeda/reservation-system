@@ -3,10 +3,10 @@
  *   - a rich set of TODAY reservations (varied statuses, VIPs, dietary alerts, tables)
  *   - ~75 days of history so analytics + customer profiles populate
  *   - customer profiles (VIP, dietary/staff notes)
- *   - post-visit feedback (ratings) for completed past visits
+ *   - post-visit review-request email logs for completed past visits
  *
  * Scoped to the tenant mapped to host `localhost`. Replaces that tenant's
- * reservations / customer_profiles / reservation_feedback with the demo set.
+ * reservations / customer_profiles / reservation_emails with the demo set.
  *
  * Usage:  node scripts/seed-showcase.mjs
  */
@@ -74,7 +74,7 @@ const DINNER = ["18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
 const OCCASIONS = [null, null, null, "Birthday", "Anniversary", "Business dinner", "Date night"];
 
 const rows = [];   // reservation rows
-const feedback = []; // feedback rows
+const feedback = []; // review-request email log rows
 
 function add(r) {
   const id = randomUUID();
@@ -90,12 +90,6 @@ function add(r) {
 }
 
 // ---- history: ~75 days back ----
-const RATINGS = [5, 5, 5, 5, 4, 4, 4, 3, 5, 4, 2, 5];
-const COMMENTS = [
-  "Wonderful evening, attentive service.", "Food was excellent, will return.",
-  "Lovely atmosphere.", "Great wine pairing.", "A little slow but delicious.",
-  null, null, "Perfect anniversary dinner!", "Best pasta in the city.",
-];
 for (let d = 75; d >= 1; d--) {
   const day = new Date(`${TODAY}T00:00:00Z`);
   day.setUTCDate(day.getUTCDate() - d);
@@ -110,16 +104,11 @@ for (let d = 75; d >= 1; d--) {
       date: ymd(day), time: pick(isDinner ? DINNER : LUNCH), service: isDinner ? "dinner" : "lunch",
       party: rint(2, 7), g, occasion: pick(OCCASIONS), status, source: Math.random() < 0.7 ? "web" : "admin",
     });
-    // feedback for ~45% of completed
+    // review request email log for ~45% of completed
     if (status === "completed" && Math.random() < 0.45) {
       const sent = new Date(`${ymd(day)}T20:00:00Z`);
-      const filled = Math.random() < 0.7;
-      const exp = new Date(sent); exp.setUTCDate(exp.getUTCDate() + 90);
       feedback.push({
-        token: randomUUID(), reservation_id: id, sent_at: iso(sent), expires_at: iso(exp),
-        filled_at: filled ? iso(new Date(sent.getTime() + 3600_000)) : null,
-        rating: filled ? pick(RATINGS) : null,
-        comment: filled ? pick(COMMENTS) : null,
+        id: randomUUID(), reservation_id: id, sent_at: iso(sent), to_email: g.email,
       });
     }
   }
@@ -158,7 +147,7 @@ async function main() {
     const tenantId = trow[0]?.id;
     if (!tenantId) throw new Error("No tenant mapped to localhost (and no id arg).");
 
-    await conn.query("DELETE FROM reservation_feedback WHERE tenant_id=?", [tenantId]);
+    await conn.query("DELETE FROM reservation_emails WHERE tenant_id=?", [tenantId]);
     await conn.query("DELETE FROM reservations WHERE tenant_id=?", [tenantId]);
     await conn.query("DELETE FROM customer_profiles WHERE tenant_id=?", [tenantId]);
 
@@ -180,14 +169,14 @@ async function main() {
     }
 
     if (feedback.length) {
-      const FB_SQL = "INSERT INTO reservation_feedback (token, reservation_id, tenant_id, sent_at, expires_at, filled_at, rating, comment) VALUES ?";
-      const fv = feedback.map((f) => [f.token, f.reservation_id, tenantId, f.sent_at, f.expires_at, f.filled_at, f.rating, f.comment]);
+      const FB_SQL = "INSERT INTO reservation_emails (id, tenant_id, reservation_id, type, status, to_email, created_at) VALUES ?";
+      const fv = feedback.map((f) => [f.id, tenantId, f.reservation_id, "feedbackRequest", "sent", f.to_email, f.sent_at]);
       for (let i = 0; i < fv.length; i += 200) await conn.query(FB_SQL, [fv.slice(i, i + 200)]);
     }
 
     const todays = rows.filter((r) => r.date === TODAY).length;
     console.log(`Tenant ${tenantId}`);
-    console.log(`Seeded: ${rows.length} reservations (${todays} today), ${feedback.length} feedback rows, ${GUESTS.filter((g) => g.vip || g.dietary || g.staff).length} customer profiles.`);
+    console.log(`Seeded: ${rows.length} reservations (${todays} today), ${feedback.length} review-request email logs, ${GUESTS.filter((g) => g.vip || g.dietary || g.staff).length} customer profiles.`);
     console.log(`Today = ${TODAY} (${parts.weekday})`);
   } finally {
     conn.release();

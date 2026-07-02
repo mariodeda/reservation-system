@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
 import { am } from "@/i18n";
+import Tooltip from "@/components/ui/Tooltip";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
@@ -126,21 +127,25 @@ export default function PlatformHome() {
                 </Link>
                 {stats && (
                   <div className="flex items-center gap-4 shrink-0 ml-4 text-xs text-on-surface-variant">
-                    <span title={am.platform.totals.bookings}>
-                      <span className="font-semibold text-on-surface">{stats.total}</span> {am.platform.totalShort}
-                    </span>
-                    <span title={am.platform.totals.last30} className="hidden sm:inline">
-                      <span className="font-semibold text-on-surface">{stats.last30}</span> {am.platform.last30Short}
-                    </span>
-                    {stats.noShows > 0 && (
-                      <span className="text-rose-400 hidden md:inline" title={am.platform.noShowsTitle}>
-                        {am.platform.noShows(stats.noShows)}
+                    <Tooltip content={am.platform.totals.bookings}>
+                      <span>
+                        <span className="font-semibold text-on-surface">{stats.total}</span> {am.platform.totalShort}
                       </span>
+                    </Tooltip>
+                    <Tooltip content={am.platform.totals.last30} className="hidden sm:inline">
+                      <span>
+                        <span className="font-semibold text-on-surface">{stats.last30}</span> {am.platform.last30Short}
+                      </span>
+                    </Tooltip>
+                    {stats.noShows > 0 && (
+                      <Tooltip content={am.platform.noShowsTitle} className="hidden md:inline">
+                        <span className="text-rose-400">{am.platform.noShows(stats.noShows)}</span>
+                      </Tooltip>
                     )}
                     {stats.lastBookingDate && (
-                      <span className="hidden lg:inline" title={am.platform.lastBookingTitle}>
-                        {am.platform.lastBooking(stats.lastBookingDate)}
-                      </span>
+                      <Tooltip content={am.platform.lastBookingTitle} className="hidden lg:inline">
+                        <span>{am.platform.lastBooking(stats.lastBookingDate)}</span>
+                      </Tooltip>
                     )}
                   </div>
                 )}
@@ -204,37 +209,39 @@ function SmtpHealthChip({ tenant }: { tenant: TenantView }) {
     health.reason || "",
   ].filter(Boolean).join(" · ");
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
-        tone === "ok"
-          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-          : tone === "failed"
-            ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
-            : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
-      }`}
-      title={title}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${
-        tone === "ok" ? "bg-emerald-400" : tone === "failed" ? "bg-rose-400" : "bg-on-surface-variant/50"
-      }`} />
-      {am.platform.smtpStatus}: {label}
-    </span>
+    <Tooltip content={title}>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+          tone === "ok"
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+            : tone === "failed"
+              ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+              : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${
+          tone === "ok" ? "bg-emerald-400" : tone === "failed" ? "bg-rose-400" : "bg-on-surface-variant/50"
+        }`} />
+        {am.platform.smtpStatus}: {label}
+      </span>
+    </Tooltip>
   );
 }
 
 function EmailChip({ label, on }: { label: string; on: boolean }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
-        on
-          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-          : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
-      }`}
-      title={`${label}: ${on ? am.platform.emailOn : am.platform.emailOff}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-400" : "bg-on-surface-variant/50"}`} />
-      {label}
-    </span>
+    <Tooltip content={`${label}: ${on ? am.platform.emailOn : am.platform.emailOff}`}>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+          on
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+            : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-400" : "bg-on-surface-variant/50"}`} />
+        {label}
+      </span>
+    </Tooltip>
   );
 }
 

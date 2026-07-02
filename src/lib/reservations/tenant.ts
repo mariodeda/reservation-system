@@ -69,7 +69,7 @@ export interface TenantSettings {
   smtp?: TenantSmtp;
   /** Optional per-tenant templates; falls back to the platform default. */
   emailTemplates?: { confirmation: EmailTemplate; feedbackRequest?: EmailTemplate };
-  /** Legacy alias for feedbackRequest email flow and feedback collection. */
+  /** Legacy alias for the feedbackRequest/review-request email flow. */
   feedbackEnabled?: boolean;
   /**
    * Browser origins allowed to call the public booking API for this tenant

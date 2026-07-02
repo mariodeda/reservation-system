@@ -117,10 +117,11 @@ async function getAnalytics(req: NextRequest) {
     // Review-request summary for reservations within the period.
     const [fbRows] = await pool.query<RowDataPacket[]>(
       `SELECT
-         COUNT(f.token) AS total_sent
-       FROM reservation_feedback f
-       JOIN reservations r ON r.id = f.reservation_id
-       WHERE f.tenant_id = ? AND r.\`date\` >= ? AND r.\`date\` <= ?`,
+         COUNT(e.id) AS total_sent
+       FROM reservation_emails e
+       JOIN reservations r ON r.id = e.reservation_id AND r.tenant_id = e.tenant_id
+       WHERE e.tenant_id = ? AND e.type = 'feedbackRequest' AND e.status = 'sent'
+         AND r.\`date\` >= ? AND r.\`date\` <= ?`,
       [tid, from, to],
     );
     const fb = fbRows[0] ?? {};

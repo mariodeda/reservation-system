@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import SystemLogo from "@/components/SystemLogo";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
+import Tooltip from "@/components/ui/Tooltip";
 
 export default function PlatformShell({
   username,
@@ -56,20 +57,20 @@ export default function PlatformShell({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-on-surface-variant hidden sm:inline mr-1">{username}</span>
-            <button
-              onClick={toggleTheme}
-              title={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
-              aria-label={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
-            >
-              {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-            </button>
+            <Tooltip content={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}>
+              <button
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
+              >
+                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+              </button>
+            </Tooltip>
             <div className="flex items-center rounded-lg border border-outline-variant/40 overflow-hidden">
               {(["it", "en"] as Locale[]).map((l) => (
+                <Tooltip key={l} content={l === "it" ? "Italiano" : "English"}>
                 <button
-                  key={l}
                   onClick={() => { if (locale !== l) setLocale(l); }}
-                  title={l === "it" ? "Italiano" : "English"}
                   aria-label={l === "it" ? "Italiano" : "English"}
                   className={`px-2 py-1 text-sm leading-none transition ${
                     locale === l
@@ -79,6 +80,7 @@ export default function PlatformShell({
                 >
                   {l === "it" ? "🇮🇹" : "🇬🇧"}
                 </button>
+                </Tooltip>
               ))}
             </div>
             <button

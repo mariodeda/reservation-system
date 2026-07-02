@@ -2,8 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getStore, referenceOf } from "@/lib/reservations/store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getCustomerStore } from "@/lib/reservations/customer-store";
-import { getFeedbackStatusBatch } from "@/lib/reservations/feedback-store";
-import { getEmailStatusBatch } from "@/lib/reservations/email-log-store";
+import { getEmailStatusBatch, getSentEmailStatusBatch } from "@/lib/reservations/email-log-store";
 import { processDueFeedbackRequests } from "@/lib/reservations/feedback-automation";
 import type {
   NewReservationInput,
@@ -56,7 +55,7 @@ async function listReservations(req: NextRequest) {
 
     const [enrichments, feedbackMap, emailMap] = await Promise.all([
       getCustomerStore(ctx.tenant.id).getReservationEnrichments(emails).catch(() => new Map()),
-      completedIds.length ? getFeedbackStatusBatch(completedIds).catch(() => new Map()) : Promise.resolve(new Map()),
+      completedIds.length ? getSentEmailStatusBatch(completedIds, "feedbackRequest").catch(() => new Map()) : Promise.resolve(new Map()),
       allIds.length ? getEmailStatusBatch(allIds).catch(() => new Map()) : Promise.resolve(new Map()),
     ]);
 

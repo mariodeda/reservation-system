@@ -21,7 +21,6 @@ export const PREVIEW_VARS: Record<string, string> = {
   contactPhone: "+39 02 8736 4521",
   contactEmail: "info@osteriadelgambero.it",
   siteUrl: "https://osteriadelgambero.it",
-  feedbackUrl: "https://osteriadelgambero.it/feedback/abc123xyz",
   reviewUrl: "https://g.page/r/example/review",
 };
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { DayAvailability } from "@/lib/reservations/types";
 import { adminJson } from "./api";
 import { am } from "@/i18n";
+import Tooltip from "@/components/ui/Tooltip";
 
 /**
  * Compact per-service capacity view for a date: total covers booked vs capacity,
@@ -109,16 +110,16 @@ export default function DayOccupancy({
                     ? am.availability.slotUnavailable
                     : am.availability.slotStatus(s.booked, s.capacity, s.remaining);
                 return (
-                  <button
-                    key={s.time}
-                    type="button"
-                    disabled={!onPickSlot}
-                    onClick={() => onPickSlot?.(svc.id, s.time)}
-                    title={title}
-                    className={`text-[11px] tabular-nums px-2 py-1 rounded border transition-all ${cls} ${onPickSlot ? "cursor-pointer hover:brightness-125 active:scale-95" : "cursor-default"}`}
-                  >
-                    {s.time}
-                  </button>
+                  <Tooltip key={s.time} content={title}>
+                    <button
+                      type="button"
+                      disabled={!onPickSlot}
+                      onClick={() => onPickSlot?.(svc.id, s.time)}
+                      className={`text-[11px] tabular-nums px-2 py-1 rounded border transition-all ${cls} ${onPickSlot ? "cursor-pointer hover:brightness-125 active:scale-95" : "cursor-default"}`}
+                    >
+                      {s.time}
+                    </button>
+                  </Tooltip>
                 );
               })}
             </div>
@@ -159,14 +160,15 @@ function CoverAvailabilityIcon({ className, title, tone }: { className: string; 
       ? <><circle cx="8" cy="8" r="6" /><path d="m5.8 5.8 4.4 4.4" /><path d="m10.2 5.8-4.4 4.4" /></>
       : <><path d="M8 2.8 1.9 13a1 1 0 0 0 .9 1.5h10.4a1 1 0 0 0 .9-1.5L8 2.8Z" /><path d="M8 6.5v3" /><path d="M8 12h.01" /></>;
   return (
-    <span
-      className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${className}`}
-      title={title}
-      aria-label={title}
-    >
-      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        {path}
-      </svg>
-    </span>
+    <Tooltip content={title}>
+      <span
+        className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${className}`}
+        aria-label={title}
+      >
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {path}
+        </svg>
+      </span>
+    </Tooltip>
   );
 }

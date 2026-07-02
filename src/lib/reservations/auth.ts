@@ -7,8 +7,9 @@
 
 export const SESSION_COOKIE = "rsv_session";
 export const IMPERSONATION_COOKIE = "rsv_impersonation";
-const TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
-const IMPERSONATION_TTL_MS = 60 * 60 * 1000; // 1 hour
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const TTL_MS = WEEK_MS;
+const IMPERSONATION_TTL_MS = WEEK_MS;
 const enc = new TextEncoder();
 
 function secret(): string {

@@ -15,6 +15,7 @@ import {
 } from "./shared";
 import { am } from "@/i18n";
 import { adminFetch, adminJson, toast } from "./api";
+import Tooltip from "@/components/ui/Tooltip";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
@@ -133,21 +134,19 @@ export default function ReservationRow({
               <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.row.manual}</span>
             )}
             {hasUnreachableEmail(r.emails) ? (
-              <span
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-200 border border-rose-500/40"
-                title={unreachableEmailTitle(r.emails)}
-              >
-                <AlertIcon />
-                {am.email.unreachableBadge}
-              </span>
+              <Tooltip content={unreachableEmailTitle(r.emails)}>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-200 border border-rose-500/40">
+                  <AlertIcon />
+                  {am.email.unreachableBadge}
+                </span>
+              </Tooltip>
             ) : hasEmailFailure(r.emails) && (
-              <span
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                title={emailFailureTitle(r.emails)}
-              >
-                <AlertIcon />
-                {am.email.failedBadge}
-              </span>
+              <Tooltip content={emailFailureTitle(r.emails)}>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                  <AlertIcon />
+                  {am.email.failedBadge}
+                </span>
+              </Tooltip>
             )}
             {typeof r.visitCount === "number" && r.visitCount > 1 && (
               <span className="text-[10px] font-semibold text-sky-300 uppercase tracking-widest">
@@ -214,29 +213,41 @@ export default function ReservationRow({
               {open && (
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-on-surface-variant pt-0.5">
                   {r.email && (
-                    <span className="inline-flex items-center gap-1.5" title={`${am.row.email}: ${r.email}`}>
-                      <EmailIcon />
-                      {r.email}
-                    </span>
+                    <Tooltip content={`${am.row.email}: ${r.email}`}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <EmailIcon />
+                        {r.email}
+                      </span>
+                    </Tooltip>
                   )}
                   {r.phone && (
-                    <span className="inline-flex items-center gap-1.5" title={`${am.row.phone}: ${r.phone}`}>
-                      <PhoneIcon />
-                      {r.phone}
-                    </span>
+                    <Tooltip content={`${am.row.phone}: ${r.phone}`}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <PhoneIcon />
+                        {r.phone}
+                      </span>
+                    </Tooltip>
                   )}
                   {r.occasion && (
-                    <span className="inline-flex items-center gap-1.5" title={`${am.row.occasion}: ${r.occasion}`}>
-                      <OccasionIcon />
-                      {r.occasion}
-                    </span>
+                    <Tooltip content={`${am.row.occasion}: ${r.occasion}`}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <OccasionIcon />
+                        {r.occasion}
+                      </span>
+                    </Tooltip>
                   )}
-                  {r.notes && <span className="italic" title={`${am.row.notes}: ${r.notes}`}>"{r.notes}"</span>}
+                  {r.notes && (
+                    <Tooltip content={`${am.row.notes}: ${r.notes}`}>
+                      <span className="italic">"{r.notes}"</span>
+                    </Tooltip>
+                  )}
                   {r.dietaryNotes && (
-                    <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium" title={`${am.customers.dietaryAlert}: ${r.dietaryNotes}`}>
-                      <WarningIcon />
-                      {r.dietaryNotes}
-                    </span>
+                    <Tooltip content={`${am.customers.dietaryAlert}: ${r.dietaryNotes}`}>
+                      <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium">
+                        <WarningIcon />
+                        {r.dietaryNotes}
+                      </span>
+                    </Tooltip>
                   )}
                 </div>
               )}
@@ -400,18 +411,19 @@ function ManagedTableAssign({
         ))}
       </select>
       {!assigned && canSuggest && (
-        <button
-          onClick={suggest}
-          disabled={saving}
-          title={am.row.tableSuggest}
-          className="px-3 h-full flex items-center text-xs font-semibold text-primary hover:bg-primary/10 border-l border-outline-variant/30 transition-colors disabled:opacity-50 shrink-0"
-        >
-          {saving ? (
-            <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          ) : (
-            am.row.tableSuggest
-          )}
-        </button>
+        <Tooltip content={am.row.tableSuggest} className="h-full shrink-0">
+          <button
+            onClick={suggest}
+            disabled={saving}
+            className="px-3 h-full flex items-center text-xs font-semibold text-primary hover:bg-primary/10 border-l border-outline-variant/30 transition-colors disabled:opacity-50 shrink-0"
+          >
+            {saving ? (
+              <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            ) : (
+              am.row.tableSuggest
+            )}
+          </button>
+        </Tooltip>
       )}
     </div>
   );
@@ -486,14 +498,15 @@ function FreeTextTableAssign({
             <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           </span>
         ) : (
-          <button
-            onMouseDown={(e) => { e.preventDefault(); commit(); }}
-            className="w-9 h-full flex items-center justify-center text-primary hover:bg-primary/20 transition-colors text-sm font-bold"
-            title={am.row.save}
-            aria-label={am.row.save}
-          >
-            <CheckIcon />
-          </button>
+          <Tooltip content={am.row.save} className="h-full">
+            <button
+              onMouseDown={(e) => { e.preventDefault(); commit(); }}
+              className="w-9 h-full flex items-center justify-center text-primary hover:bg-primary/20 transition-colors text-sm font-bold"
+              aria-label={am.row.save}
+            >
+              <CheckIcon />
+            </button>
+          </Tooltip>
         )}
       </div>
     );
@@ -503,70 +516,73 @@ function FreeTextTableAssign({
   if (value) {
     return (
       <div className="group flex items-center gap-0 w-full rounded-lg border border-primary/50 bg-primary/10 hover:border-primary transition-colors h-9 overflow-hidden">
-        <button
-          onClick={startEdit}
-          title={am.row.tableReassign}
-          className="flex items-center gap-0 flex-1 h-full hover:bg-primary/10 transition-colors min-w-0"
-        >
-          <span className="flex items-center gap-1.5 pl-3 pr-2.5 h-full text-xs font-semibold text-primary uppercase tracking-widest border-r border-primary/30 shrink-0">
-            <TableIcon />
-            {am.row.table}
-          </span>
-          <span className="flex-1 px-2.5 text-sm font-semibold text-on-surface text-left truncate">{value}</span>
-          <span className="w-8 h-full flex items-center justify-center text-on-surface-variant/40 group-hover:text-primary/70 transition-colors text-xs shrink-0">
-            <PencilIcon />
-          </span>
-        </button>
-        <button
-          onClick={async () => {
-            setSaving(true);
-            try {
-              const res = await adminFetch(`/api/admin/reservations/${reservationId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tableLabel: null }),
-              });
-              if (!res.ok) throw new Error();
-              onChanged();
-            } catch {
-              toast(am.row.tableError, "error");
-            } finally {
-              setSaving(false);
-            }
-          }}
-          title={am.row.tableClear}
-          aria-label={am.row.tableClear}
-          disabled={saving}
-          className="w-8 h-full flex items-center justify-center text-on-surface-variant/40 hover:text-rose-400 border-l border-primary/20 transition-colors shrink-0 disabled:opacity-50"
-        >
-          {saving ? (
-            <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          ) : (
-            <XIcon />
-          )}
-        </button>
+        <Tooltip content={am.row.tableReassign} className="flex-1 h-full min-w-0">
+          <button
+            onClick={startEdit}
+            className="flex items-center gap-0 w-full h-full hover:bg-primary/10 transition-colors min-w-0"
+          >
+            <span className="flex items-center gap-1.5 pl-3 pr-2.5 h-full text-xs font-semibold text-primary uppercase tracking-widest border-r border-primary/30 shrink-0">
+              <TableIcon />
+              {am.row.table}
+            </span>
+            <span className="flex-1 px-2.5 text-sm font-semibold text-on-surface text-left truncate">{value}</span>
+            <span className="w-8 h-full flex items-center justify-center text-on-surface-variant/40 group-hover:text-primary/70 transition-colors text-xs shrink-0">
+              <PencilIcon />
+            </span>
+          </button>
+        </Tooltip>
+        <Tooltip content={am.row.tableClear} className="h-full shrink-0">
+          <button
+            onClick={async () => {
+              setSaving(true);
+              try {
+                const res = await adminFetch(`/api/admin/reservations/${reservationId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ tableLabel: null }),
+                });
+                if (!res.ok) throw new Error();
+                onChanged();
+              } catch {
+                toast(am.row.tableError, "error");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            aria-label={am.row.tableClear}
+            disabled={saving}
+            className="w-8 h-full flex items-center justify-center text-on-surface-variant/40 hover:text-rose-400 border-l border-primary/20 transition-colors shrink-0 disabled:opacity-50"
+          >
+            {saving ? (
+              <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            ) : (
+              <XIcon />
+            )}
+          </button>
+        </Tooltip>
       </div>
     );
   }
 
   // --- Unassigned ---
   return (
-    <button
-      onClick={startEdit}
-      title={am.row.assignTable}
-      className="group flex items-center gap-0 w-full rounded-lg border border-dashed border-outline-variant/50 hover:border-primary/60 hover:bg-primary/5 transition-colors h-9 overflow-hidden"
-    >
-      <span className="flex items-center gap-1.5 pl-3 pr-2.5 h-full text-xs font-medium text-on-surface-variant/60 uppercase tracking-widest border-r border-outline-variant/30 group-hover:text-primary/60 group-hover:border-primary/20 transition-colors shrink-0">
-        <TableIcon />
-        {am.row.table}
-      </span>
-      <span className="flex-1 px-2.5 text-sm text-on-surface-variant/40 group-hover:text-primary/60 transition-colors text-left">
-        {am.row.assignTable}
-      </span>
-      <span className="w-9 h-full flex items-center justify-center text-on-surface-variant/30 group-hover:text-primary/50 transition-colors text-base leading-none">
-        <PlusIcon />
-      </span>
-    </button>
+    <Tooltip content={am.row.assignTable} className="w-full">
+      <button
+        onClick={startEdit}
+        className="group flex items-center gap-0 w-full rounded-lg border border-dashed border-outline-variant/50 hover:border-primary/60 hover:bg-primary/5 transition-colors h-9 overflow-hidden"
+      >
+        <span className="flex items-center gap-1.5 pl-3 pr-2.5 h-full text-xs font-medium text-on-surface-variant/60 uppercase tracking-widest border-r border-outline-variant/30 group-hover:text-primary/60 group-hover:border-primary/20 transition-colors shrink-0">
+          <TableIcon />
+          {am.row.table}
+        </span>
+        <span className="flex-1 px-2.5 text-sm text-on-surface-variant/40 group-hover:text-primary/60 transition-colors text-left">
+          {am.row.assignTable}
+        </span>
+        <span className="w-9 h-full flex items-center justify-center text-on-surface-variant/30 group-hover:text-primary/50 transition-colors text-base leading-none">
+          <PlusIcon />
+        </span>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -832,16 +848,16 @@ function EmailStatusSection({ r }: { r: AdminReservation }) {
         {present.map((t) => {
           const s = r.emails![t]!;
           return (
+            <Tooltip key={t} content={chipTitle(s)}>
             <span
-              key={t}
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${statusChipClass(s.status)}`}
-              title={chipTitle(s)}
             >
               <span className="font-semibold">{emailTypeLabel(t)}</span>
               <span className="opacity-50">·</span>
               <span>{statusText(s.status)}</span>
               {s.attempts > 1 && <span className="opacity-60">×{s.attempts}</span>}
             </span>
+            </Tooltip>
           );
         })}
         <button

@@ -133,12 +133,12 @@ describe("ReservationRow", () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row()} onChanged={() => {}} />);
     // Details are open by default
-    expect(screen.getByText(/jane@x.io/)).toBeInTheDocument();
+    expect(screen.getAllByText(/jane@x.io/).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: /Collapse/ }));
     expect(screen.queryByText(/jane@x.io/)).not.toBeInTheDocument();
     // Expand again
     await user.click(screen.getByRole("button", { name: /Expand/ }));
-    expect(screen.getByText(/jane@x.io/)).toBeInTheDocument();
+    expect(screen.getAllByText(/jane@x.io/).length).toBeGreaterThan(0);
   });
 
   it("shows a call-followup warning when the guest email is unreachable", () => {
@@ -159,7 +159,7 @@ describe("ReservationRow", () => {
       />,
     );
     expect(screen.getByText("Email unreachable")).toBeInTheDocument();
-    expect(screen.getByTitle(/Follow up with a phone call/i)).toBeInTheDocument();
+    expect(screen.getByText(/Follow up with a phone call/i)).toBeInTheDocument();
   });
 
   it("lets staff send a review email only from a completed reservation row", async () => {

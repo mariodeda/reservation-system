@@ -233,34 +233,17 @@ const MIGRATIONS: Migration[] = [
     },
   },
   {
+    // Legacy no-op: this used to create reservation_feedback for the removed
+    // internal feedback form/token system. Review requests are now tracked by
+    // reservation_emails.
     version: 6,
-    run: async (pool) => {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS reservation_feedback (
-          token CHAR(36) NOT NULL PRIMARY KEY,
-          reservation_id CHAR(36) NOT NULL,
-          tenant_id CHAR(36) NOT NULL,
-          sent_at VARCHAR(32) NOT NULL,
-          UNIQUE KEY uq_rf_reservation (reservation_id),
-          INDEX idx_rf_tenant (tenant_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      `);
-    },
+    run: async () => {},
   },
   {
+    // Legacy no-op paired with v6. Existing installs may still have the old
+    // table, but active code no longer reads or writes it.
     version: 7,
-    run: async (pool) => {
-      await ensureColumn(
-        pool,
-        "reservation_feedback",
-        "expires_at",
-        "ADD COLUMN expires_at VARCHAR(32) NULL DEFAULT NULL AFTER sent_at",
-      );
-      // Give existing tokens 90 days from now.
-      await pool.query(
-        `UPDATE reservation_feedback SET expires_at = DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 90 DAY), '%Y-%m-%dT%TZ') WHERE expires_at IS NULL`,
-      );
-    },
+    run: async () => {},
   },
   {
     // No-op. This previously seeded a platform admin whose plaintext password

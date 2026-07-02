@@ -17,7 +17,7 @@ let tenantId: string;
 let adminFeedbackRoute: typeof import("@/app/api/admin/reservations/[id]/feedback/route");
 let adminReservationsRoute: typeof import("@/app/api/admin/reservations/route");
 let adminReservationRoute: typeof import("@/app/api/admin/reservations/[id]/route");
-let feedbackStore: typeof import("@/lib/reservations/feedback-store");
+let emailLogStore: typeof import("@/lib/reservations/email-log-store");
 let store: typeof import("@/lib/reservations/store");
 let auth: typeof import("@/lib/reservations/auth");
 let poolMod: typeof import("@/lib/reservations/mysql-pool");
@@ -64,7 +64,7 @@ beforeAll(async () => {
 
   auth = await import("@/lib/reservations/auth");
   poolMod = await import("@/lib/reservations/mysql-pool");
-  feedbackStore = await import("@/lib/reservations/feedback-store");
+  emailLogStore = await import("@/lib/reservations/email-log-store");
   store = await import("@/lib/reservations/store");
   adminFeedbackRoute = await import("@/app/api/admin/reservations/[id]/feedback/route");
   adminReservationsRoute = await import("@/app/api/admin/reservations/route");
@@ -100,7 +100,7 @@ afterEach(() => {
 beforeEach(async () => {
   const p = poolMod.getPool();
   await p.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
-  await p.query("DELETE FROM reservation_feedback");
+  await p.query("DELETE FROM reservation_emails WHERE tenant_id = ?", [tenantId]);
   await p.query("DELETE FROM rate_limits WHERE k LIKE 'feedback-%'");
   const { getTenantStore } = await import("@/lib/reservations/tenant-store");
   const tenant = (await getTenantStore().getById(tenantId))!;
@@ -206,7 +206,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
   });
 
-  it("201-level: creates token, calls sendFeedbackRequestEmail, returns the review URL", async () => {
+  it("sends the review request email and returns the review URL", async () => {
     const r = await makeCompleted();
     const res = await adminFeedbackRoute.POST(
       authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
@@ -215,7 +215,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(json.token).toMatch(/^[0-9a-f-]{36}$/);
+    expect(json.token).toBeUndefined();
     expect(json.reviewUrl).toBe("https://g.page/r/fb-test/review");
     expect(json.emailSent).toBe(true);
     expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
@@ -261,23 +261,15 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(json.reviewUrl).toBe("https://reviews.example/no-url");
   });
 
-  it("is idempotent â€” second POST reuses existing unfilled token without re-sending email", async () => {
-    const r = await makeCompleted("idem@x.io");
-    await adminFeedbackRoute.POST(
-      authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
-      { params: Promise.resolve({ id: r.id }) },
-    );
-    sendFeedbackRequestEmail.mockClear();
-    // Creating again should still return 200 because token was already sent but not filled
-    const res = await adminFeedbackRoute.POST(
-      authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
-      { params: Promise.resolve({ id: r.id }) },
-    );
-    expect(res.status).toBe(200);
-  });
-  it("does not re-send an email when an unfilled feedback token already exists", async () => {
+  it("does not re-send an email when a successful review-request email is already logged", async () => {
     const r = await makeCompleted("already@x.io");
-    const existing = await feedbackStore.createFeedbackToken(r.id, tenantId);
+    await emailLogStore.recordEmailAttempt({
+      tenantId,
+      reservationId: r.id,
+      type: "feedbackRequest",
+      status: "sent",
+      toEmail: r.email,
+    });
 
     const res = await adminFeedbackRoute.POST(
       authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }),
@@ -286,7 +278,7 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.token).toBe(existing.token);
+    expect(json.token).toBeUndefined();
     expect(json.alreadySent).toBe(true);
     expect(json.emailSent).toBe(false);
     expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
@@ -319,7 +311,6 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     );
     expect(res.status).toBe(200);
     await Promise.resolve();
-    expect(await feedbackStore.getFeedbackByReservation(r.id)).toBeNull();
     expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
   });
 
@@ -348,7 +339,6 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     );
     expect(res.status).toBe(200);
     await vi.waitFor(() => expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce());
-    expect(await feedbackStore.getFeedbackByReservation(r.id)).not.toBeNull();
   });
 
   it("sends delayed feedback requests later from the admin reservation list", async () => {
@@ -381,7 +371,6 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     );
     expect(res.status).toBe(200);
     await vi.waitFor(() => expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce());
-    expect(await feedbackStore.getFeedbackByReservation(r.id)).not.toBeNull();
   });
 });
 
@@ -406,16 +395,22 @@ describe("GET /api/admin/reservations/[id]/feedback", () => {
     expect((await res.json()).feedback).toBeNull();
   });
 
-  it("returns feedback record after token created", async () => {
+  it("returns feedback state after a successful review-request email was logged", async () => {
     const r = await makeCompleted();
-    await feedbackStore.createFeedbackToken(r.id, tenantId);
+    await emailLogStore.recordEmailAttempt({
+      tenantId,
+      reservationId: r.id,
+      type: "feedbackRequest",
+      status: "sent",
+      toEmail: r.email,
+    });
     const res = await adminFeedbackRoute.GET(
       authed(`/api/admin/reservations/${r.id}/feedback`),
       { params: Promise.resolve({ id: r.id }) },
     );
     const json = await res.json();
     expect(json.feedback).not.toBeNull();
-    expect(json.feedback.reservationId).toBe(r.id);
+    expect(json.feedback.sentAt).toBeTruthy();
   });
 
   it("does not return feedback records for another tenant's reservation id", async () => {
@@ -436,7 +431,13 @@ describe("GET /api/admin/reservations/[id]/feedback", () => {
       date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
       name: "Other Guest", email: "other@x.io", phone: "456",
     });
-    await feedbackStore.createFeedbackToken(otherReservation.id, otherTenantId);
+    await emailLogStore.recordEmailAttempt({
+      tenantId: otherTenantId,
+      reservationId: otherReservation.id,
+      type: "feedbackRequest",
+      status: "sent",
+      toEmail: otherReservation.email,
+    });
 
     const res = await adminFeedbackRoute.GET(
       authed(`/api/admin/reservations/${otherReservation.id}/feedback`),

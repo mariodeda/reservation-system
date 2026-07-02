@@ -104,7 +104,7 @@ describe("mock-data generators", () => {
   it("seeds feedback against completed past reservations", async () => {
     const summary = await mock.seedFeedback(tid);
     expect(summary.reviewRequests).toBeGreaterThan(0);
-    expect(await count("reservation_feedback")).toBe(summary.reviewRequests);
+    expect(await count("reservation_emails")).toBe(summary.reviewRequests);
   });
 
   it("seeds an active waitlist for today", async () => {
@@ -116,7 +116,7 @@ describe("mock-data generators", () => {
   it("clears all of a tenant's operational data", async () => {
     const cleared = await mock.clearTenantData(tid);
     expect(cleared.reservations).toBeGreaterThan(0);
-    for (const t of ["reservations", "tables", "waitlist", "customer_profiles", "reservation_feedback"]) {
+    for (const t of ["reservations", "tables", "waitlist", "customer_profiles", "reservation_emails"]) {
       expect(await count(t)).toBe(0);
     }
   });

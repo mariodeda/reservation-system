@@ -198,3 +198,34 @@ export async function getEmailStatusBatch(
   }
   return out;
 }
+
+/** Latest successful send timestamp for one email type across reservations. */
+export async function getSentEmailStatusBatch(
+  reservationIds: string[],
+  type: EmailLogType,
+): Promise<Map<string, { sentAt: string }>> {
+  const out = new Map<string, { sentAt: string }>();
+  if (!reservationIds.length) return out;
+  await ensureSchema();
+  const ph = reservationIds.map(() => "?").join(",");
+  const [rows] = await getPool().query<ELRow[]>(
+    `SELECT reservation_id, created_at
+     FROM reservation_emails
+     WHERE reservation_id IN (${ph}) AND type = ? AND status = 'sent'
+     ORDER BY created_at ASC`,
+    [...reservationIds, type],
+  );
+  for (const r of rows) out.set(r.reservation_id, { sentAt: r.created_at });
+  return out;
+}
+
+export async function hasSentEmail(reservationId: string, type: EmailLogType): Promise<boolean> {
+  await ensureSchema();
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `SELECT 1 FROM reservation_emails
+     WHERE reservation_id = ? AND type = ? AND status = 'sent'
+     LIMIT 1`,
+    [reservationId, type],
+  );
+  return rows.length > 0;
+}

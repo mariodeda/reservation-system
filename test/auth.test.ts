@@ -70,7 +70,9 @@ describe("session token", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-11T10:00:00Z"));
     const token = await createSession("default", "staff");
-    vi.setSystemTime(new Date("2026-06-12T10:00:00Z")); // +24h, past the 12h TTL
+    vi.setSystemTime(new Date("2026-06-18T09:59:59Z")); // just under 7 days
+    expect(await verifySession(token)).not.toBeNull();
+    vi.setSystemTime(new Date("2026-06-18T10:00:01Z")); // just past the 7-day TTL
     expect(await verifySession(token)).toBeNull();
   });
 
@@ -124,10 +126,10 @@ describe("cookie", () => {
     expect(sessionCookieOptions.httpOnly).toBe(true);
     expect(sessionCookieOptions.sameSite).toBe("lax");
     expect(sessionCookieOptions.path).toBe("/");
-    expect(sessionCookieOptions.maxAge).toBeGreaterThan(0);
+    expect(sessionCookieOptions.maxAge).toBe(7 * 24 * 60 * 60);
     expect(impersonationCookieOptions.httpOnly).toBe(true);
     expect(impersonationCookieOptions.sameSite).toBe("lax");
     expect(impersonationCookieOptions.path).toBe("/");
-    expect(impersonationCookieOptions.maxAge).toBeLessThan(sessionCookieOptions.maxAge);
+    expect(impersonationCookieOptions.maxAge).toBe(7 * 24 * 60 * 60);
   });
 });

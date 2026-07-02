@@ -18,6 +18,7 @@ import {
 } from "@/lib/reservations/types";
 import { scheduleForDate } from "@/lib/reservations/availability";
 import { getOfferings, offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
+import Tooltip from "@/components/ui/Tooltip";
 
 /** Floor-view entry returned by GET /api/admin/tables?date= */
 interface FloorEntry {
@@ -940,12 +941,15 @@ function TableTimelineView({
                         ? "bg-surface-container-high/60"
                         : "bg-surface/60 border border-outline-variant/10";
                     return (
-                      <div
+                      <Tooltip
                         key={t}
+                        content={res ? `${res.time}-${fmtTime(toMins(res.time) + res.durationMins)} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · ${open ? am.floor.free : am.floor.closed}`}
+                      >
+                      <div
                         className={`w-10 h-7 ${isStart ? "rounded-l-sm" : ""} ${res && toMins(res.time) + res.durationMins <= slotM + SLOT ? "rounded-r-sm" : ""} ${!isStart && res ? "border-l-0" : ""} ${cls}`}
                         style={!res && !open ? closedCellStyle : undefined}
-                        title={res ? `${res.time}–${fmtTime(toMins(res.time) + res.durationMins)} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · ${open ? am.floor.free : am.floor.closed}`}
                       />
+                      </Tooltip>
                     );
                   })}
                 </div>
@@ -1009,10 +1013,9 @@ function FloorView({ date, refreshKey, defaultOpen = false }: { date: string; re
             <p className="col-span-full text-sm text-on-surface-variant py-4 text-center">{am.floor.none}</p>
           ) : (
             floor.map(({ table, state, reservations }) => (
+              <Tooltip key={table.id} content={reservations.map((r) => `${r.time} · ${r.name} (${r.partySize})`).join("\n")}>
               <div
-                key={table.id}
                 className="rounded-lg border border-outline-variant/30 bg-surface-container-high p-2.5 space-y-1"
-                title={reservations.map((r) => `${r.time} · ${r.name} (${r.partySize})`).join("\n")}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm">{table.label}</span>
@@ -1027,6 +1030,7 @@ function FloorView({ date, refreshKey, defaultOpen = false }: { date: string; re
                   </div>
                 )}
               </div>
+              </Tooltip>
             ))
           )}
         </div>

@@ -38,7 +38,9 @@ describe("platform session", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-11T10:00:00Z"));
     const token = await createPlatformSession("ops");
-    vi.setSystemTime(new Date("2026-06-12T10:00:00Z"));
+    vi.setSystemTime(new Date("2026-06-18T09:59:59Z"));
+    expect(await verifyPlatformSession(token)).not.toBeNull();
+    vi.setSystemTime(new Date("2026-06-18T10:00:01Z"));
     expect(await verifyPlatformSession(token)).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { am } from "@/i18n";
 import { adminFetch, adminJson, toast } from "./api";
 import type { OfferingServices } from "@/lib/reservations/offerings";
 import type { RestaurantTable, WaitlistEntry } from "@/lib/reservations/types";
+import Tooltip from "@/components/ui/Tooltip";
 
 const field =
   "h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm w-full focus:border-primary outline-none [color-scheme:dark]";
@@ -197,12 +198,14 @@ function WaitRow({
             {entry.pagerLabel}
           </span>
         )}
-        <span className="ml-auto text-sm tabular-nums text-on-surface-variant" title={am.waitlist.quoted}>
-          {am.waitlist.waitingFor(waited)}
-          {entry.quotedWaitMin != null && (
-            <span className="text-on-surface-variant/50"> / {am.waitlist.quotedMin(entry.quotedWaitMin)}</span>
-          )}
-        </span>
+        <Tooltip content={am.waitlist.quoted} className="ml-auto">
+          <span className="text-sm tabular-nums text-on-surface-variant">
+            {am.waitlist.waitingFor(waited)}
+            {entry.quotedWaitMin != null && (
+              <span className="text-on-surface-variant/50"> / {am.waitlist.quotedMin(entry.quotedWaitMin)}</span>
+            )}
+          </span>
+        </Tooltip>
       </div>
 
       {(entry.phone || entry.notes) && (

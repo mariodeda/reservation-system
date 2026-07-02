@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
+import Tooltip from "@/components/ui/Tooltip";
 
 function Inner({
   slug,
@@ -70,10 +71,10 @@ function Inner({
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <div className="flex items-center rounded-lg border border-outline-variant/40 overflow-hidden">
           {(["it", "en"] as Locale[]).map((l) => (
+            <Tooltip key={l} content={l === "it" ? "Italiano" : "English"}>
             <button
-              key={l}
               onClick={() => { if (locale !== l) setLocale(l); }}
-              title={l === "it" ? "Italiano" : "English"}
+              aria-label={l === "it" ? "Italiano" : "English"}
               className={`px-2 py-1 text-sm leading-none transition ${
                 locale === l
                   ? "bg-primary/15 text-primary font-medium"
@@ -82,15 +83,18 @@ function Inner({
             >
               {l === "it" ? "🇮🇹" : "🇬🇧"}
             </button>
+            </Tooltip>
           ))}
         </div>
-        <button
-          onClick={toggleTheme}
-          title={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
-        >
-          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-        </button>
+        <Tooltip content={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}>
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
+          >
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </button>
+        </Tooltip>
       </div>
 
       <form

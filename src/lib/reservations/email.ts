@@ -1,7 +1,8 @@
 import nodemailer from "nodemailer";
-import type { Reservation } from "./types";
+import type { AvailabilityConfig, Reservation } from "./types";
 import { referenceOf } from "./store";
 import { defaultConfirmationTemplate, type Tenant, type TenantSmtp } from "./tenant";
+import { turnMinutesFor } from "./availability";
 import { hasGuestAttended, isEmailEventEnabled, type TenantEmailEvent } from "./email-policy";
 import { recordEmailAttempt, type EmailLogStatus } from "./email-log-store";
 
@@ -47,7 +48,6 @@ export interface FeedbackEmailVars {
   restaurantName: string;
   date: string;
   reference: string;
-  feedbackUrl: string;
   reviewUrl: string;
   contactEmail: string;
 }
@@ -125,6 +125,83 @@ function trackingHeaders(tenant: Tenant, reservation: Reservation, type: TenantE
   };
 }
 
+function addMinutesToLocal(dateStr: string, time: string, minutes: number): { date: string; time: string } {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day, hour, minute + minutes, 0));
+  return {
+    date: d.toISOString().slice(0, 10),
+    time: d.toISOString().slice(11, 16),
+  };
+}
+
+function icsLocalDateTime(dateStr: string, time: string): string {
+  return `${dateStr.replace(/-/g, "")}T${time.replace(":", "")}00`;
+}
+
+function icsUtcDateTime(d = new Date()): string {
+  return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function icsText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,");
+}
+
+function foldIcsLine(line: string): string {
+  if (line.length <= 75) return line;
+  const chunks: string[] = [];
+  for (let i = 0; i < line.length; i += 75) chunks.push(`${i === 0 ? "" : " "}${line.slice(i, i + 75)}`);
+  return chunks.join("\r\n");
+}
+
+function buildReservationCalendarEvent(
+  reservation: Reservation,
+  tenant: Tenant,
+  serviceLabel?: string,
+  config?: AvailabilityConfig,
+): string {
+  const durationMins = reservation.durationMinsOverride
+    ?? (config ? turnMinutesFor(config, reservation.offering, reservation.service, reservation.date) : 120);
+  const end = addMinutesToLocal(reservation.date, reservation.time, durationMins);
+  const timezone = tenant.settings.timezone || config?.timezone || "UTC";
+  const reference = referenceOf(reservation.id);
+  const service = serviceLabel ?? reservation.service;
+  const description = [
+    `Reservation reference: ${reference}`,
+    `Guest: ${reservation.name}`,
+    `Party size: ${reservation.partySize}`,
+    service ? `Service: ${service}` : "",
+    tenant.settings.contactPhone ? `Contact phone: ${tenant.settings.contactPhone}` : "",
+    tenant.settings.contactEmail ? `Contact email: ${tenant.settings.contactEmail}` : "",
+    tenant.settings.url ? `Website: ${tenant.settings.url}` : "",
+  ].filter(Boolean).join("\n");
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Reservation System//Restaurant Booking//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${icsText(`${reservation.id}@${tenant.slug || tenant.id}`)}`,
+    `DTSTAMP:${icsUtcDateTime()}`,
+    `DTSTART;TZID=${icsText(timezone)}:${icsLocalDateTime(reservation.date, reservation.time)}`,
+    `DTEND;TZID=${icsText(timezone)}:${icsLocalDateTime(end.date, end.time)}`,
+    `SUMMARY:${icsText(`${tenant.settings.name} reservation`)}`,
+    `LOCATION:${icsText(tenant.settings.name)}`,
+    `DESCRIPTION:${icsText(description)}`,
+    ...(tenant.settings.url ? [`URL:${icsText(tenant.settings.url)}`] : []),
+    "STATUS:CONFIRMED",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
+}
+
 function statusOf(r: SendResult): EmailLogStatus {
   if (r.sent) return "sent";
   if (r.skipped) return "skipped";
@@ -178,9 +255,8 @@ function defaultFeedbackHtml(): string {
 export async function sendFeedbackRequestEmail(
   reservation: Reservation,
   tenant: Tenant,
-  feedbackUrl: string,
 ): Promise<SendResult> {
-  const result = await runFeedbackSend(reservation, tenant, feedbackUrl);
+  const result = await runFeedbackSend(reservation, tenant);
   await logEmailAttempt("feedbackRequest", reservation, tenant, result);
   return result;
 }
@@ -188,7 +264,6 @@ export async function sendFeedbackRequestEmail(
 async function runFeedbackSend(
   reservation: Reservation,
   tenant: Tenant,
-  feedbackUrl: string,
 ): Promise<SendResult> {
   const s = tenant.settings;
   // Authoritative guard: a rating request may ONLY go to guests who showed up.
@@ -207,7 +282,6 @@ async function runFeedbackSend(
       restaurantName: s.name,
       date: formatDate(reservation.date, s.locale),
       reference: referenceOf(reservation.id),
-      feedbackUrl,
       reviewUrl: s.reviewUrl ?? "",
       contactEmail: s.contactEmail,
     };
@@ -241,8 +315,9 @@ export async function sendConfirmationEmail(
   reservation: Reservation,
   tenant: Tenant,
   serviceLabel?: string,
+  config?: AvailabilityConfig,
 ): Promise<SendResult> {
-  const result = await runConfirmationSend(reservation, tenant, serviceLabel);
+  const result = await runConfirmationSend(reservation, tenant, serviceLabel, config);
   await logEmailAttempt("bookingConfirmation", reservation, tenant, result);
   return result;
 }
@@ -251,6 +326,7 @@ async function runConfirmationSend(
   reservation: Reservation,
   tenant: Tenant,
   serviceLabel?: string,
+  config?: AvailabilityConfig,
 ): Promise<SendResult> {
   const s = tenant.settings;
   if (!isEmailEventEnabled(s, "bookingConfirmation")) return { sent: false, skipped: true, reason: "event_disabled" };
@@ -272,6 +348,11 @@ async function runConfirmationSend(
       text: renderTemplate(tpl.text, vars),
       html: renderTemplate(tpl.html, vars),
       headers: trackingHeaders(tenant, reservation, "bookingConfirmation"),
+      icalEvent: {
+        method: "PUBLISH",
+        filename: "reservation.ics",
+        content: buildReservationCalendarEvent(reservation, tenant, serviceLabel, config),
+      },
     });
     return resultFromSendInfo(info, reservation.email);
   } catch (err) {
