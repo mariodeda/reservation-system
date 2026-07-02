@@ -183,6 +183,8 @@ export interface SlotAvailability {
 export interface ServiceAvailability {
   id: ServiceId;
   label: string;
+  /** Effective table duration for this service on this date, in minutes. */
+  turnMinutes: number;
   slots: SlotAvailability[];
 }
 

@@ -207,20 +207,23 @@ export function getDayAvailability(
 
   const blocked = new Set(offering.blockedSlots[dateStr] ?? []);
   const schedule = scheduleForOffering(offering, dateStr);
-  const services = schedule.services.map((w) => ({
-    id: w.id,
-    label: w.label,
-    slots: generateSlots(w).map((time) => {
-      const capacity = serviceSlotCapacity(w, resolvedId, tables);
-      const candidateTurn = turnMinutesFor(config, resolvedId, w.id, dateStr);
-      const booked = bookedCoversForSlot(config, reservations, dateStr, time, resolvedId, w.id, candidateTurn);
-      const remaining = Math.max(0, capacity - booked);
-      const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
-      const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
-      const available = !disabled && !blocked.has(time) && !tooSoon && remaining >= config.minPartySize;
-      return { time, capacity, booked, remaining, available };
-    }),
-  }));
+  const services = schedule.services.map((w) => {
+    const turnMinutes = turnMinutesFor(config, resolvedId, w.id, dateStr);
+    return {
+      id: w.id,
+      label: w.label,
+      turnMinutes,
+      slots: generateSlots(w).map((time) => {
+        const capacity = serviceSlotCapacity(w, resolvedId, tables);
+        const booked = bookedCoversForSlot(config, reservations, dateStr, time, resolvedId, w.id, turnMinutes);
+        const remaining = Math.max(0, capacity - booked);
+        const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
+        const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
+        const available = !disabled && !blocked.has(time) && !tooSoon && remaining >= config.minPartySize;
+        return { time, capacity, booked, remaining, available };
+      }),
+    };
+  });
 
   const full = services.every((s) => s.slots.every((sl) => !sl.available));
   return { date: dateStr, offering: resolvedId, closed: false, past: false, full, services };

@@ -12,27 +12,31 @@ import DayOccupancy from "@/components/admin/DayOccupancy";
 
 function day(over: Partial<DayAvailability> = {}): DayAvailability {
   return {
-    date: "2026-06-12", closed: false, past: false, full: false,
+    date: "2099-06-12", closed: false, past: false, full: false,
     services: [
       { id: "lunch", label: "Lunch", slots: [
         { time: "12:00", capacity: 10, booked: 4, remaining: 6, available: true },   // open (green)
         { time: "12:30", capacity: 10, booked: 8, remaining: 2, available: true },   // nearly full (amber)
         { time: "13:00", capacity: 10, booked: 10, remaining: 0, available: false }, // full (rose)
         { time: "13:30", capacity: 10, booked: 5, remaining: 5, available: false },  // blocked/past (grey)
-      ] },
+      ], turnMinutes: 120 },
     ],
     ...over,
   };
 }
 
-beforeEach(() => adminJson.mockReset());
-afterEach(() => vi.restoreAllMocks());
+beforeEach(() => {
+  adminJson.mockReset();
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("DayOccupancy", () => {
   it("shows per-service covers and a slot chip per time", async () => {
     adminJson.mockResolvedValue(day());
-    render(<DayOccupancy date="2026-06-12" />);
-    expect(adminJson).toHaveBeenCalledWith("/api/admin/availability?date=2026-06-12");
+    render(<DayOccupancy date="2099-06-12" />);
+    expect(adminJson).toHaveBeenCalledWith("/api/admin/availability?date=2099-06-12");
     expect(await screen.findByText("Lunch")).toBeInTheDocument();
     expect(screen.getByText("10/10 covers")).toBeInTheDocument(); // peak booked covers / actual seat capacity
     expect(screen.getByLabelText(/0\/10 covers available \(0%\).*critical availability/i)).toBeInTheDocument();
@@ -58,7 +62,7 @@ describe("DayOccupancy", () => {
 
   it("renders an error message on fetch error", async () => {
     adminJson.mockRejectedValue(new Error("boom"));
-    render(<DayOccupancy date="2026-06-12" />);
+    render(<DayOccupancy date="2099-06-12" />);
     await waitFor(() =>
       expect(screen.getByText(/could not load availability/i)).toBeInTheDocument(),
     );
@@ -68,14 +72,14 @@ describe("DayOccupancy", () => {
     const user = userEvent.setup();
     adminJson.mockResolvedValue(day());
     const onPick = vi.fn();
-    render(<DayOccupancy date="2026-06-12" onPickSlot={onPick} />);
+    render(<DayOccupancy date="2099-06-12" onPickSlot={onPick} />);
     await user.click(await screen.findByRole("button", { name: "12:00" }));
     expect(onPick).toHaveBeenCalledWith("lunch", "12:00");
   });
 
   it("disables slot buttons when no onPickSlot is given", async () => {
     adminJson.mockResolvedValue(day());
-    render(<DayOccupancy date="2026-06-12" />);
+    render(<DayOccupancy date="2099-06-12" />);
     expect(await screen.findByRole("button", { name: "12:00" })).toBeDisabled();
   });
 
@@ -85,21 +89,24 @@ describe("DayOccupancy", () => {
         {
           id: "healthy",
           label: "Healthy",
+          turnMinutes: 120,
           slots: [{ time: "12:00", capacity: 100, booked: 40, remaining: 60, available: true }],
         },
         {
           id: "low",
           label: "Low",
+          turnMinutes: 120,
           slots: [{ time: "13:00", capacity: 100, booked: 75, remaining: 25, available: true }],
         },
         {
           id: "critical",
           label: "Critical",
+          turnMinutes: 120,
           slots: [{ time: "14:00", capacity: 100, booked: 96, remaining: 4, available: true }],
         },
       ],
     }));
-    render(<DayOccupancy date="2026-06-12" />);
+    render(<DayOccupancy date="2099-06-12" />);
 
     expect(await screen.findByLabelText(/60\/100 covers available \(60%\).*healthy availability/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/25\/100 covers available \(25%\).*low availability/i)).toBeInTheDocument();
@@ -112,6 +119,7 @@ describe("DayOccupancy", () => {
         {
           id: "dinner",
           label: "Dinner",
+          turnMinutes: 120,
           slots: [
             { time: "18:00", capacity: 20, booked: 1, remaining: 19, available: false },
             { time: "18:30", capacity: 20, booked: 7, remaining: 13, available: true },
@@ -120,9 +128,29 @@ describe("DayOccupancy", () => {
         },
       ],
     }));
-    render(<DayOccupancy date="2026-06-12" />);
+    render(<DayOccupancy date="2099-06-12" />);
 
     expect(await screen.findByText("7/20 covers")).toBeInTheDocument();
     expect(screen.getByLabelText(/13\/20 covers available \(65%\).*healthy availability/i)).toBeInTheDocument();
+  });
+
+  it("hides the availability icon and mutes the recap after the service turn has ended", async () => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    adminJson.mockResolvedValue(day({
+      date: today,
+      services: [
+        {
+          id: "lunch",
+          label: "Lunch",
+          turnMinutes: 1,
+          slots: [{ time: "00:00", capacity: 20, booked: 4, remaining: 16, available: false }],
+        },
+      ],
+    }));
+    render(<DayOccupancy date={today} />);
+
+    expect(await screen.findByText("4/20 covers")).toHaveClass("text-on-surface-variant/70");
+    expect(screen.queryByLabelText(/16\/20 covers available/i)).not.toBeInTheDocument();
   });
 });

@@ -77,14 +77,15 @@ export default function DayOccupancy({
         const status = coverAvailabilityStatus(available, capacity);
         const pct = capacity > 0 ? Math.round((available / capacity) * 100) : 0;
         const summaryTitle = `${am.availability.coverSummaryHint(booked, capacity)} ${am.availability.coversAvailable(available, capacity, pct)}. ${status.label}`;
+        const ended = serviceHasEnded(day.date, svc.slots.at(-1)?.time, svc.turnMinutes);
         return (
           <div key={svc.id}>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-semibold">{svc.label}</span>
+              <span className={`text-sm font-semibold ${ended ? "text-on-surface-variant" : ""}`}>{svc.label}</span>
               <div className="flex items-center gap-2">
-                <CoverAvailabilityIcon className={status.iconClass} title={summaryTitle} tone={status.tone} />
+                {!ended && <CoverAvailabilityIcon className={status.iconClass} title={summaryTitle} tone={status.tone} />}
                 <Tooltip content={summaryTitle}>
-                  <span className="cursor-help text-sm font-semibold text-on-surface tabular-nums">
+                  <span className={`cursor-help text-sm font-semibold tabular-nums ${ended ? "text-on-surface-variant/70" : "text-on-surface"}`}>
                     {am.availability.covers(booked, capacity)}
                   </span>
                 </Tooltip>
@@ -125,6 +126,33 @@ export default function DayOccupancy({
       })}
     </div>
   );
+}
+
+function localDateStr(d = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function minutesNow(d = new Date()): number {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function minutesOf(time: string | undefined): number | null {
+  if (!time) return null;
+  const [h, m] = time.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+function serviceHasEnded(date: string, lastSlot: string | undefined, turnMinutes: number): boolean {
+  const today = localDateStr();
+  if (date < today) return true;
+  if (date > today) return false;
+  const last = minutesOf(lastSlot);
+  if (last == null) return false;
+  return minutesNow() > last + Math.max(0, turnMinutes);
 }
 
 function coverAvailabilityStatus(available: number, capacity: number) {
