@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReservationStatus, RestaurantTable } from "@/lib/reservations/types";
 import { RESERVATION_STATUSES } from "@/lib/reservations/types";
 import type { OfferingServices } from "@/lib/reservations/offerings";
@@ -36,7 +36,7 @@ export default function ReservationRow({
   const multiOffering = offerings.length > 1;
   const offeringLabel = offerings.find((o) => o.id === (r.offering || "main"))?.label;
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(r.status !== "completed");
   const [editing, setEditing] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(!!r.feedbackSentAt);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
@@ -91,9 +91,16 @@ export default function ReservationRow({
   }
 
   const dimmed = r.status === "cancelled" || r.status === "no_show";
+  const completed = r.status === "completed";
+  const quickActions = QUICK_ACTIONS[r.status];
+  const tableSummary = r.tableLabel ? `${am.row.table}: ${r.tableLabel}` : undefined;
+
+  useEffect(() => {
+    if (r.status === "completed") setOpen(false);
+  }, [r.status]);
 
   return (
-    <div className={`rounded-xl border border-outline-variant/30 bg-surface-container p-3 sm:p-4 ${dimmed ? "opacity-60" : ""}`}>
+    <div className={`rounded-xl border p-3 sm:p-4 ${completed ? "border-emerald-400/30 bg-emerald-400/10" : "border-outline-variant/30 bg-surface-container"} ${dimmed ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-3">
         {/* Time / service col */}
         <div className={`text-center shrink-0 ${showDate ? "w-20" : "w-14"}`}>
@@ -156,7 +163,30 @@ export default function ReservationRow({
           </div>
 
           {/* Table assignment — full-width, always visible */}
-          {!editing && (
+          {completed && !open && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-on-surface-variant">
+              {tableSummary && (
+                <span className="inline-flex items-center gap-1.5 font-medium text-emerald-300">
+                  <TableIcon />
+                  {tableSummary}
+                </span>
+              )}
+              {r.phone && (
+                <span className="inline-flex items-center gap-1.5">
+                  <PhoneIcon />
+                  {r.phone}
+                </span>
+              )}
+              {r.email && (
+                <span className="inline-flex max-w-[18rem] items-center gap-1.5 truncate">
+                  <EmailIcon />
+                  {r.email}
+                </span>
+              )}
+            </div>
+          )}
+
+          {!editing && (!completed || open) && (
             <div className="flex flex-col lg:flex-row lg:items-center gap-2">
               <div className="min-w-0 flex-1">
                 <TableAssign
@@ -278,14 +308,14 @@ export default function ReservationRow({
         </div>
 
         {/* Quick status actions — equal width + icons */}
-        {!editing && (
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            {QUICK_ACTIONS[r.status].map((s) => (
+        {!editing && quickActions.length > 0 && (
+          <div className="flex w-[150px] shrink-0 flex-col items-stretch gap-1.5 border-l border-outline-variant/30 pl-3">
+            {quickActions.map((s) => (
               <button
                 key={s}
                 disabled={busy}
                 onClick={() => setStatus(s)}
-                className={`text-xs px-2.5 py-1.5 rounded-lg border transition disabled:opacity-50 min-w-[5.5rem] flex items-center justify-center gap-1.5 ${STATUS_META[s].badge} hover:brightness-125`}
+                className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition disabled:opacity-50 ${STATUS_META[s].badge} hover:brightness-125`}
               >
                 <ActionIcon from={r.status} to={s} />
                 {actionLabel(r.status, s)}

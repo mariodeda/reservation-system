@@ -804,13 +804,32 @@ describe("admin reservations routes", () => {
     );
     expect(res.status).toBe(400);
   });
-  it("PATCH updates status, DELETE removes, both 404 on unknown id", async () => {
+  it("PATCH updates status, DELETE removes editable reservations, both 404 on unknown id", async () => {
     const created = (await (await routes.adminRes.POST(adminReq("/api/admin/reservations", { method: "POST", body: { date: "2026-06-12", time: "20:00", service: "dinner", name: "C", partySize: 2 } }))).json()).reservation;
 
     const patched = await routes.adminResId.PATCH(
       adminReq(`/api/admin/reservations/${created.id}`, { method: "PATCH", body: { status: "seated" } }), { params: Promise.resolve({ id: created.id }) });
     expect(patched.status).toBe(200);
     expect((await patched.json()).reservation.status).toBe("seated");
+
+    const seatedEdit = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${created.id}`, { method: "PATCH", body: { name: "Changed" } }), { params: Promise.resolve({ id: created.id }) });
+    expect(seatedEdit.status).toBe(409);
+
+    const seatedDelete = await routes.adminResId.DELETE(adminReq(`/api/admin/reservations/${created.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: created.id }) });
+    expect(seatedDelete.status).toBe(409);
+
+    const completed = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${created.id}`, { method: "PATCH", body: { status: "completed" } }), { params: Promise.resolve({ id: created.id }) });
+    expect(completed.status).toBe(200);
+    expect((await completed.json()).reservation.status).toBe("completed");
+
+    const completedEdit = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${created.id}`, { method: "PATCH", body: { name: "Changed" } }), { params: Promise.resolve({ id: created.id }) });
+    expect(completedEdit.status).toBe(409);
+
+    const completedDelete = await routes.adminResId.DELETE(adminReq(`/api/admin/reservations/${created.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: created.id }) });
+    expect(completedDelete.status).toBe(409);
 
     const badStatus = await routes.adminResId.PATCH(
       adminReq(`/api/admin/reservations/${created.id}`, { method: "PATCH", body: { status: "teleported" } }), { params: Promise.resolve({ id: created.id }) });
@@ -820,9 +839,10 @@ describe("admin reservations routes", () => {
       adminReq("/api/admin/reservations/nope", { method: "PATCH", body: { status: "seated" } }), { params: Promise.resolve({ id: "nope" }) });
     expect(missing.status).toBe(404);
 
-    const del = await routes.adminResId.DELETE(adminReq(`/api/admin/reservations/${created.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: created.id }) });
+    const deletable = (await (await routes.adminRes.POST(adminReq("/api/admin/reservations", { method: "POST", body: { date: "2026-06-12", time: "21:00", service: "dinner", name: "D", partySize: 2 } }))).json()).reservation;
+    const del = await routes.adminResId.DELETE(adminReq(`/api/admin/reservations/${deletable.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: deletable.id }) });
     expect(del.status).toBe(200);
-    const delAgain = await routes.adminResId.DELETE(adminReq(`/api/admin/reservations/${created.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: created.id }) });
+    const delAgain = await routes.adminResId.DELETE(adminReq(`/api/admin/reservations/${deletable.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: deletable.id }) });
     expect(delAgain.status).toBe(404);
   });
 });

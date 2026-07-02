@@ -106,6 +106,10 @@ describe("ReservationRow", () => {
     const confirmSpy = vi.spyOn(window, "confirm");
     render(<ReservationRow r={row({ status })} onChanged={() => {}} />);
 
+    if (status === "completed") {
+      await user.click(screen.getByRole("button", { name: /Expand/ }));
+    }
+
     const edit = screen.getByRole("button", { name: "Edit reservation" });
     const del = screen.getByRole("button", { name: "Delete reservation" });
     expect(edit).toBeDisabled();
@@ -117,6 +121,20 @@ describe("ReservationRow", () => {
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(adminFetch).not.toHaveBeenCalled();
+  });
+
+  it("shows completed reservations collapsed by default with compact staff info", async () => {
+    const user = userEvent.setup();
+    render(<ReservationRow r={row({ status: "completed", tableLabel: "Patio 2" })} onChanged={() => {}} />);
+
+    expect(screen.getByText("Completed")).toBeInTheDocument();
+    expect(screen.getByText("Table: Patio 2")).toBeInTheDocument();
+    expect(screen.getByText("555")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Expand/ }));
+    expect(screen.getByRole("button", { name: "Edit reservation" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete reservation" })).toBeDisabled();
   });
 
   it("shows a 'manual' badge for admin-sourced bookings and a Reinstate action when cancelled", async () => {
@@ -166,6 +184,7 @@ describe("ReservationRow", () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row({ status: "completed", feedbackSentAt: null })} onChanged={() => {}} />);
 
+    await user.click(screen.getByRole("button", { name: /Expand/ }));
     await user.click(screen.getByRole("button", { name: "Send review email" }));
 
     expect(adminFetch).toHaveBeenCalledWith(
@@ -176,9 +195,11 @@ describe("ReservationRow", () => {
     expect(screen.getByRole("button", { name: "Feedback request already sent" })).toBeDisabled();
   });
 
-  it("shows a disabled already-sent review email button when feedback was sent before", () => {
+  it("shows a disabled already-sent review email button when feedback was sent before", async () => {
+    const user = userEvent.setup();
     render(<ReservationRow r={row({ status: "completed", feedbackSentAt: "2026-07-01T12:00:00Z" })} onChanged={() => {}} />);
 
+    await user.click(screen.getByRole("button", { name: /Expand/ }));
     expect(screen.getByRole("button", { name: "Feedback request already sent" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Send review email" })).not.toBeInTheDocument();
   });

@@ -55,10 +55,21 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
   const tableSensitiveEdit = ["date", "time", "offering", "service"].some((f) =>
     Object.prototype.hasOwnProperty.call(patch, f),
   );
+  const existing = await store.getReservation(id);
+  if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  const locked = existing.status === "seated" || existing.status === "completed";
+  const onlyCompletingSeated =
+    existing.status === "seated" &&
+    patch.status === "completed" &&
+    Object.keys(patch).length === 1 &&
+    !assigningTable;
+
+  if (locked && !onlyCompletingSeated) {
+    return NextResponse.json({ error: "Seated or completed reservations cannot be modified." }, { status: 409 });
+  }
 
   if (!assigningTable && tableSensitiveEdit) {
-    const existing = await store.getReservation(id);
-    if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const candidate = { ...existing, ...patch };
     if (candidate.tableId || candidate.tableIds?.length) {
       const config = await store.getConfig();
@@ -155,6 +166,9 @@ async function deleteReservation(req: NextRequest, ctx: { params: Promise<{ id: 
   const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: admin.tenant, session: admin.session, route: "/api/admin/reservations/[id]" });
   const store = getStore().forTenant(admin.tenant.id);
   const existing = await store.getReservation(id);
+  if (existing && (existing.status === "seated" || existing.status === "completed")) {
+    return NextResponse.json({ error: "Seated or completed reservations cannot be deleted." }, { status: 409 });
+  }
   const ok = await store.deleteReservation(id);
   if (!ok) return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (existing) {

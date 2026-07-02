@@ -53,7 +53,7 @@ export const STATUS_META: Record<
   pending:   { get label() { return am.status.pending; },   badge: "bg-amber-400/15 text-amber-300 border-amber-400/30" },
   confirmed: { get label() { return am.status.confirmed; }, badge: "bg-emerald-400/15 text-emerald-300 border-emerald-400/30" },
   seated:    { get label() { return am.status.seated; },    badge: "bg-sky-400/15 text-sky-300 border-sky-400/30" },
-  completed: { get label() { return am.status.completed; }, badge: "bg-zinc-400/15 text-zinc-300 border-zinc-400/30" },
+  completed: { get label() { return am.status.completed; }, badge: "bg-emerald-400/15 text-emerald-300 border-emerald-400/30" },
   cancelled: { get label() { return am.status.cancelled; }, badge: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
   no_show:   { get label() { return am.status.no_show; },   badge: "bg-rose-700/20 text-rose-300 border-rose-700/40" },
 };
