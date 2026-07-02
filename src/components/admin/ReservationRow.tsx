@@ -93,7 +93,6 @@ export default function ReservationRow({
   const dimmed = r.status === "cancelled" || r.status === "no_show";
   const completed = r.status === "completed";
   const quickActions = QUICK_ACTIONS[r.status];
-  const tableSummary = r.tableLabel ? `${am.row.table}: ${r.tableLabel}` : undefined;
 
   useEffect(() => {
     if (r.status === "completed") setOpen(false);
@@ -163,29 +162,6 @@ export default function ReservationRow({
           </div>
 
           {/* Table assignment — full-width, always visible */}
-          {completed && !open && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-on-surface-variant">
-              {tableSummary && (
-                <span className="inline-flex items-center gap-1.5 font-medium text-emerald-300">
-                  <TableIcon />
-                  {tableSummary}
-                </span>
-              )}
-              {r.phone && (
-                <span className="inline-flex items-center gap-1.5">
-                  <PhoneIcon />
-                  {r.phone}
-                </span>
-              )}
-              {r.email && (
-                <span className="inline-flex max-w-[18rem] items-center gap-1.5 truncate">
-                  <EmailIcon />
-                  {r.email}
-                </span>
-              )}
-            </div>
-          )}
-
           {!editing && (!completed || open) && (
             <div className="flex flex-col lg:flex-row lg:items-center gap-2">
               <div className="min-w-0 flex-1">

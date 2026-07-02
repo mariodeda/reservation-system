@@ -109,6 +109,7 @@ beforeEach(async () => {
   // Clean this tenant's reservations, config, and rate limits between tests.
   const pool = routes.pool.getPool();
   await pool.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
+  await pool.query("DELETE FROM tables WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM app_config WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM rate_limits");
   await pool.query("DELETE FROM app_events").catch(() => {});
@@ -285,6 +286,18 @@ describe("GET /api/availability", () => {
     expect(json.date).toBe("2026-06-12");
     expect(json.services.length).toBeGreaterThan(0);
     expect(json.reservationPolicy.maxPartySize).toBe(12);
+  });
+  it("derives public slot capacity from active tables when configured", async () => {
+    const { getTableStore } = await import("@/lib/reservations/table-store");
+    const tables = getTableStore(tenantId);
+    await tables.createTable({ label: "A", capacity: 4 });
+    await tables.createTable({ label: "B", capacity: 6 });
+
+    const res = await routes.avail.GET(req("/api/availability?date=2026-06-12"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const slot = json.services[0].slots.find((s: { time: string }) => s.time === "12:30");
+    expect(slot).toMatchObject({ capacity: 10, remaining: 10, available: true });
   });
   it("returns a month grid", async () => {
     const res = await routes.avail.GET(req("/api/availability?month=2026-06"));

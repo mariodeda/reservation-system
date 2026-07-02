@@ -8,6 +8,7 @@ import {
   type Offering,
   type OfferingId,
   type Reservation,
+  type RestaurantTable,
   type ServiceId,
   type ServiceWindow,
 } from "./types";
@@ -126,6 +127,29 @@ function bookedCovers(
     .reduce((sum, r) => sum + r.partySize, 0);
 }
 
+function activeTables(tables?: RestaurantTable[]): RestaurantTable[] {
+  return (tables ?? []).filter((t) => t.active);
+}
+
+/**
+ * Bookable covers for a service slot. Once a tenant has active managed tables,
+ * the table inventory is the capacity source of truth. A table bound to an
+ * offering only contributes to that offering; an unbound table contributes to
+ * every offering's capacity view. Tenants without active tables keep the legacy
+ * per-service capacity fallback.
+ */
+export function serviceSlotCapacity(
+  service: ServiceWindow,
+  offeringId: OfferingId,
+  tables?: RestaurantTable[],
+): number {
+  const active = activeTables(tables);
+  if (active.length === 0) return service.capacity;
+  return active
+    .filter((t) => t.offering === null || t.offering === offeringId)
+    .reduce((sum, t) => sum + t.capacity, 0);
+}
+
 /* ---------- table-turn helpers ---------- */
 
 export const DEFAULT_TURN_MINUTES = 120;
@@ -165,6 +189,7 @@ export function getDayAvailability(
   reservations: Reservation[],
   dateStr: string,
   offeringId?: OfferingId,
+  tables?: RestaurantTable[],
 ): DayAvailability {
   const offering = getOffering(config, offeringId);
   const resolvedId = offering.id;
@@ -183,12 +208,13 @@ export function getDayAvailability(
     id: w.id,
     label: w.label,
     slots: generateSlots(w).map((time) => {
+      const capacity = serviceSlotCapacity(w, resolvedId, tables);
       const booked = bookedCovers(reservations, dateStr, time, resolvedId);
-      const remaining = Math.max(0, w.capacity - booked);
+      const remaining = Math.max(0, capacity - booked);
       const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
       const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
       const available = !disabled && !blocked.has(time) && !tooSoon && remaining >= config.minPartySize;
-      return { time, capacity: w.capacity, booked, remaining, available };
+      return { time, capacity, booked, remaining, available };
     }),
   }));
 
@@ -202,9 +228,10 @@ function offeringDayStatus(
   reservations: Reservation[],
   date: string,
   offeringId: OfferingId,
+  tables?: RestaurantTable[],
 ): "open" | "closed" | "full" {
   if (isClosed(config, date, offeringId)) return "closed";
-  return getDayAvailability(config, reservations, date, offeringId).full ? "full" : "open";
+  return getDayAvailability(config, reservations, date, offeringId, tables).full ? "full" : "open";
 }
 
 export function getMonthAvailability(
@@ -213,6 +240,7 @@ export function getMonthAvailability(
   year: number,
   month: number, // 1-12
   offeringId?: OfferingId,
+  tables?: RestaurantTable[],
 ): MonthDay[] {
   const now = nowInTz(config.timezone);
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -229,7 +257,7 @@ export function getMonthAvailability(
     if (date < now.dateStr) status = "past";
     else if (date > addDays(now.dateStr, config.bookingWindowDays)) status = "closed";
     else {
-      const statuses = ids.map((id) => offeringDayStatus(config, reservations, date, id));
+      const statuses = ids.map((id) => offeringDayStatus(config, reservations, date, id, tables));
       if (statuses.some((s) => s === "open")) status = "open";
       else if (statuses.some((s) => s === "full")) status = "full";
       else status = "closed";
@@ -260,6 +288,7 @@ export function canBook(
   config: AvailabilityConfig,
   reservations: Reservation[],
   input: NewReservationInput,
+  tables?: RestaurantTable[],
 ): BookCheck {
   if (!isValidDate(input.date)) return { ok: false, error: "Invalid date." };
   if (!/^\d{2}:\d{2}$/.test(input.time)) return { ok: false, error: "Invalid time." };
@@ -304,7 +333,8 @@ export function canBook(
     return { ok: false, error: "That time is too soon — please pick a later slot." };
 
   const booked = bookedCovers(reservations, input.date, input.time, offeringId);
-  const remaining = svc.capacity - booked;
+  const capacity = serviceSlotCapacity(svc, offeringId, tables);
+  const remaining = capacity - booked;
   if (input.partySize > remaining) {
     if (remaining <= 0)
       return { ok: false, error: "That time is fully booked. Please choose another slot." };

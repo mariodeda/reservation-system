@@ -569,7 +569,7 @@ function DayServicesEditor({
   wide?: boolean;
 }) {
   const wideColumns =
-    "lg:grid-cols-[minmax(6rem,1.4fr)_repeat(2,minmax(4.75rem,0.8fr))_repeat(2,minmax(4rem,0.65fr))_minmax(5.5rem,1fr)_auto]";
+    "lg:grid-cols-[minmax(6rem,1.4fr)_repeat(2,minmax(4.75rem,0.8fr))_minmax(4rem,0.65fr)_minmax(5.5rem,1fr)_auto]";
   return (
     <div className="space-y-2">
       {wide && services.length > 0 && (
@@ -578,7 +578,6 @@ function DayServicesEditor({
           <span>{am.availability.serviceFrom}</span>
           <span>{am.availability.serviceTo}</span>
           <span>{am.availability.serviceInterval}</span>
-          <span>{am.availability.serviceCapacity}</span>
           <span>{am.availability.serviceDuration}</span>
           <span>{am.availability.actions}</span>
         </div>
@@ -592,7 +591,6 @@ function DayServicesEditor({
           <Inp label={am.availability.serviceFrom} type="time" value={s.start} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].start = v))} />
           <Inp label={am.availability.serviceTo} type="time" value={s.end} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].end = v))} />
           <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-full" min={5} compact={wide} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
-          <NumInp label={am.availability.serviceCapacity} value={s.capacity} w="w-full" min={1} compact={wide} onChange={(v) => mutate((d) => (d.services[si].capacity = v))} />
           <label className="flex flex-col gap-1">
             <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${wide ? "lg:sr-only" : ""}`}>{am.availability.serviceDuration}</span>
             <select
@@ -641,10 +639,21 @@ function Num({ label, value, onChange, min }: { label: string; value: number; on
   );
 }
 function Inp({ label, value, onChange, type = "text", w = "", compact = false }: { label: string; value: string; onChange: (v: string) => void; type?: string; w?: string; compact?: boolean }) {
+  const isTime = type === "time";
   return (
     <label className="flex flex-col gap-1">
       <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${compact ? "lg:sr-only" : ""}`}>{label}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className={`${field} ${w}`} aria-label={compact ? label : undefined} />
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${field} ${w}`}
+        aria-label={compact ? label : undefined}
+        lang={isTime ? "en-GB" : undefined}
+        min={isTime ? "00:00" : undefined}
+        max={isTime ? "23:59" : undefined}
+        step={isTime ? 60 : undefined}
+      />
     </label>
   );
 }

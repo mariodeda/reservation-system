@@ -6,6 +6,7 @@ import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-co
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { type NewReservationInput, type Reservation } from "@/lib/reservations/types";
 import { canBook as canBookReservation, normalizeEmail, normalizePhone } from "@/lib/reservations/availability";
+import { getTableStore } from "@/lib/reservations/table-store";
 import { log } from "@/lib/observability/logger";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
@@ -245,9 +246,10 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
 
   try {
     const store = getStore().forTenant(tenant.id);
-    const [reservations, config] = await Promise.all([
+    const [reservations, config, tables] = await Promise.all([
       store.findByContact(email, phone),
       store.getConfig(),
+      getTableStore(tenant.id).listTables({ activeOnly: true }),
     ]);
     const reservation = reservations.find((r) => referenceOf(r.id) === reference);
     if (!reservation) {
@@ -303,7 +305,7 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
       status: reservation.status,
     };
     const existingForDate = (await store.listReservations({ date: next.date })).filter((r) => r.id !== reservation.id);
-    const check = canBookReservation(config, existingForDate, next);
+    const check = canBookReservation(config, existingForDate, next, tables);
     if (!check.ok) {
       await recordAppEvent(eventFromRequest(obs, {
         level: "info",

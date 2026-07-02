@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getStore } from "@/lib/reservations/store";
 import { getDayAvailability, getMonthAvailability } from "@/lib/reservations/availability";
+import { getTableStore } from "@/lib/reservations/table-store";
 import { offeringSummaries } from "@/lib/reservations/offerings";
 import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-context";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
@@ -79,9 +80,10 @@ async function handle(req: NextRequest) {
     const m = month ? /^(\d{4})-(\d{2})$/.exec(month) : null;
     const from = date ?? (m ? `${m[1]}-${m[2]}-01` : undefined);
     const to = date ?? (m ? `${m[1]}-${m[2]}-31` : undefined);
-    const [config, reservations] = await Promise.all([
+    const [config, reservations, tables] = await Promise.all([
       store.getConfig(),
       store.listReservations({ from, to }),
+      getTableStore(resolved.tenant.id).listTables({ activeOnly: true }),
     ]);
     const offerings = offeringSummaries(config, resolved.tenant.name);
 
@@ -89,7 +91,7 @@ async function handle(req: NextRequest) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
         return NextResponse.json({ error: "Invalid date" }, { status: 400 });
       const body: PublicDayAvailabilityResponse = {
-        ...getDayAvailability(config, reservations, date, offering),
+        ...getDayAvailability(config, reservations, date, offering, tables),
         offerings,
         reservationPolicy: publicReservationPolicy(config),
       };
@@ -102,7 +104,7 @@ async function handle(req: NextRequest) {
     if (month) {
       if (!m || Number(m[2]) < 1 || Number(m[2]) > 12)
         return NextResponse.json({ error: "Invalid month" }, { status: 400 });
-      const days = getMonthAvailability(config, reservations, Number(m[1]), Number(m[2]), offering);
+      const days = getMonthAvailability(config, reservations, Number(m[1]), Number(m[2]), offering, tables);
       return NextResponse.json(
         {
           month,

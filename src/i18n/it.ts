@@ -354,7 +354,6 @@ export const it = {
     serviceFrom: "Da",
     serviceTo: "A",
     serviceInterval: "Ogni (min)",
-    serviceCapacity: "Capienza",
     specialDates: "Date speciali",
     specialDatesHint:
       "Orari una tantum per una data specifica (festività, eventi speciali) — sostituiscono gli orari settimanali normali solo per quel giorno.",

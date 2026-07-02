@@ -123,13 +123,16 @@ describe("ReservationRow", () => {
     expect(adminFetch).not.toHaveBeenCalled();
   });
 
-  it("shows completed reservations collapsed by default with compact staff info", async () => {
+  it("shows completed reservations collapsed by default with minimal staff info", async () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row({ status: "completed", tableLabel: "Patio 2" })} onChanged={() => {}} />);
 
+    expect(screen.getByText("20:00")).toBeInTheDocument();
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+    expect(screen.getByText(/4 guests/)).toBeInTheDocument();
     expect(screen.getByText("Completed")).toBeInTheDocument();
-    expect(screen.getByText("Table: Patio 2")).toBeInTheDocument();
-    expect(screen.getByText("555")).toBeInTheDocument();
+    expect(screen.queryByText("Table: Patio 2")).not.toBeInTheDocument();
+    expect(screen.queryByText("555")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Expand/ }));

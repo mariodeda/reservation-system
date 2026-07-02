@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getStore, referenceOf } from "@/lib/reservations/store";
 import { canBook, normalizeEmail, normalizePhone, nowInTz, scheduleForDate } from "@/lib/reservations/availability";
+import { getTableStore } from "@/lib/reservations/table-store";
 import { getOfferings } from "@/lib/reservations/offerings";
 import { sendConfirmationEmail } from "@/lib/reservations/email";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
@@ -145,7 +146,10 @@ async function handle(req: NextRequest) {
 
   try {
     const store = getStore().forTenant(tenant.id);
-    const config = await store.getConfig();
+    const [config, tables] = await Promise.all([
+      store.getConfig(),
+      getTableStore(tenant.id).listTables({ activeOnly: true }),
+    ]);
 
     // Per-contact daily rate-limit: max 3 bookings per email or phone per 24 h.
     // Only applied when the contact field is non-empty — empty values fail canBook() anyway
@@ -206,7 +210,7 @@ async function handle(req: NextRequest) {
           ? "You already have a booking for that date and service."
           : "A booking already exists for this phone number on that date and service.";
       }
-      const check = canBook(config, existing, input);
+      const check = canBook(config, existing, input, tables);
       return check.ok ? null : check.error ?? "Unavailable.";
     });
 

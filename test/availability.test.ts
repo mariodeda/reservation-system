@@ -10,7 +10,7 @@ import {
   scheduleForDate,
   toMinutes,
 } from "@/lib/reservations/availability";
-import type { NewReservationInput, Reservation } from "@/lib/reservations/types";
+import type { NewReservationInput, Reservation, RestaurantTable } from "@/lib/reservations/types";
 import { closedDay, lunchService, makeConfig, openDay } from "./helpers/config";
 
 const NOW = "2026-06-11T10:00:00Z"; // Thursday, 10:00 UTC
@@ -30,6 +30,21 @@ function res(over: Partial<Reservation> = {}): Reservation {
     source: "web",
     createdAt: NOW,
     updatedAt: NOW,
+    ...over,
+  };
+}
+
+function table(over: Partial<RestaurantTable> = {}): RestaurantTable {
+  return {
+    id: "table-1",
+    offering: null,
+    label: "1",
+    capacity: 4,
+    minParty: 1,
+    sortOrder: 0,
+    joinable: false,
+    active: true,
+    createdAt: NOW,
     ...over,
   };
 }
@@ -180,6 +195,54 @@ describe("getDayAvailability", () => {
     const day = getDayAvailability(cfg, [res({ date: "2026-06-12", time: "12:00", partySize: 4 })], "2026-06-12");
     expect(day.services[0].slots[0].available).toBe(false);
     expect(day.full).toBe(true);
+  });
+
+  it("derives slot capacity from active tables when tables exist", () => {
+    setup();
+    const cfg = makeConfig({
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "12:00", capacity: 99 })])),
+    });
+    const day = getDayAvailability(cfg, [], "2026-06-12", undefined, [
+      table({ id: "a", capacity: 4 }),
+      table({ id: "b", capacity: 6 }),
+      table({ id: "inactive", capacity: 100, active: false }),
+    ]);
+    expect(day.services[0].slots[0]).toMatchObject({
+      capacity: 10,
+      remaining: 10,
+      available: true,
+    });
+  });
+
+  it("uses only tables available to the requested offering", () => {
+    setup();
+    const cfg = makeConfig({
+      offerings: [
+        {
+          id: "main",
+          label: "Dining",
+          weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "12:00", capacity: 99 })])),
+          dateOverrides: {},
+          blockedSlots: {},
+        },
+        {
+          id: "bar",
+          label: "Bar",
+          weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "12:00", capacity: 99 })])),
+          dateOverrides: {},
+          blockedSlots: {},
+        },
+      ],
+    });
+    const tables = [
+      table({ id: "shared", capacity: 2, offering: null }),
+      table({ id: "main-only", capacity: 4, offering: "main" }),
+      table({ id: "bar-only", capacity: 6, offering: "bar" }),
+    ];
+    const main = getDayAvailability(cfg, [], "2026-06-12", "main", tables);
+    const bar = getDayAvailability(cfg, [], "2026-06-12", "bar", tables);
+    expect(main.services[0].slots[0].capacity).toBe(6);
+    expect(bar.services[0].slots[0].capacity).toBe(8);
   });
 
   it("does not advertise a slot when remaining covers are below the minimum party size", () => {
@@ -367,6 +430,15 @@ describe("canBook", () => {
     const existing = [res({ date: "2026-06-12", time: "13:00", partySize: 3 })];
     expect(canBook(cfg, existing, input({ partySize: 2 })).ok).toBe(false);
     expect(canBook(cfg, existing, input({ partySize: 1 })).ok).toBe(true);
+  });
+
+  it("validates booking capacity against active tables when tables exist", () => {
+    setup();
+    const cfg = makeConfig({ weekly: weeklyAll(openDay([lunchService({ capacity: 99 })])) });
+    const existing = [res({ date: "2026-06-12", time: "13:00", partySize: 3 })];
+    const tables = [table({ capacity: 4 })];
+    expect(canBook(cfg, existing, input({ partySize: 2 }), tables).ok).toBe(false);
+    expect(canBook(cfg, existing, input({ partySize: 1 }), tables).ok).toBe(true);
   });
 });
 

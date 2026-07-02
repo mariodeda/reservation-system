@@ -25,7 +25,7 @@ export interface ServiceWindow {
   end: string;
   /** Minutes between slots, e.g. 30. */
   interval: number;
-  /** Max covers (sum of party sizes) per slot for this service. */
+  /** Legacy fallback max covers per slot, used only when no active tables exist. */
   capacity: number;
   /**
    * How long a table stays occupied for a booking in this service, in minutes.
@@ -43,8 +43,9 @@ export interface DaySchedule {
 /**
  * A bookable offering — the *kind* of experience a guest reserves (Restaurant,
  * Sushi, Cocktails, Events…). Each offering owns its own weekly schedule of
- * time-bands, per-date overrides, and blocked slots, with covers-based capacity
- * per slot. Full-day `closures`, party-size bounds, lead time, booking window,
+ * time-bands, per-date overrides, and blocked slots. Bookable covers are
+ * derived from active tables when configured, falling back to legacy per-service
+ * capacity only for tenants without tables. Full-day `closures`, party-size bounds, lead time, booking window,
  * and timezone remain tenant-global (see AvailabilityConfig).
  */
 export interface Offering {

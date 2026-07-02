@@ -358,7 +358,6 @@ export const am = {
     serviceFrom: "From",
     serviceTo: "To",
     serviceInterval: "Every (min)",
-    serviceCapacity: "Capacity",
     // Special dates
     specialDates: "Special dates",
     specialDatesHint: "One-off hours for a single date (holidays, special events) — these replace the normal weekly hours for that day only.",
