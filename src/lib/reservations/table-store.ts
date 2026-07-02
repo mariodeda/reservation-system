@@ -373,7 +373,7 @@ export class TableStore {
         const t = joinable[j];
         const others = await this.assignedOnDate(res.date, t.id);
         const clash = others.some((o) =>
-          turnsOverlap(myStart, myTurn, toMinutes(o.time), turnMinutesFor(config, o.offering, o.service, o.date)),
+          turnsOverlap(myStart, myTurn, toMinutes(o.time), o.durationMinsOverride ?? turnMinutesFor(config, o.offering, o.service, o.date)),
         );
         if (clash) continue;
         combo.push(t);
@@ -439,7 +439,7 @@ export class TableStore {
         const seatedNow = bookings.some((b) => {
           if (b.status !== "seated") return false;
           const start = toMinutes(b.time);
-          const turn = turnMinutesFor(config, b.offering, b.service, b.date);
+          const turn = b.durationMinsOverride ?? turnMinutesFor(config, b.offering, b.service, b.date);
           return turnsOverlap(now.minutes, 1, start, turn);
         });
         if (seatedNow) state = "seated";

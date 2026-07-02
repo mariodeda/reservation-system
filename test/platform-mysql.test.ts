@@ -359,7 +359,9 @@ describe("platform tenant CRUD via routes", () => {
     expect(events.some((event) =>
       event.reason === "Invalid status." &&
       event.metadata?.path === `/api/platform/tenants/${id}` &&
-      event.metadata?.method === "PATCH"
+      event.metadata?.method === "PATCH" &&
+      event.metadata?.bodyFormat === "json" &&
+      (event.metadata?.body as { status?: string } | undefined)?.status === "teleported"
     )).toBe(true);
   });
 

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDB } from "mysql-memory-server";
 import type { AvailabilityConfig } from "@/lib/reservations/types";
 
@@ -234,6 +234,24 @@ describe("suggestTable", () => {
     const clash = await ts.assignTable(r2.id, b.id, config);
     expect(clash.error).toMatch(/already taken/i);
   });
+
+  it("respects reservation duration overrides when suggesting joined tables", async () => {
+    const ts = tableStore();
+    const a = await ts.createTable({ label: "A", capacity: 4, joinable: true });
+    await ts.createTable({ label: "B", capacity: 4, joinable: true });
+    const mysql = new MySqlStore(TENANT);
+    const existing = await booking({ time: "12:00", party: 2 });
+    await mysql.updateReservation(existing.id, { durationMinsOverride: 180 });
+    await ts.assignTable(existing.id, a.id, config);
+
+    const candidate = await booking({ time: "14:00", party: 6 });
+    const suggestion = await ts.suggestTable(
+      { date: candidate.date, time: candidate.time, offering: candidate.offering, service: candidate.service, partySize: candidate.partySize },
+      config,
+    );
+
+    expect(suggestion).toBeNull();
+  });
 });
 
 describe("listTablesWithDayState", () => {
@@ -275,5 +293,32 @@ describe("listTablesWithDayState", () => {
 
     const floor = await ts.listTablesWithDayState(today, config);
     expect(floor.find((f) => f.table.label === "Now")?.state).toBe("seated");
+  });
+
+  it("uses reservation duration overrides for the seated-now floor state", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-06-12T12:00:00Z")); // 14:00 in Europe/Rome
+      const ts = tableStore();
+      const t = await ts.createTable({ label: "LongStay", capacity: 4 });
+      const mysql = new MySqlStore(TENANT);
+      const r = await mysql.createReservation({
+        date: "2026-06-12",
+        time: "11:30",
+        service: "lunch",
+        partySize: 2,
+        name: "Long Stay",
+        email: "s@x.io",
+        phone: "1",
+        status: "seated",
+      });
+      await mysql.updateReservation(r.id, { durationMinsOverride: 180 });
+      await ts.assignTable(r.id, t.id, config);
+
+      const floor = await ts.listTablesWithDayState("2026-06-12", config);
+      expect(floor.find((f) => f.table.label === "LongStay")?.state).toBe("seated");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

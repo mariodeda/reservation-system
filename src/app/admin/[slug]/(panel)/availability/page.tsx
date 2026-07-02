@@ -10,6 +10,7 @@ import {
 } from "@/lib/reservations/types";
 import { getOfferings } from "@/lib/reservations/offerings";
 import { adminFetch, adminJson, toast } from "@/components/admin/api";
+import Tooltip from "@/components/ui/Tooltip";
 import { am } from "@/i18n";
 
 const defaultService = (): ServiceWindow => ({
@@ -574,12 +575,12 @@ function DayServicesEditor({
     <div className="space-y-2">
       {wide && services.length > 0 && (
         <div className={`hidden lg:grid ${wideColumns} lg:gap-2 px-1 text-[10px] uppercase tracking-widest text-on-surface-variant`}>
-          <span>{am.availability.serviceName}</span>
-          <span>{am.availability.serviceFrom}</span>
-          <span>{am.availability.serviceTo}</span>
-          <span>{am.availability.serviceInterval}</span>
-          <span>{am.availability.serviceDuration}</span>
-          <span>{am.availability.actions}</span>
+          <HeaderTip label={am.availability.serviceName} tip={am.availability.serviceNameHint} />
+          <HeaderTip label={am.availability.serviceFrom} tip={am.availability.serviceFromHint} />
+          <HeaderTip label={am.availability.serviceTo} tip={am.availability.serviceToHint} />
+          <HeaderTip label={am.availability.serviceInterval} tip={am.availability.serviceIntervalHint} />
+          <HeaderTip label={am.availability.serviceDuration} tip={am.availability.serviceDurationHint} />
+          <HeaderTip label={am.availability.actions} tip={am.availability.actionsHint} />
         </div>
       )}
       {services.map((s, si) => (
@@ -620,6 +621,16 @@ function DayServicesEditor({
         {am.availability.addService}
       </button>
     </div>
+  );
+}
+
+function HeaderTip({ label, tip }: { label: string; tip: string }) {
+  return (
+    <Tooltip content={tip}>
+      <span className="inline-flex w-fit cursor-help items-center border-b border-dotted border-outline-variant/60 leading-tight">
+        {label}
+      </span>
+    </Tooltip>
   );
 }
 

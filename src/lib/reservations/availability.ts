@@ -101,32 +101,6 @@ export function isServiceDisabled(
   return config.disabledServices?.[dateStr]?.[offeringId]?.includes(serviceId) ?? false;
 }
 
-/**
- * Covers (sum of party sizes) already booked for a date+time across active
- * statuses, scoped to one offering. Reservations with a missing/empty offering
- * coalesce to DEFAULT_OFFERING_ID so legacy rows count against "main".
- *
- * Note: within an offering this still sums across all of that offering's
- * time-bands at the same clock time (unchanged historical semantics). The
- * offering filter only isolates capacity *between* offerings.
- */
-function bookedCovers(
-  reservations: Reservation[],
-  date: string,
-  time: string,
-  offeringId: OfferingId,
-): number {
-  return reservations
-    .filter(
-      (r) =>
-        r.date === date &&
-        r.time === time &&
-        offeringOf(r.offering) === offeringId &&
-        ACTIVE_STATUSES.includes(r.status),
-    )
-    .reduce((sum, r) => sum + r.partySize, 0);
-}
-
 function activeTables(tables?: RestaurantTable[]): RestaurantTable[] {
   return (tables ?? []).filter((t) => t.active);
 }
@@ -150,14 +124,12 @@ export function serviceSlotCapacity(
     .reduce((sum, t) => sum + t.capacity, 0);
 }
 
-/* ---------- table-turn helpers ---------- */
-
 export const DEFAULT_TURN_MINUTES = 120;
 
 /**
  * Minutes a table stays occupied for a booking in the given offering/service:
- * the service's own override, else the config default, else 120. Used only for
- * physical table-assignment conflict detection — never for covers capacity.
+ * the service's own override, else the config default, else 120. Used for
+ * physical table-assignment conflict detection and table-derived covers capacity.
  */
 export function turnMinutesFor(
   config: AvailabilityConfig,
@@ -180,6 +152,37 @@ export function turnsOverlap(
   bTurn: number,
 ): boolean {
   return aStart < bStart + bTurn && bStart < aStart + aTurn;
+}
+
+/**
+ * Covers occupying capacity for a candidate slot. Uses reservation/service
+ * duration windows, not just identical start times, so a 12:00 booking with a
+ * 120-minute turn also consumes capacity for a 13:00 candidate.
+ */
+function bookedCoversForSlot(
+  config: AvailabilityConfig,
+  reservations: Reservation[],
+  date: string,
+  time: string,
+  offeringId: OfferingId,
+  serviceId: ServiceId,
+  candidateTurnMinutes: number,
+): number {
+  const candidateStart = toMinutes(time);
+  return reservations
+    .filter((r) => {
+      if (
+        r.date !== date ||
+        offeringOf(r.offering) !== offeringId ||
+        !ACTIVE_STATUSES.includes(r.status)
+      ) {
+        return false;
+      }
+      const existingStart = toMinutes(r.time);
+      const existingTurn = r.durationMinsOverride ?? turnMinutesFor(config, r.offering, r.service, r.date);
+      return turnsOverlap(existingStart, existingTurn, candidateStart, candidateTurnMinutes);
+    })
+    .reduce((sum, r) => sum + r.partySize, 0);
 }
 
 /* ---------- public availability views ---------- */
@@ -209,7 +212,8 @@ export function getDayAvailability(
     label: w.label,
     slots: generateSlots(w).map((time) => {
       const capacity = serviceSlotCapacity(w, resolvedId, tables);
-      const booked = bookedCovers(reservations, dateStr, time, resolvedId);
+      const candidateTurn = turnMinutesFor(config, resolvedId, w.id, dateStr);
+      const booked = bookedCoversForSlot(config, reservations, dateStr, time, resolvedId, w.id, candidateTurn);
       const remaining = Math.max(0, capacity - booked);
       const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
       const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
@@ -332,7 +336,8 @@ export function canBook(
   if (input.date === now.dateStr && toMinutes(input.time) < now.minutes + config.leadMinutes)
     return { ok: false, error: "That time is too soon — please pick a later slot." };
 
-  const booked = bookedCovers(reservations, input.date, input.time, offeringId);
+  const candidateTurn = turnMinutesFor(config, offeringId, svc.id, input.date);
+  const booked = bookedCoversForSlot(config, reservations, input.date, input.time, offeringId, svc.id, candidateTurn);
   const capacity = serviceSlotCapacity(svc, offeringId, tables);
   const remaining = capacity - booked;
   if (input.partySize > remaining) {

@@ -34,14 +34,14 @@ describe("DayOccupancy", () => {
     render(<DayOccupancy date="2026-06-12" />);
     expect(adminJson).toHaveBeenCalledWith("/api/admin/availability?date=2026-06-12");
     expect(await screen.findByText("Lunch")).toBeInTheDocument();
-    expect(screen.getByText("27/40 covers")).toBeInTheDocument(); // 4+8+10+5 booked / 4*10 cap
-    expect(screen.getByLabelText(/13\/40 covers available \(33%\).*healthy availability/i)).toBeInTheDocument();
+    expect(screen.getByText("10/10 covers")).toBeInTheDocument(); // peak booked covers / actual seat capacity
+    expect(screen.getByLabelText(/0\/10 covers available \(0%\).*critical availability/i)).toBeInTheDocument();
     // a chip per slot, coloured per fullness (open/amber/full/blocked)
     for (const t of ["12:00", "12:30", "13:00", "13:30"]) {
       expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
     }
-    expect(screen.getByRole("button", { name: "13:00" })).toHaveAttribute("title", "Fully booked");
-    expect(screen.getByRole("button", { name: "13:30" })).toHaveAttribute("title", expect.stringMatching(/unavailable/i));
+    expect(screen.getByText("Fully booked")).toBeInTheDocument();
+    expect(screen.getByText(/unavailable/i)).toBeInTheDocument();
   });
 
   it("renders a closed-day message", async () => {
@@ -106,21 +106,23 @@ describe("DayOccupancy", () => {
     expect(screen.getByLabelText(/4\/100 covers available \(4%\).*critical availability/i)).toBeInTheDocument();
   });
 
-  it("bases cover availability icons on reserved/total capacity, not current slot bookability", async () => {
+  it("bases cover availability icons on peak reserved/seat capacity, not generated slot count", async () => {
     adminJson.mockResolvedValue(day({
       services: [
         {
           id: "dinner",
           label: "Dinner",
           slots: [
-            { time: "18:00", capacity: 180, booked: 1, remaining: 179, available: false },
+            { time: "18:00", capacity: 20, booked: 1, remaining: 19, available: false },
+            { time: "18:30", capacity: 20, booked: 7, remaining: 13, available: true },
+            { time: "19:00", capacity: 20, booked: 4, remaining: 16, available: true },
           ],
         },
       ],
     }));
     render(<DayOccupancy date="2026-06-12" />);
 
-    expect(await screen.findByText("1/180 covers")).toBeInTheDocument();
-    expect(screen.getByLabelText(/179\/180 covers available \(99%\).*healthy availability/i)).toBeInTheDocument();
+    expect(await screen.findByText("7/20 covers")).toBeInTheDocument();
+    expect(screen.getByLabelText(/13\/20 covers available \(65%\).*healthy availability/i)).toBeInTheDocument();
   });
 });

@@ -130,24 +130,62 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
     expect(arg.subject).toContain("Friday, June 12, 2026");
     expect(arg.text).toContain("Dinner");
     expect(arg.headers["X-RSV-Reservation-ID"]).toBe("abcdef12-3456-7890-abcd-ef1234567890");
-    expect(arg.icalEvent).toMatchObject({ method: "PUBLISH", filename: "reservation.ics" });
+    expect(arg.icalEvent).toMatchObject({
+      method: "REQUEST",
+      filename: "invitation.ics",
+    });
+    expect(arg.headers["Content-Class"]).toBe("urn:content-classes:calendarmessage");
     expect(arg.icalEvent.content).toContain("BEGIN:VCALENDAR");
-    expect(arg.icalEvent.content).toContain("METHOD:PUBLISH");
+    expect(arg.icalEvent.content).toContain("METHOD:REQUEST");
+    const unfoldedIcs = arg.icalEvent.content.replace(/\r\n /g, "");
     expect(arg.icalEvent.content).toContain("SUMMARY:Osteria Cancello dei Macci reservation");
-    expect(arg.icalEvent.content).toContain("DTSTART;TZID=Europe/Rome:20260612T193000");
-    expect(arg.icalEvent.content).toContain("DTEND;TZID=Europe/Rome:20260612T213000");
+    expect(arg.icalEvent.content).toContain("DTSTART:20260612T173000Z");
+    expect(arg.icalEvent.content).toContain("DTEND:20260612T193000Z");
+    expect(unfoldedIcs).toContain("ORGANIZER;CN=\"Osteria Cancello dei Macci\":mailto:reservations@osteria-cancello-dei-macci.example");
+    expect(unfoldedIcs).toContain("ATTENDEE;CN=\"Jane Doe\";ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=FALSE:mailto:jane@example.com");
+    expect(arg.icalEvent.content).toContain("SEQUENCE:0");
+    expect(arg.icalEvent.content).toContain("TRANSP:OPAQUE");
+    expect(arg.icalEvent.content).toContain("CLASS:PUBLIC");
+    expect(arg.icalEvent.content).toContain("X-MICROSOFT-CDO-BUSYSTATUS:BUSY");
     expect(arg.icalEvent.content).toContain("Reservation reference: ABCDEF");
+    expect(arg.icalEvent.content).not.toMatch(/(?<!\r)\n/);
   });
 
-  it("uses configured service turn duration for the calendar event end time", async () => {
+  it("uses configured default turn duration for the calendar event end time", async () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
     const config = structuredClone(defaultAvailability);
     config.turnMinutes = 90;
     await sendConfirmationEmail(reservation(), tenant({ smtp }), "Dinner", config);
 
     const arg = sendMail.mock.calls[0][0];
-    expect(arg.icalEvent.content).toContain("DTSTART;TZID=Europe/Rome:20260612T193000");
-    expect(arg.icalEvent.content).toContain("DTEND;TZID=Europe/Rome:20260612T210000");
+    expect(arg.icalEvent.content).toContain("DTSTART:20260612T173000Z");
+    expect(arg.icalEvent.content).toContain("DTEND:20260612T190000Z");
+  });
+
+  it("uses the date-specific service duration for the calendar event end time", async () => {
+    sendMail.mockResolvedValueOnce({ messageId: "x" });
+    const config = structuredClone(defaultAvailability);
+    config.turnMinutes = 90;
+    config.dateOverrides["2026-06-12"] = {
+      closed: false,
+      services: [
+        { id: "dinner", label: "Dinner", start: "18:00", end: "22:00", interval: 30, capacity: 30, turnMinutes: 45 },
+      ],
+    };
+    await sendConfirmationEmail(reservation(), tenant({ smtp }), "Dinner", config);
+
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.icalEvent.content).toContain("DTSTART:20260612T173000Z");
+    expect(arg.icalEvent.content).toContain("DTEND:20260612T181500Z");
+  });
+
+  it("converts winter Europe/Rome calendar event times to UTC", async () => {
+    sendMail.mockResolvedValueOnce({ messageId: "x" });
+    await sendConfirmationEmail(reservation({ date: "2026-01-15", time: "19:30" }), tenant({ smtp }), "Dinner");
+
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.icalEvent.content).toContain("DTSTART:20260115T183000Z");
+    expect(arg.icalEvent.content).toContain("DTEND:20260115T203000Z");
   });
 
   it("uses the configured calendar event title template", async () => {

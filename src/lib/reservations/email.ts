@@ -125,22 +125,33 @@ function trackingHeaders(tenant: Tenant, reservation: Reservation, type: TenantE
   };
 }
 
-function addMinutesToLocal(dateStr: string, time: string, minutes: number): { date: string; time: string } {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-  const d = new Date(Date.UTC(year, month - 1, day, hour, minute + minutes, 0));
-  return {
-    date: d.toISOString().slice(0, 10),
-    time: d.toISOString().slice(11, 16),
-  };
-}
-
-function icsLocalDateTime(dateStr: string, time: string): string {
-  return `${dateStr.replace(/-/g, "")}T${time.replace(":", "")}00`;
-}
-
 function icsUtcDateTime(d = new Date()): string {
   return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function timeZoneOffsetMs(date: Date, timezone: string): number {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date).map((x) => [x.type, x.value]));
+  const hour = parts.hour === "24" ? 0 : Number(parts.hour);
+  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), hour, Number(parts.minute), Number(parts.second));
+  return asUtc - date.getTime();
+}
+
+function localDateTimeToUtc(dateStr: string, time: string, timezone: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const first = new Date(localAsUtc - timeZoneOffsetMs(new Date(localAsUtc), timezone));
+  const second = new Date(localAsUtc - timeZoneOffsetMs(first, timezone));
+  return second;
 }
 
 function icsText(value: unknown): string {
@@ -149,6 +160,21 @@ function icsText(value: unknown): string {
     .replace(/\r?\n/g, "\\n")
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,");
+}
+
+function icsParamText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, " ")
+    .replace(/"/g, '\\"');
+}
+
+function emailAddress(value: unknown): string {
+  const s = String(value ?? "").trim();
+  const bracketed = s.match(/<([^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>/);
+  if (bracketed) return bracketed[1];
+  const plain = s.match(/[^\s<>,;]+@[^\s<>,;]+\.[^\s<>,;]+/);
+  return plain?.[0] ?? "";
 }
 
 function foldIcsLine(line: string): string {
@@ -166,13 +192,23 @@ function buildReservationCalendarEvent(
 ): string {
   const durationMins = reservation.durationMinsOverride
     ?? (config ? turnMinutesFor(config, reservation.offering, reservation.service, reservation.date) : 120);
-  const end = addMinutesToLocal(reservation.date, reservation.time, durationMins);
   const timezone = tenant.settings.timezone || config?.timezone || "UTC";
+  const startUtc = localDateTimeToUtc(reservation.date, reservation.time, timezone);
+  const endUtc = new Date(startUtc.getTime() + durationMins * 60_000);
   const vars = buildEmailVars(reservation, tenant, serviceLabel);
   const reference = referenceOf(reservation.id);
   const service = serviceLabel ?? reservation.service;
   const summary = renderTemplate(tenant.settings.calendarEventTitle || "{{restaurantName}} reservation", vars).trim()
     || `${tenant.settings.name} reservation`;
+  const organizerEmail = emailAddress(
+    tenant.settings.contactEmail
+      || tenant.settings.emailFrom
+      || tenant.settings.smtp?.from
+      || tenant.settings.smtp?.user
+      || reservation.email,
+  );
+  const attendeeEmail = emailAddress(reservation.email);
+  const now = icsUtcDateTime();
   const description = [
     `Reservation reference: ${reference}`,
     `Guest: ${reservation.name}`,
@@ -188,17 +224,27 @@ function buildReservationCalendarEvent(
     "VERSION:2.0",
     "PRODID:-//Reservation System//Restaurant Booking//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
+    "METHOD:REQUEST",
     "BEGIN:VEVENT",
     `UID:${icsText(`${reservation.id}@${tenant.slug || tenant.id}`)}`,
-    `DTSTAMP:${icsUtcDateTime()}`,
-    `DTSTART;TZID=${icsText(timezone)}:${icsLocalDateTime(reservation.date, reservation.time)}`,
-    `DTEND;TZID=${icsText(timezone)}:${icsLocalDateTime(end.date, end.time)}`,
+    `DTSTAMP:${now}`,
+    `CREATED:${now}`,
+    `LAST-MODIFIED:${now}`,
+    "SEQUENCE:0",
+    `DTSTART:${icsUtcDateTime(startUtc)}`,
+    `DTEND:${icsUtcDateTime(endUtc)}`,
     `SUMMARY:${icsText(summary)}`,
     `LOCATION:${icsText(tenant.settings.name)}`,
     `DESCRIPTION:${icsText(description)}`,
+    ...(organizerEmail ? [`ORGANIZER;CN="${icsParamText(tenant.settings.name)}":mailto:${organizerEmail}`] : []),
+    ...(attendeeEmail
+      ? [`ATTENDEE;CN="${icsParamText(reservation.name)}";ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=FALSE:mailto:${attendeeEmail}`]
+      : []),
     ...(tenant.settings.url ? [`URL:${icsText(tenant.settings.url)}`] : []),
     "STATUS:CONFIRMED",
+    "TRANSP:OPAQUE",
+    "CLASS:PUBLIC",
+    "X-MICROSOFT-CDO-BUSYSTATUS:BUSY",
     "END:VEVENT",
     "END:VCALENDAR",
   ];
@@ -350,10 +396,13 @@ async function runConfirmationSend(
       subject: renderTemplate(tpl.subject, vars),
       text: renderTemplate(tpl.text, vars),
       html: renderTemplate(tpl.html, vars),
-      headers: trackingHeaders(tenant, reservation, "bookingConfirmation"),
+      headers: {
+        ...trackingHeaders(tenant, reservation, "bookingConfirmation"),
+        "Content-Class": "urn:content-classes:calendarmessage",
+      },
       icalEvent: {
-        method: "PUBLISH",
-        filename: "reservation.ics",
+        method: "REQUEST",
+        filename: "invitation.ics",
         content: buildReservationCalendarEvent(reservation, tenant, serviceLabel, config),
       },
     });

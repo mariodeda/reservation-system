@@ -71,26 +71,23 @@ export default function DayOccupancy({
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 space-y-3">
       {Heading}
       {day.services.map((svc) => {
-        const { booked, capacity } = svc.slots.reduce(
-          (totals, slot) => ({
-            booked: totals.booked + slot.booked,
-            capacity: totals.capacity + slot.capacity,
-          }),
-          { booked: 0, capacity: 0 },
-        );
+        const capacity = Math.max(0, ...svc.slots.map((slot) => slot.capacity));
+        const booked = Math.max(0, ...svc.slots.map((slot) => slot.booked));
         const available = Math.max(0, capacity - booked);
         const status = coverAvailabilityStatus(available, capacity);
         const pct = capacity > 0 ? Math.round((available / capacity) * 100) : 0;
-        const statusTitle = `${am.availability.coversAvailable(available, capacity, pct)}. ${status.label}`;
+        const summaryTitle = `${am.availability.coverSummaryHint(booked, capacity)} ${am.availability.coversAvailable(available, capacity, pct)}. ${status.label}`;
         return (
           <div key={svc.id}>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-sm font-semibold">{svc.label}</span>
               <div className="flex items-center gap-2">
-                <CoverAvailabilityIcon className={status.iconClass} title={statusTitle} tone={status.tone} />
-                <span className="text-sm font-semibold text-on-surface tabular-nums">
-                  {am.availability.covers(booked, capacity)}
-                </span>
+                <CoverAvailabilityIcon className={status.iconClass} title={summaryTitle} tone={status.tone} />
+                <Tooltip content={summaryTitle}>
+                  <span className="cursor-help text-sm font-semibold text-on-surface tabular-nums">
+                    {am.availability.covers(booked, capacity)}
+                  </span>
+                </Tooltip>
               </div>
             </div>
             <div className="flex flex-wrap gap-1">

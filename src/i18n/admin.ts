@@ -355,9 +355,13 @@ export const am = {
     // Service window editor
     addService: "+ Add service",
     serviceName: "Service name",
+    serviceNameHint: "Label shown to staff and guests for this bookable service.",
     serviceFrom: "From",
+    serviceFromHint: "First bookable time for this service, using 24-hour time.",
     serviceTo: "To",
+    serviceToHint: "Last bookable time generated for this service, using 24-hour time.",
     serviceInterval: "Every (min)",
+    serviceIntervalHint: "Minutes between generated booking slots.",
     // Special dates
     specialDates: "Special dates",
     specialDatesHint: "One-off hours for a single date (holidays, special events) — these replace the normal weekly hours for that day only.",
@@ -382,9 +386,11 @@ export const am = {
     offeringName: "Name",
     // Table duration
     tableDuration: "Default table duration",
-    tableDurationHint: "How long a booked table stays occupied — used for table conflict detection.",
+    tableDurationHint: "Fallback duration used when a service leaves Duration on default. It drives table conflicts, public availability, and booking capacity.",
     serviceDuration: "Duration",
+    serviceDurationHint: "Overrides the default table duration for this service and day. Leave on default to inherit the value above.",
     actions: "Actions",
+    actionsHint: "Service-row controls, such as removing this service window.",
     durDefault: "System default (2h)",
     durInherit: "Global default",
     durLabel: (min: number) => {
@@ -401,6 +407,8 @@ export const am = {
     slotStatus: (booked: number, capacity: number, remaining: number) =>
       `${booked}/${capacity} covers booked · ${remaining} left`,
     covers: (booked: number, capacity: number) => `${booked}/${capacity} covers`,
+    coverSummaryHint: (booked: number, capacity: number) =>
+      `${booked}/${capacity} shows the peak booked covers during this service compared with active table seats. Time slots count overlapping reservations using the configured table duration.`,
     coversAvailable: (available: number, capacity: number, pct: number) =>
       `${available}/${capacity} covers available (${pct}%)`,
     coversAvailableOk: "Healthy availability",

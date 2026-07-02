@@ -214,6 +214,37 @@ describe("getDayAvailability", () => {
     });
   });
 
+  it("counts reservations that overlap a slot by service duration", () => {
+    setup();
+    const cfg = makeConfig({
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "14:00", interval: 60, capacity: 10, turnMinutes: 120 })])),
+    });
+    const day = getDayAvailability(
+      cfg,
+      [res({ date: "2026-06-12", time: "12:00", partySize: 4 })],
+      "2026-06-12",
+    );
+    expect(day.services[0].slots.find((s) => s.time === "12:00")).toMatchObject({ booked: 4, remaining: 6 });
+    expect(day.services[0].slots.find((s) => s.time === "13:00")).toMatchObject({ booked: 4, remaining: 6 });
+    expect(day.services[0].slots.find((s) => s.time === "14:00")).toMatchObject({ booked: 0, remaining: 10 });
+  });
+
+  it("uses per-day service duration overrides when checking overlaps", () => {
+    setup();
+    const cfg = makeConfig({
+      turnMinutes: 120,
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "13:00", interval: 60, capacity: 10, turnMinutes: 60 })])),
+      dateOverrides: {
+        "2026-06-12": openDay([lunchService({ start: "12:00", end: "13:00", interval: 60, capacity: 10, turnMinutes: 120 })]),
+      },
+    });
+    const reservations = [res({ date: "2026-06-12", time: "12:00", partySize: 4 })];
+    const overriddenDay = getDayAvailability(cfg, reservations, "2026-06-12");
+    const weeklyDay = getDayAvailability(cfg, [res({ date: "2026-06-13", time: "12:00", partySize: 4 })], "2026-06-13");
+    expect(overriddenDay.services[0].slots.find((s) => s.time === "13:00")?.booked).toBe(4);
+    expect(weeklyDay.services[0].slots.find((s) => s.time === "13:00")?.booked).toBe(0);
+  });
+
   it("uses only tables available to the requested offering", () => {
     setup();
     const cfg = makeConfig({
@@ -439,6 +470,17 @@ describe("canBook", () => {
     const tables = [table({ capacity: 4 })];
     expect(canBook(cfg, existing, input({ partySize: 2 }), tables).ok).toBe(false);
     expect(canBook(cfg, existing, input({ partySize: 1 }), tables).ok).toBe(true);
+  });
+
+  it("rejects bookings that would exceed table capacity during an overlapping duration window", () => {
+    setup();
+    const cfg = makeConfig({
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "14:00", interval: 60, capacity: 99, turnMinutes: 120 })])),
+    });
+    const existing = [res({ date: "2026-06-12", time: "12:00", partySize: 3 })];
+    const tables = [table({ capacity: 4 })];
+    expect(canBook(cfg, existing, input({ time: "13:00", partySize: 2 }), tables).ok).toBe(false);
+    expect(canBook(cfg, existing, input({ time: "14:00", partySize: 2 }), tables).ok).toBe(true);
   });
 });
 

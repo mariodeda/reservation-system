@@ -29,8 +29,8 @@ export interface ServiceWindow {
   capacity: number;
   /**
    * How long a table stays occupied for a booking in this service, in minutes.
-   * Used only for physical table-assignment conflict detection (not covers
-   * capacity). Falls back to AvailabilityConfig.turnMinutes when omitted.
+   * Used for table conflicts and table-derived availability/capacity windows.
+   * Falls back to AvailabilityConfig.turnMinutes when omitted.
    */
   turnMinutes?: number;
 }
@@ -74,9 +74,9 @@ export interface AvailabilityConfig {
   /** A slot is bookable only if it starts at least this many minutes from now. */
   leadMinutes: number;
   /**
-   * Default minutes a table stays occupied per booking, for physical
-   * table-assignment conflict detection. Per-service overrides via
-   * ServiceWindow.turnMinutes. Defaults to 120 when omitted.
+   * Default minutes a table stays occupied per booking. Used when a service
+   * does not set ServiceWindow.turnMinutes. Drives table conflicts and
+   * table-derived availability/capacity windows. Defaults to 120 when omitted.
    */
   turnMinutes?: number;
   /** Weekly template keyed by weekday (0 = Sunday … 6 = Saturday). */

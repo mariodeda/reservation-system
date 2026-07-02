@@ -351,9 +351,13 @@ export const it = {
     remove: "Rimuovi",
     addService: "+ Aggiungi servizio",
     serviceName: "Nome servizio",
+    serviceNameHint: "Etichetta mostrata allo staff e agli ospiti per questo servizio prenotabile.",
     serviceFrom: "Da",
+    serviceFromHint: "Primo orario prenotabile per questo servizio, in formato 24 ore.",
     serviceTo: "A",
+    serviceToHint: "Ultimo orario prenotabile generato per questo servizio, in formato 24 ore.",
     serviceInterval: "Ogni (min)",
+    serviceIntervalHint: "Minuti tra uno slot prenotabile e il successivo.",
     specialDates: "Date speciali",
     specialDatesHint:
       "Orari una tantum per una data specifica (festività, eventi speciali) — sostituiscono gli orari settimanali normali solo per quel giorno.",
@@ -377,9 +381,11 @@ export const it = {
       `Rimuovere l'offerta "${label}"? Il suo programma verrà eliminato. Le prenotazioni esistenti vengono mantenute.`,
     offeringName: "Nome",
     tableDuration: "Durata predefinita al tavolo",
-    tableDurationHint: "Per quanto tempo un tavolo prenotato rimane occupato — usato per il controllo dei conflitti.",
+    tableDurationHint: "Durata di fallback usata quando un servizio lascia Durata su predefinito. Guida conflitti tavoli, disponibilita pubblica e capacita prenotabile.",
     serviceDuration: "Durata",
+    serviceDurationHint: "Sovrascrive la durata predefinita per questo servizio e giorno. Lascia predefinito per ereditare il valore sopra.",
     actions: "Azioni",
+    actionsHint: "Controlli della riga servizio, come la rimozione di questa fascia.",
     durDefault: "Predefinito di sistema (2h)",
     durInherit: "Valore globale",
     durLabel: (min: number) => {
@@ -395,6 +401,8 @@ export const it = {
     slotStatus: (booked: number, capacity: number, remaining: number) =>
       `${booked}/${capacity} coperti prenotati · ${remaining} rimanenti`,
     covers: (booked: number, capacity: number) => `${booked}/${capacity} coperti`,
+    coverSummaryHint: (booked: number, capacity: number) =>
+      `${booked}/${capacity} mostra il picco di coperti prenotati durante questo servizio rispetto ai posti dei tavoli attivi. Gli slot considerano le prenotazioni sovrapposte in base alla durata al tavolo configurata.`,
     coversAvailable: (available: number, capacity: number, pct: number) =>
       `${available}/${capacity} coperti disponibili (${pct}%)`,
     coversAvailableOk: "Disponibilita buona",
