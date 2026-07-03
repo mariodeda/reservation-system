@@ -404,6 +404,12 @@ export const am = {
     dayNoService: "No service configured for this date.",
     fullyBooked: "Fully booked",
     slotUnavailable: "Unavailable (past, too soon, or blocked)",
+    serviceEnded: "Service ended",
+    openShort: "Open",
+    lowShort: "Low",
+    criticalShort: "Critical",
+    fullShort: "Full",
+    unavailableShort: "Unavailable",
     slotStatus: (booked: number, capacity: number, remaining: number) =>
       `${booked}/${capacity} covers booked · ${remaining} left`,
     covers: (booked: number, capacity: number) => `${booked}/${capacity} covers`,

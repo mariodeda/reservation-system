@@ -398,6 +398,12 @@ export const it = {
     dayNoService: "Nessun servizio configurato per questa data.",
     fullyBooked: "Tutto esaurito",
     slotUnavailable: "Non disponibile (passato, troppo presto o bloccato)",
+    serviceEnded: "Servizio terminato",
+    openShort: "Aperto",
+    lowShort: "Bassa",
+    criticalShort: "Critica",
+    fullShort: "Pieno",
+    unavailableShort: "Non disponibile",
     slotStatus: (booked: number, capacity: number, remaining: number) =>
       `${booked}/${capacity} coperti prenotati · ${remaining} rimanenti`,
     covers: (booked: number, capacity: number) => `${booked}/${capacity} coperti`,

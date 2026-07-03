@@ -38,14 +38,16 @@ describe("DayOccupancy", () => {
     render(<DayOccupancy date="2099-06-12" />);
     expect(adminJson).toHaveBeenCalledWith("/api/admin/availability?date=2099-06-12");
     expect(await screen.findByText("Lunch")).toBeInTheDocument();
-    expect(screen.getByText("10/10 covers")).toBeInTheDocument(); // peak booked covers / actual seat capacity
-    expect(screen.getByLabelText(/0\/10 covers available \(0%\).*critical availability/i)).toBeInTheDocument();
-    // a chip per slot, coloured per fullness (open/amber/full/blocked)
+    expect(screen.getByRole("button", { name: /12:00.*4\/10 covers booked.*6 left.*healthy availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /12:30.*8\/10 covers booked.*2 left.*low availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /13:00.*10\/10 covers booked.*0 left.*fully booked/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /13:30.*5\/10 covers booked.*5 left.*unavailable/i })).toBeInTheDocument();
+    // a tile per slot, coloured per fullness (open/amber/full/blocked)
     for (const t of ["12:00", "12:30", "13:00", "13:30"]) {
-      expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: new RegExp(t) })).toBeInTheDocument();
     }
-    expect(screen.getByText("Fully booked")).toBeInTheDocument();
-    expect(screen.getByText(/unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText("Full")).toBeInTheDocument();
+    expect(screen.getAllByText(/unavailable/i).length).toBeGreaterThan(0);
   });
 
   it("renders a closed-day message", async () => {
@@ -73,17 +75,17 @@ describe("DayOccupancy", () => {
     adminJson.mockResolvedValue(day());
     const onPick = vi.fn();
     render(<DayOccupancy date="2099-06-12" onPickSlot={onPick} />);
-    await user.click(await screen.findByRole("button", { name: "12:00" }));
+    await user.click(await screen.findByRole("button", { name: /12:00/ }));
     expect(onPick).toHaveBeenCalledWith("lunch", "12:00");
   });
 
   it("disables slot buttons when no onPickSlot is given", async () => {
     adminJson.mockResolvedValue(day());
     render(<DayOccupancy date="2099-06-12" />);
-    expect(await screen.findByRole("button", { name: "12:00" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: /12:00/ })).toBeDisabled();
   });
 
-  it("shows green, warning and critical cover availability icons by service", async () => {
+  it("shows green, warning and critical cover availability by slot", async () => {
     adminJson.mockResolvedValue(day({
       services: [
         {
@@ -108,12 +110,12 @@ describe("DayOccupancy", () => {
     }));
     render(<DayOccupancy date="2099-06-12" />);
 
-    expect(await screen.findByLabelText(/60\/100 covers available \(60%\).*healthy availability/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/25\/100 covers available \(25%\).*low availability/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/4\/100 covers available \(4%\).*critical availability/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /12:00.*40\/100 covers booked.*60 left.*healthy availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /13:00.*75\/100 covers booked.*25 left.*low availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /14:00.*96\/100 covers booked.*4 left.*critical availability/i })).toBeInTheDocument();
   });
 
-  it("bases cover availability icons on peak reserved/seat capacity, not generated slot count", async () => {
+  it("shows covers per slot instead of a peak service recap", async () => {
     adminJson.mockResolvedValue(day({
       services: [
         {
@@ -130,8 +132,8 @@ describe("DayOccupancy", () => {
     }));
     render(<DayOccupancy date="2099-06-12" />);
 
-    expect(await screen.findByText("7/20 covers")).toBeInTheDocument();
-    expect(screen.getByLabelText(/13\/20 covers available \(65%\).*healthy availability/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /18:30.*7\/20 covers booked.*13 left.*healthy availability/i })).toBeInTheDocument();
+    expect(screen.getAllByText("7/20 covers")).toHaveLength(1);
   });
 
   it("hides the availability icon and mutes the recap after the service turn has ended", async () => {
@@ -150,7 +152,7 @@ describe("DayOccupancy", () => {
     }));
     render(<DayOccupancy date={today} />);
 
-    expect(await screen.findByText("4/20 covers")).toHaveClass("text-on-surface-variant/70");
-    expect(screen.queryByLabelText(/16\/20 covers available/i)).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /00:00.*4\/20 covers booked.*16 left.*service ended/i })).toHaveClass("text-on-surface-variant/70");
+    expect(screen.queryByText("Open")).not.toBeInTheDocument();
   });
 });

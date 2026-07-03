@@ -7,9 +7,9 @@ import { am } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
 
 /**
- * Compact per-service capacity view for a date: total covers booked vs capacity,
- * plus a strip of slot chips coloured by fullness. Optionally lets staff click a
- * slot to start a booking at that time.
+ * Per-service capacity view for a date. Each slot tile carries its own covers
+ * status so staff can scan availability without reconciling a service summary
+ * against separate time chips.
  */
 export default function DayOccupancy({
   date,
@@ -71,51 +71,36 @@ export default function DayOccupancy({
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 space-y-3">
       {Heading}
       {day.services.map((svc) => {
-        const capacity = Math.max(0, ...svc.slots.map((slot) => slot.capacity));
-        const booked = Math.max(0, ...svc.slots.map((slot) => slot.booked));
-        const available = Math.max(0, capacity - booked);
-        const status = coverAvailabilityStatus(available, capacity);
-        const pct = capacity > 0 ? Math.round((available / capacity) * 100) : 0;
-        const summaryTitle = `${am.availability.coverSummaryHint(booked, capacity)} ${am.availability.coversAvailable(available, capacity, pct)}. ${status.label}`;
         const ended = serviceHasEnded(day.date, svc.slots.at(-1)?.time, svc.turnMinutes);
         return (
           <div key={svc.id}>
             <div className="flex items-center justify-between mb-1.5">
               <span className={`text-sm font-semibold ${ended ? "text-on-surface-variant" : ""}`}>{svc.label}</span>
-              <div className="flex items-center gap-2">
-                {!ended && <CoverAvailabilityIcon className={status.iconClass} title={summaryTitle} tone={status.tone} />}
-                <Tooltip content={summaryTitle}>
-                  <span className={`cursor-help text-sm font-semibold tabular-nums ${ended ? "text-on-surface-variant/70" : "text-on-surface"}`}>
-                    {am.availability.covers(booked, capacity)}
-                  </span>
-                </Tooltip>
-              </div>
+              {ended && <span className="text-xs font-medium text-on-surface-variant/70">{am.availability.serviceEnded}</span>}
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(7.25rem,1fr))] gap-1.5">
               {svc.slots.map((s) => {
-                const ratio = s.capacity ? s.remaining / s.capacity : 0;
-                const full = s.remaining <= 0;
-                const cls = full
-                  ? "bg-rose-500/15 text-rose-300 border-rose-500/30" // fully booked
-                  : !s.available
-                    ? "bg-surface-container-high text-on-surface-variant/50 border-outline-variant/30" // past / too soon / blocked
-                    : ratio <= 0.25
-                      ? "bg-amber-400/15 text-amber-300 border-amber-400/30" // nearly full
-                      : "bg-emerald-400/10 text-emerald-300 border-emerald-400/30"; // open
-                const title = full
-                  ? am.availability.fullyBooked
-                  : !s.available
-                    ? am.availability.slotUnavailable
-                    : am.availability.slotStatus(s.booked, s.capacity, s.remaining);
+                const status = slotCoverStatus(s, ended);
+                const title = `${s.time}: ${am.availability.slotStatus(s.booked, s.capacity, s.remaining)}. ${status.label}`;
                 return (
                   <Tooltip key={s.time} content={title}>
                     <button
                       type="button"
                       disabled={!onPickSlot}
                       onClick={() => onPickSlot?.(svc.id, s.time)}
-                      className={`text-[11px] tabular-nums px-2 py-1 rounded border transition-all ${cls} ${onPickSlot ? "cursor-pointer hover:brightness-125 active:scale-95" : "cursor-default"}`}
+                      aria-label={title}
+                      className={`min-h-14 rounded-lg border px-2 py-1.5 text-left tabular-nums transition-all ${status.className} ${onPickSlot ? "cursor-pointer hover:brightness-110 active:scale-[0.98]" : "cursor-default"}`}
                     >
-                      {s.time}
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold">{s.time}</span>
+                        {!ended && <span className={`h-2 w-2 rounded-full ${status.dotClass}`} aria-hidden="true" />}
+                      </span>
+                      <span className="mt-1 block text-[11px] font-semibold leading-tight">
+                        {am.availability.covers(s.booked, s.capacity)}
+                      </span>
+                      <span className="mt-0.5 block text-[10px] font-medium leading-tight opacity-80">
+                        {status.shortLabel}
+                      </span>
                     </button>
                   </Tooltip>
                 );
@@ -155,45 +140,57 @@ function serviceHasEnded(date: string, lastSlot: string | undefined, turnMinutes
   return minutesNow() > last + Math.max(0, turnMinutes);
 }
 
-function coverAvailabilityStatus(available: number, capacity: number) {
-  const ratio = capacity > 0 ? available / capacity : 0;
+function slotCoverStatus(
+  slot: { capacity: number; booked: number; remaining: number; available: boolean },
+  serviceEnded: boolean,
+) {
+  if (serviceEnded) {
+    return {
+      label: am.availability.serviceEnded,
+      shortLabel: am.availability.serviceEnded,
+      className: "bg-surface-container-high/60 text-on-surface-variant/70 border-outline-variant/25",
+      dotClass: "",
+    };
+  }
+  if (slot.remaining <= 0) {
+    return {
+      label: am.availability.fullyBooked,
+      shortLabel: am.availability.fullShort,
+      className: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+      dotClass: "bg-rose-300",
+    };
+  }
+  if (!slot.available) {
+    return {
+      label: am.availability.slotUnavailable,
+      shortLabel: am.availability.unavailableShort,
+      className: "bg-surface-container-high text-on-surface-variant/60 border-outline-variant/30",
+      dotClass: "bg-on-surface-variant/40",
+    };
+  }
+  const ratio = slot.capacity > 0 ? slot.remaining / slot.capacity : 0;
   if (ratio < 0.05) {
     return {
       label: am.availability.coversAvailableCritical,
-      iconClass: "text-rose-400",
-      tone: "critical" as const,
+      shortLabel: am.availability.criticalShort,
+      className: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+      dotClass: "bg-rose-300",
     };
   }
   if (ratio < 0.3) {
     return {
       label: am.availability.coversAvailableLow,
-      iconClass: "text-amber-300",
-      tone: "low" as const,
+      shortLabel: am.availability.lowShort,
+      className: "bg-amber-400/15 text-amber-300 border-amber-400/30",
+      dotClass: "bg-amber-300",
     };
   }
-  return {
-    label: am.availability.coversAvailableOk,
-    iconClass: "text-emerald-300",
-    tone: "ok" as const,
-  };
-}
-
-function CoverAvailabilityIcon({ className, title, tone }: { className: string; title: string; tone: "ok" | "low" | "critical" }) {
-  const path = tone === "ok"
-    ? <><circle cx="8" cy="8" r="6" /><path d="m5.2 8.2 1.8 1.8 3.8-4" /></>
-    : tone === "critical"
-      ? <><circle cx="8" cy="8" r="6" /><path d="m5.8 5.8 4.4 4.4" /><path d="m10.2 5.8-4.4 4.4" /></>
-      : <><path d="M8 2.8 1.9 13a1 1 0 0 0 .9 1.5h10.4a1 1 0 0 0 .9-1.5L8 2.8Z" /><path d="M8 6.5v3" /><path d="M8 12h.01" /></>;
   return (
-    <Tooltip content={title}>
-      <span
-        className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${className}`}
-        aria-label={title}
-      >
-        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          {path}
-        </svg>
-      </span>
-    </Tooltip>
+    {
+      label: am.availability.coversAvailableOk,
+      shortLabel: am.availability.openShort,
+      className: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30",
+      dotClass: "bg-emerald-300",
+    }
   );
 }
