@@ -324,15 +324,17 @@ export default function ReservationsPage() {
           )}
 
           {showForm && (
-            <NewReservationForm
-              date={date}
-              offerings={offerings}
-              seed={seed}
-              onCreated={() => {
-                setShowForm(false);
-                load();
-              }}
-            />
+            <NewReservationModal onClose={() => setShowForm(false)}>
+              <NewReservationForm
+                date={date}
+                offerings={offerings}
+                seed={seed}
+                onCreated={() => {
+                  setShowForm(false);
+                  load();
+                }}
+              />
+            </NewReservationModal>
           )}
         </>
       )}
@@ -1057,6 +1059,38 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 const field =
   "h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm w-full focus:border-primary outline-none [color-scheme:dark]";
 
+function NewReservationModal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[190] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="new-reservation-title"
+    >
+      <div className="mx-auto flex h-full w-full max-w-3xl items-center">
+        <div className="max-h-full w-full overflow-y-auto rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-outline-variant/25 bg-surface px-4 py-3">
+            <h2 id="new-reservation-title" className="text-sm font-semibold text-on-surface">
+              {am.reservations.newReservation}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant transition hover:text-primary"
+              aria-label={am.reservations.close}
+            >
+              <CloseIcon />
+            </button>
+          </div>
+          <div className="p-4">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewReservationForm({
   date,
   offerings,
@@ -1135,7 +1169,7 @@ function NewReservationForm({
   }
 
   return (
-    <form onSubmit={submit} className="bg-surface-container border border-outline-variant/30 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <form onSubmit={submit} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {multiOffering && (
         <select
           value={form.offering}
@@ -1188,5 +1222,14 @@ function NewReservationForm({
       </button>
       {error && <p className="col-span-full text-sm text-rose-400">{error}</p>}
     </form>
+  );
+}
+
+function CloseIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M4 4l8 8" />
+      <path d="M12 4l-8 8" />
+    </svg>
   );
 }

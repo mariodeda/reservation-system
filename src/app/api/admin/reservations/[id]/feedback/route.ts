@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getStore } from "@/lib/reservations/store";
 import { sendFeedbackRequestEmail } from "@/lib/reservations/email";
-import { getSentEmailStatusBatch, hasSentEmail } from "@/lib/reservations/email-log-store";
+import { getSentEmailStatusBatch, hasSentEmail, withEmailSendLock } from "@/lib/reservations/email-log-store";
 import { hasGuestAttended, isEmailEventEnabled } from "@/lib/reservations/email-policy";
 import { observeAdminRoute } from "@/lib/observability/route-events";
 
@@ -38,7 +38,13 @@ async function sendFeedback(
     if (!ctx.tenant.settings.reviewUrl)
       return NextResponse.json({ error: "Restaurant review URL is not configured." }, { status: 422 });
 
-    if (await hasSentEmail(id, "feedbackRequest")) {
+    const result = await withEmailSendLock(ctx.tenant.id, id, "feedbackRequest", async () => {
+      if (await hasSentEmail(id, "feedbackRequest")) {
+        return { sent: false, skipped: true, alreadySent: true };
+      }
+      return sendFeedbackRequestEmail(reservation, ctx.tenant);
+    });
+    if ("alreadySent" in result && result.alreadySent) {
       return NextResponse.json({
         ok: true,
         emailSent: false,
@@ -46,8 +52,6 @@ async function sendFeedback(
         reviewUrl: ctx.tenant.settings.reviewUrl,
       });
     }
-
-    const result = await sendFeedbackRequestEmail(reservation, ctx.tenant);
     return NextResponse.json({ ok: true, emailSent: result.sent, reviewUrl: ctx.tenant.settings.reviewUrl });
   } catch (err) {
     console.error("[feedback] send failed:", err);

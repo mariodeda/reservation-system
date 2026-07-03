@@ -4,7 +4,7 @@
  * is recorded so staff/operators can answer "did the guest get the email, and
  * if not, why?". Writes never throw (a logging failure must not break a send).
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { RowDataPacket } from "mysql2/promise";
 import { getPool } from "./mysql-pool";
 import { ensureSchema } from "./mysql-schema";
@@ -228,4 +228,42 @@ export async function hasSentEmail(reservationId: string, type: EmailLogType): P
     [reservationId, type],
   );
   return rows.length > 0;
+}
+
+function emailSendLockName(tenantId: string, reservationId: string, type: EmailLogType): string {
+  const digest = createHash("sha256")
+    .update(tenantId)
+    .update(":")
+    .update(reservationId)
+    .update(":")
+    .update(type)
+    .digest("hex")
+    .slice(0, 48);
+  return `email:${digest}`;
+}
+
+/**
+ * Serializes one email type for one reservation across app instances. This is
+ * intentionally narrow: it prevents duplicate concurrent sends while allowing
+ * unrelated reservation emails to proceed normally.
+ */
+export async function withEmailSendLock<T>(
+  tenantId: string,
+  reservationId: string,
+  type: EmailLogType,
+  fn: () => Promise<T>,
+): Promise<T> {
+  await ensureSchema();
+  const conn = await getPool().getConnection();
+  const lockName = emailSendLockName(tenantId, reservationId, type);
+  try {
+    const [rows] = await conn.query<RowDataPacket[]>("SELECT GET_LOCK(?, 10) AS ok", [lockName]);
+    if (Number(rows[0]?.ok) !== 1) {
+      throw new Error("Could not acquire email send lock.");
+    }
+    return await fn();
+  } finally {
+    await conn.query("SELECT RELEASE_LOCK(?)", [lockName]).catch(() => {});
+    conn.release();
+  }
 }

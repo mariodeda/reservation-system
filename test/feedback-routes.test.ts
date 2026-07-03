@@ -2,6 +2,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createDB } from "mysql-memory-server";
 import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
+import type { Reservation } from "@/lib/reservations/types";
+import type { Tenant } from "@/lib/reservations/tenant";
 
 // Mock email so tests never touch SMTP.
 const sendFeedbackRequestEmail = vi.hoisted(() => vi.fn(async () => ({ sent: true })));
@@ -282,6 +284,33 @@ describe("POST /api/admin/reservations/[id]/feedback", () => {
     expect(json.alreadySent).toBe(true);
     expect(json.emailSent).toBe(false);
     expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
+
+  it("serializes concurrent staff feedback sends for the same reservation", async () => {
+    const r = await makeCompleted();
+    sendFeedbackRequestEmail.mockImplementationOnce((async (reservation: Reservation, tenant: Tenant) => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await emailLogStore.recordEmailAttempt({
+        tenantId: tenant.id,
+        reservationId: reservation.id,
+        type: "feedbackRequest",
+        status: "sent",
+        toEmail: reservation.email,
+      });
+      return { sent: true };
+    }) as never);
+
+    const [a, b] = await Promise.all([
+      adminFeedbackRoute.POST(authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }), { params: Promise.resolve({ id: r.id }) }),
+      adminFeedbackRoute.POST(authed(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" }), { params: Promise.resolve({ id: r.id }) }),
+    ]);
+
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
+    const bodies = await Promise.all([a.json(), b.json()]);
+    expect(bodies.some((body) => body.emailSent === true)).toBe(true);
+    expect(bodies.some((body) => body.alreadySent === true)).toBe(true);
   });
 });
 
