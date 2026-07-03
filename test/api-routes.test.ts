@@ -21,6 +21,7 @@ let routes: {
   logout: typeof import("@/app/api/admin/logout/route");
   adminAvail: typeof import("@/app/api/admin/availability/route");
   config: typeof import("@/app/api/admin/config/route");
+  slotBlocks: typeof import("@/app/api/admin/slot-blocks/route");
   todayControls: typeof import("@/app/api/admin/today-booking-controls/route");
   adminRes: typeof import("@/app/api/admin/reservations/route");
   adminResId: typeof import("@/app/api/admin/reservations/[id]/route");
@@ -73,6 +74,7 @@ beforeAll(async () => {
     logout: await import("@/app/api/admin/logout/route"),
     adminAvail: await import("@/app/api/admin/availability/route"),
     config: await import("@/app/api/admin/config/route"),
+    slotBlocks: await import("@/app/api/admin/slot-blocks/route"),
     todayControls: await import("@/app/api/admin/today-booking-controls/route"),
     adminRes: await import("@/app/api/admin/reservations/route"),
     adminResId: await import("@/app/api/admin/reservations/[id]/route"),
@@ -719,6 +721,50 @@ describe("admin today booking controls", () => {
     const saved = await store.getConfig();
     expect(saved.disabledServices?.["2026-06-11"]?.main).toBeUndefined();
     expect(saved.blockedSlots["2026-06-11"]).toEqual(["12:00"]);
+  });
+});
+
+describe("admin slot blocks", () => {
+  it("toggles one public booking slot without blocking neighboring slots", async () => {
+    const blocked = await routes.slotBlocks.PATCH(adminReq("/api/admin/slot-blocks", {
+      method: "PATCH",
+      body: { date: "2026-06-12", offering: "main", time: "12:30", blocked: true },
+    }));
+    expect(blocked.status).toBe(200);
+    expect(await blocked.json()).toMatchObject({
+      ok: true,
+      date: "2026-06-12",
+      offering: "main",
+      time: "12:30",
+      blocked: true,
+      blockedSlots: ["12:30"],
+    });
+
+    const day = await routes.avail.GET(req("/api/availability?date=2026-06-12"));
+    expect(day.status).toBe(200);
+    const lunch = (await day.json()).services.find((s: { id: string }) => s.id === "lunch");
+    expect(lunch.slots.find((s: { time: string }) => s.time === "12:00")).toMatchObject({ available: true });
+    expect(lunch.slots.find((s: { time: string }) => s.time === "12:30")).toMatchObject({
+      available: false,
+      unavailableReason: "blocked",
+    });
+
+    const resumed = await routes.slotBlocks.PATCH(adminReq("/api/admin/slot-blocks", {
+      method: "PATCH",
+      body: { date: "2026-06-12", offering: "main", time: "12:30", blocked: false },
+    }));
+    expect(resumed.status).toBe(200);
+    expect(await resumed.json()).toMatchObject({ blocked: false, blockedSlots: [] });
+    const saved = await routes.store.getStore().forTenant(tenantId).getConfig();
+    expect(saved.blockedSlots["2026-06-12"]).toBeUndefined();
+  });
+
+  it("rejects times that are not generated slots", async () => {
+    const res = await routes.slotBlocks.PATCH(adminReq("/api/admin/slot-blocks", {
+      method: "PATCH",
+      body: { date: "2026-06-12", offering: "main", time: "12:17", blocked: true },
+    }));
+    expect(res.status).toBe(404);
   });
 });
 

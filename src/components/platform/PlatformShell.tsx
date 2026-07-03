@@ -79,7 +79,7 @@ export default function PlatformShell({
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                   }`}
                 >
-                  {l === "it" ? "🇮🇹" : "🇬🇧"}
+                  {l === "it" ? "\uD83C\uDDEE\uD83C\uDDF9" : "\uD83C\uDDEC\uD83C\uDDE7"}
                 </button>
                 </Tooltip>
               ))}

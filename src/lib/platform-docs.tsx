@@ -22,10 +22,15 @@ export const PLATFORM_DOCS: PlatformDoc[] = [
   { slug: "platform-admin-email-operations", title: "Email Operations", titleIt: "Operazioni email", path: "platform-admin/email-operations.md", group: "Platform Admin" },
   { slug: "platform-admin-logs-and-monitoring", title: "Logs And Monitoring", titleIt: "Log e monitoraggio", path: "platform-admin/logs-and-monitoring.md", group: "Platform Admin" },
   { slug: "tenant-admin", title: "Tenant Admin Guide", titleIt: "Guida admin tenant", path: "tenant-admin/README.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-dashboard-and-navigation", title: "Dashboard And Navigation", titleIt: "Dashboard e navigazione", path: "tenant-admin/dashboard-and-navigation.md", group: "Tenant Admin" },
   { slug: "tenant-admin-reservations", title: "Reservations", titleIt: "Prenotazioni", path: "tenant-admin/reservations.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-reservation-lifecycle", title: "Reservation Lifecycle And Actions", titleIt: "Ciclo vita e azioni prenotazione", path: "tenant-admin/reservation-lifecycle.md", group: "Tenant Admin" },
   { slug: "tenant-admin-availability-and-tables", title: "Availability And Tables", titleIt: "Disponibilita e tavoli", path: "tenant-admin/availability-and-tables.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-tables-and-floor", title: "Tables And Floor Operations", titleIt: "Tavoli e operazioni sala", path: "tenant-admin/tables-and-floor.md", group: "Tenant Admin" },
   { slug: "tenant-admin-customers-analytics-settings", title: "Customers, Analytics, And Settings", titleIt: "Clienti, statistiche e impostazioni", path: "tenant-admin/customers-analytics-settings.md", group: "Tenant Admin" },
   { slug: "tenant-admin-notifications-and-email", title: "Notifications And Email", titleIt: "Notifiche ed email", path: "tenant-admin/notifications-and-email.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-operational-playbooks", title: "Operational Playbooks", titleIt: "Playbook operativi", path: "tenant-admin/operational-playbooks.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-faq", title: "Staff FAQ", titleIt: "FAQ staff", path: "tenant-admin/faq.md", group: "Tenant Admin" },
 ];
 
 const docsBySlug = new Map(PLATFORM_DOCS.map((doc) => [doc.slug, doc]));
@@ -61,7 +66,12 @@ export async function readPlatformDoc(doc: PlatformDoc, lang: PlatformDocLang = 
   return readFile(absolute, "utf8");
 }
 
-export function renderMarkdown(markdown: string, currentDoc: PlatformDoc, lang: PlatformDocLang = "en"): ReactNode[] {
+export function renderMarkdown(
+  markdown: string,
+  currentDoc: PlatformDoc,
+  lang: PlatformDocLang = "en",
+  basePath = "/platform/docs",
+): ReactNode[] {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
@@ -93,7 +103,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc, lang: 
     const heading = /^(#{1,4})\s+(.+)$/.exec(line);
     if (heading) {
       const level = heading[1].length;
-      const children = renderInline(heading[2], currentDoc, lang);
+      const children = renderInline(heading[2], currentDoc, lang, basePath);
       const className = level === 1
         ? "text-2xl font-semibold text-on-surface"
         : level === 2
@@ -118,14 +128,14 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc, lang: 
         <div key={blocks.length} className="overflow-x-auto rounded-lg border border-outline-variant/30">
           <table className="min-w-full text-sm">
             <thead className="bg-surface-container-high text-left text-on-surface">
-              <tr>{header.map((cell, idx) => <th key={idx} className="px-3 py-2 font-semibold">{renderInline(cell, currentDoc, lang)}</th>)}</tr>
+              <tr>{header.map((cell, idx) => <th key={idx} className="px-3 py-2 font-semibold">{renderInline(cell, currentDoc, lang, basePath)}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20">
               {rows.map((row, rowIdx) => (
                 <tr key={rowIdx}>
                   {header.map((_, cellIdx) => (
                     <td key={cellIdx} className="px-3 py-2 text-on-surface-variant align-top">
-                      {renderInline(row[cellIdx] ?? "", currentDoc, lang)}
+                      {renderInline(row[cellIdx] ?? "", currentDoc, lang, basePath)}
                     </td>
                   ))}
                 </tr>
@@ -145,7 +155,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc, lang: 
       }
       blocks.push(
         <ul key={blocks.length} className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-on-surface-variant">
-          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc, lang)}</li>)}
+          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc, lang, basePath)}</li>)}
         </ul>,
       );
       continue;
@@ -159,7 +169,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc, lang: 
       }
       blocks.push(
         <ol key={blocks.length} className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-on-surface-variant">
-          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc, lang)}</li>)}
+          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc, lang, basePath)}</li>)}
         </ol>,
       );
       continue;
@@ -172,7 +182,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc, lang: 
     }
     blocks.push(
       <p key={blocks.length} className="text-sm leading-relaxed text-on-surface-variant">
-        {renderInline(paragraph.join(" "), currentDoc, lang)}
+        {renderInline(paragraph.join(" "), currentDoc, lang, basePath)}
       </p>,
     );
   }
@@ -193,7 +203,7 @@ function splitTableRow(row: string): string[] {
   return row.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
 }
 
-function renderInline(text: string, currentDoc: PlatformDoc, lang: PlatformDocLang): ReactNode[] {
+function renderInline(text: string, currentDoc: PlatformDoc, lang: PlatformDocLang, basePath: string): ReactNode[] {
   const parts: ReactNode[] = [];
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
@@ -207,7 +217,7 @@ function renderInline(text: string, currentDoc: PlatformDoc, lang: PlatformDocLa
     } else {
       const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
       if (link) {
-        const href = resolveDocHref(link[2], currentDoc, lang);
+        const href = resolveDocHref(link[2], currentDoc, lang, basePath);
         parts.push(
           <Link key={parts.length} href={href} className="font-medium text-primary hover:text-primary/70">
             {link[1]}
@@ -221,12 +231,12 @@ function renderInline(text: string, currentDoc: PlatformDoc, lang: PlatformDocLa
   return parts;
 }
 
-function resolveDocHref(href: string, currentDoc: PlatformDoc, lang: PlatformDocLang): string {
+function resolveDocHref(href: string, currentDoc: PlatformDoc, lang: PlatformDocLang, basePath: string): string {
   if (/^https?:\/\//i.test(href)) return href;
   const withoutAnchor = href.split("#")[0];
   if (!withoutAnchor.endsWith(".md")) return href;
   const normalized = path.posix.normalize(path.posix.join(path.posix.dirname(currentDoc.path), withoutAnchor.replace(/^\.\//, "")));
   const doc = docsByPath.get(normalized);
   const langParam = lang === "it" ? "&lang=it" : "";
-  return doc ? `/platform/docs?doc=${encodeURIComponent(doc.slug)}${langParam}` : `/platform/docs${lang === "it" ? "?lang=it" : ""}`;
+  return doc ? `${basePath}?doc=${encodeURIComponent(doc.slug)}${langParam}` : `${basePath}${lang === "it" ? "?lang=it" : ""}`;
 }

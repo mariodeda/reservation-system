@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DayAvailability, SlotUnavailableReason } from "@/lib/reservations/types";
-import { adminJson } from "./api";
+import { adminJson, toast } from "./api";
 import { am } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
 
@@ -17,6 +17,8 @@ export default function DayOccupancy({
   heading,
   refreshKey,
   onPickSlot,
+  allowSlotStops = false,
+  onSlotStopChanged,
 }: {
   date: string;
   /** Offering id to show occupancy for (defaults to the primary offering). */
@@ -25,21 +27,51 @@ export default function DayOccupancy({
   heading?: string;
   refreshKey?: number;
   onPickSlot?: (service: string, time: string) => void;
+  allowSlotStops?: boolean;
+  onSlotStopChanged?: () => void | Promise<void>;
 }) {
   const [day, setDay] = useState<DayAvailability | null>(null);
   const [error, setError] = useState(false);
+  const [savingSlot, setSavingSlot] = useState<string | null>(null);
+
+  const loadDay = useCallback((cancelled: () => boolean = () => false) => {
+    setError(false);
+    const q = offering ? `?date=${date}&offering=${encodeURIComponent(offering)}` : `?date=${date}`;
+    return adminJson<DayAvailability>(`/api/admin/availability${q}`)
+      .then((d) => {
+        if (!cancelled()) setDay(d);
+      })
+      .catch(() => {
+        if (!cancelled()) setError(true);
+      });
+  }, [date, offering]);
 
   useEffect(() => {
     let cancelled = false;
-    setError(false);
-    const q = offering ? `?date=${date}&offering=${encodeURIComponent(offering)}` : `?date=${date}`;
-    adminJson<DayAvailability>(`/api/admin/availability${q}`)
-      .then((d) => !cancelled && setDay(d))
-      .catch(() => !cancelled && setError(true));
+    void loadDay(() => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [date, offering, refreshKey]);
+  }, [loadDay, refreshKey]);
+
+  const toggleSlotStop = async (service: string, time: string, blocked: boolean) => {
+    const key = `${service}:${time}`;
+    setSavingSlot(key);
+    try {
+      await adminJson("/api/admin/slot-blocks", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ date, offering, time, blocked }),
+      });
+      await loadDay();
+      await onSlotStopChanged?.();
+      toast(am.availability.slotStopSaved);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : am.availability.slotStopError, "error");
+    } finally {
+      setSavingSlot(null);
+    }
+  };
 
   if (error) return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 text-sm text-on-surface-variant/60">
@@ -82,26 +114,64 @@ export default function DayOccupancy({
               {svc.slots.map((s) => {
                 const status = slotCoverStatus(s, ended);
                 const title = `${s.time}: ${am.availability.slotStatus(s.booked, s.capacity, s.remaining)}. ${status.label}`;
+                const blocked = s.unavailableReason === "blocked";
+                const canToggleStop = allowSlotStops && !ended && s.unavailableReason !== "service_disabled";
+                const stopLabel = blocked
+                  ? am.availability.slotResumeAction(s.time)
+                  : am.availability.slotStopAction(s.time);
+                const saving = savingSlot === `${svc.id}:${s.time}`;
                 return (
                   <Tooltip key={s.time} content={title} className="w-full">
-                    <button
-                      type="button"
-                      disabled={!onPickSlot}
-                      onClick={() => onPickSlot?.(svc.id, s.time)}
-                      aria-label={title}
-                      className={`min-h-[72px] w-full rounded-lg border px-3 py-2 text-left tabular-nums transition-all ${status.className} ${onPickSlot ? "cursor-pointer hover:brightness-110 active:scale-[0.98]" : "cursor-default"}`}
-                    >
-                      <span className="flex items-start justify-between gap-2">
-                        <span className="text-base font-semibold leading-none">{s.time}</span>
-                        {!ended && <span className={`mt-0.5 h-2.5 w-2.5 rounded-full ${status.dotClass}`} aria-hidden="true" />}
-                      </span>
-                      <span className="mt-2 block text-xs font-semibold leading-tight">
-                        {am.availability.covers(s.booked, s.capacity)}
-                      </span>
-                      <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide leading-tight opacity-80">
-                        {status.shortLabel}
-                      </span>
-                    </button>
+                    <div className="relative w-full">
+                      <button
+                        type="button"
+                        disabled={!onPickSlot}
+                        onClick={() => onPickSlot?.(svc.id, s.time)}
+                        aria-label={title}
+                        className={`min-h-[72px] w-full rounded-lg border px-3 py-2 text-left tabular-nums transition-all ${canToggleStop ? "pr-11" : ""} ${status.className} ${onPickSlot ? "cursor-pointer hover:brightness-110 active:scale-[0.98]" : "cursor-default"}`}
+                      >
+                        <span className="flex items-start justify-between gap-2">
+                          <span className="text-base font-semibold leading-none">{s.time}</span>
+                          {!ended && <span className={`mt-0.5 h-2.5 w-2.5 rounded-full ${status.dotClass}`} aria-hidden="true" />}
+                        </span>
+                        <span className="mt-2 block text-xs font-semibold leading-tight">
+                          {am.availability.covers(s.booked, s.capacity)}
+                        </span>
+                        <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide leading-tight opacity-80">
+                          {status.shortLabel}
+                        </span>
+                      </button>
+                      {canToggleStop && (
+                        <Tooltip content={stopLabel}>
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void toggleSlotStop(svc.id, s.time, !blocked);
+                            }}
+                            aria-label={stopLabel}
+                            className={`absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md border transition ${
+                              blocked
+                                ? "border-primary/60 bg-primary/20 text-primary hover:bg-primary/30"
+                                : "border-outline-variant/50 bg-surface-container/80 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                            } disabled:opacity-50`}
+                          >
+                            {blocked ? (
+                              <span
+                                aria-hidden="true"
+                                className="ml-0.5 h-0 w-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-current"
+                              />
+                            ) : (
+                              <span aria-hidden="true" className="flex items-center gap-0.5">
+                                <span className="h-3 w-1 rounded-sm bg-current" />
+                                <span className="h-3 w-1 rounded-sm bg-current" />
+                              </span>
+                            )}
+                          </button>
+                        </Tooltip>
+                      )}
+                    </div>
                   </Tooltip>
                 );
               })}

@@ -72,15 +72,28 @@ describe("AdminShell", () => {
     expect(reservations.getAttribute("href")).toBe("/admin/acme/reservations");
   });
 
-  it("renders settings as a gear icon link before sign out", () => {
+  it("opens tenant settings menu from the gear before the language switch", async () => {
+    const user = userEvent.setup();
     pathname.value = "/admin/acme/settings";
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
 
-    const settings = screen.getByRole("link", { name: "Settings" });
-    const signOut = screen.getByRole("button", { name: /sign out/i });
-    expect(settings.getAttribute("href")).toBe("/admin/acme/settings");
-    expect(settings.className).toContain("text-primary");
-    expect(settings.compareDocumentPosition(signOut) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const settingsButton = screen.getByRole("button", { name: "Settings" });
+    const helpLink = screen.getByRole("link", { name: "Help" });
+    const italian = screen.getByRole("button", { name: "Italiano" });
+    expect(settingsButton.className).toContain("text-primary");
+    expect(helpLink).toHaveAttribute("href", "/admin/acme/docs");
+    expect(settingsButton.compareDocumentPosition(italian) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(settingsButton.compareDocumentPosition(helpLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(helpLink.compareDocumentPosition(italian) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
+
+    await user.click(settingsButton);
+
+    expect(screen.getByText("Restaurant")).toBeInTheDocument();
+    expect(screen.getAllByText("O")).toHaveLength(2);
+    expect(screen.getByText("/acme")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Settings/ }).getAttribute("href")).toBe("/admin/acme/settings");
+    expect(screen.getByRole("button", { name: /Sign out/ })).toBeInTheDocument();
   });
 
   it("shows and exits the impersonation banner", async () => {
@@ -154,6 +167,7 @@ describe("AdminShell", () => {
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
 
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(screen.getByRole("button", { name: /sign out/i }));
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/logout", { method: "POST" });
     expect(replace).toHaveBeenCalledWith("/admin/acme/login");

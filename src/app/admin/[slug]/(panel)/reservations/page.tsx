@@ -293,6 +293,8 @@ export default function ReservationsPage() {
                 offering={o.id}
                 heading={multiOffering ? o.label : undefined}
                 refreshKey={refreshKey}
+                allowSlotStops
+                onSlotStopChanged={load}
                 onPickSlot={(service, time) => {
                   setSeed({ offering: o.id, service, time });
                   setShowForm(true);

@@ -5,8 +5,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { DayAvailability } from "@/lib/reservations/types";
 
-const { adminJson } = vi.hoisted(() => ({ adminJson: vi.fn() }));
-vi.mock("@/components/admin/api", () => ({ adminJson }));
+const { adminJson, toast } = vi.hoisted(() => ({ adminJson: vi.fn(), toast: vi.fn() }));
+vi.mock("@/components/admin/api", () => ({ adminJson, toast }));
 
 import DayOccupancy from "@/components/admin/DayOccupancy";
 
@@ -27,6 +27,7 @@ function day(over: Partial<DayAvailability> = {}): DayAvailability {
 
 beforeEach(() => {
   adminJson.mockReset();
+  toast.mockReset();
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -154,5 +155,46 @@ describe("DayOccupancy", () => {
 
     expect(await screen.findByRole("button", { name: /00:00.*4\/20 covers booked.*16 left.*service ended/i })).toHaveClass("text-on-surface-variant/70");
     expect(screen.queryByText("Open")).not.toBeInTheDocument();
+  });
+
+  it("toggles an individual slot stop without picking the slot", async () => {
+    const user = userEvent.setup();
+    const onPick = vi.fn();
+    const onChanged = vi.fn();
+    adminJson
+      .mockResolvedValueOnce(day())
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce(day({
+        services: [
+          {
+            id: "lunch",
+            label: "Lunch",
+            turnMinutes: 120,
+            slots: [{ time: "12:00", capacity: 10, booked: 4, remaining: 6, available: false, unavailableReason: "blocked" }],
+          },
+        ],
+      }));
+
+    render(
+      <DayOccupancy
+        date="2099-06-12"
+        offering="main"
+        allowSlotStops
+        onPickSlot={onPick}
+        onSlotStopChanged={onChanged}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /^Stop online bookings for 12:00$/i }));
+
+    await waitFor(() =>
+      expect(adminJson).toHaveBeenCalledWith("/api/admin/slot-blocks", expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ date: "2099-06-12", offering: "main", time: "12:00", blocked: true }),
+      })),
+    );
+    expect(onPick).not.toHaveBeenCalled();
+    expect(onChanged).toHaveBeenCalledOnce();
+    expect(toast).toHaveBeenCalledWith("Slot booking state updated.");
   });
 });

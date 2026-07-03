@@ -39,10 +39,14 @@ export default function AdminShell({
   const clientStatsValue = clientStatsActive ? clientStatsSections.find((s) => pathname.startsWith(s.href))?.href : "";
   const settingsHref = `${base}/settings`;
   const settingsActive = pathname.startsWith(settingsHref);
+  const docsHref = `${base}/docs`;
+  const docsActive = pathname.startsWith(docsHref);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
   const [clientStatsOpen, setClientStatsOpen] = useState(false);
+  const [tenantMenuOpen, setTenantMenuOpen] = useState(false);
   const clientStatsRef = useRef<HTMLDetailsElement>(null);
+  const tenantMenuRef = useRef<HTMLDivElement>(null);
   const { notifications, unreadCount, connected, markAllRead, markRead } = useReservationEvents();
   const [toasts, setToasts] = useState<typeof notifications>([]);
 
@@ -74,6 +78,17 @@ export default function AdminShell({
     document.addEventListener("pointerdown", closeOnOutsidePointer);
     return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
   }, [clientStatsOpen]);
+
+  useEffect(() => {
+    if (!tenantMenuOpen) return;
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!tenantMenuRef.current?.contains(event.target as Node)) {
+        setTenantMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [tenantMenuOpen]);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -200,6 +215,75 @@ export default function AdminShell({
                 {theme === "dark" ? <SunIcon /> : <MoonIcon />}
               </button>
             </Tooltip>
+            <div ref={tenantMenuRef} className="relative">
+              <Tooltip content={am.nav.settings}>
+                <button
+                  type="button"
+                  onClick={() => setTenantMenuOpen((open) => !open)}
+                  aria-label={am.nav.settings}
+                  aria-expanded={tenantMenuOpen}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
+                    settingsActive || tenantMenuOpen
+                      ? "bg-primary/15 text-primary"
+                      : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
+                  }`}
+                >
+                  <GearIcon />
+                </button>
+              </Tooltip>
+              {tenantMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-outline-variant/20">
+                    <div className="text-xs uppercase tracking-widest text-on-surface-variant/70">Restaurant</div>
+                    <div className="mt-1 text-sm font-semibold text-on-surface truncate">{brandName}</div>
+                    <div className="mt-0.5 text-xs text-on-surface-variant truncate">/{slug}</div>
+                    {impersonation && (
+                      <div className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-200">
+                        Platform support session
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-1.5">
+                    <Link
+                      href={settingsHref}
+                      onClick={() => setTenantMenuOpen(false)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                        settingsActive
+                          ? "bg-primary/15 text-primary"
+                          : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                      }`}
+                    >
+                      <GearIcon />
+                      <span>{am.nav.settings}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTenantMenuOpen(false);
+                        void logout();
+                      }}
+                      className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high hover:text-primary"
+                    >
+                      <SignOutIcon />
+                      <span>{am.nav.signOut}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <Tooltip content={am.nav.docs}>
+              <Link
+                href={docsHref}
+                aria-label={am.nav.docs}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
+                  docsActive
+                    ? "bg-primary/15 text-primary"
+                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
+                }`}
+              >
+                <QuestionIcon />
+              </Link>
+            </Tooltip>
             <div className="flex items-center rounded-lg border border-outline-variant/40 overflow-hidden">
               {(["it", "en"] as Locale[]).map((l) => (
                 <Tooltip key={l} content={l === "it" ? "Italiano" : "English"}>
@@ -212,30 +296,11 @@ export default function AdminShell({
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                   }`}
                 >
-                  {l === "it" ? "🇮🇹" : "🇬🇧"}
+                  {l === "it" ? "\uD83C\uDDEE\uD83C\uDDF9" : "\uD83C\uDDEC\uD83C\uDDE7"}
                 </button>
                 </Tooltip>
               ))}
             </div>
-            <Tooltip content={am.nav.settings}>
-              <Link
-                href={settingsHref}
-                aria-label={am.nav.settings}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
-                  settingsActive
-                    ? "bg-primary/15 text-primary"
-                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
-                }`}
-              >
-                <GearIcon />
-              </Link>
-            </Tooltip>
-            <button
-              onClick={logout}
-              className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition whitespace-nowrap"
-            >
-              {am.nav.signOut}
-            </button>
           </div>
         </div>
         {/* mobile nav — horizontally scrollable; right fade hints there are more items */}
@@ -342,6 +407,26 @@ function GearIcon() {
     <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M8.7 2.1h2.6l.5 2.1c.5.2.9.4 1.3.7l2-.7 1.3 2.2-1.6 1.4c.1.5.1 1 .1 1.5l1.6 1.4-1.3 2.2-2-.7c-.4.3-.8.5-1.3.7l-.5 2.1H8.7l-.5-2.1c-.5-.2-.9-.4-1.3-.7l-2 .7-1.3-2.2 1.6-1.4c-.1-.5-.1-1 0-1.5L3.6 6.4l1.3-2.2 2 .7c.4-.3.8-.5 1.3-.7l.5-2.1Z" />
       <circle cx="10" cy="9.5" r="2.4" />
+    </svg>
+  );
+}
+
+function QuestionIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="10" cy="10" r="7.2" />
+      <path d="M7.9 7.7a2.2 2.2 0 014.2.9c0 1.5-1.5 1.9-2.1 2.8" />
+      <path d="M10 14.2h.01" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 3.5H4.8A1.8 1.8 0 003 5.3v9.4a1.8 1.8 0 001.8 1.8H8" />
+      <path d="M12 6.5 15.5 10 12 13.5" />
+      <path d="M15.5 10H7" />
     </svg>
   );
 }

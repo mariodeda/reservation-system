@@ -9,6 +9,7 @@ export const it = {
     customers: "Clienti",
     tables: "Tavoli",
     settings: "Impostazioni",
+    docs: "Aiuto",
     signOut: "Esci",
   },
   status: {
@@ -426,6 +427,10 @@ export const it = {
     slotUnavailable: "Non disponibile (passato, troppo presto o bloccato)",
     slotServiceStopped: "Servizio fermato oggi",
     slotBlocked: "Orario bloccato",
+    slotStopAction: (time: string) => `Ferma prenotazioni online per le ${time}`,
+    slotResumeAction: (time: string) => `Riattiva prenotazioni online per le ${time}`,
+    slotStopSaved: "Stato dello slot aggiornato.",
+    slotStopError: "Impossibile aggiornare questo slot.",
     slotLeadTime: "Anticipo prenotazione superato",
     slotNotEnoughCovers: "Coperti insufficienti",
     serviceEnded: "Servizio terminato",

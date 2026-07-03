@@ -30,14 +30,14 @@ export default async function PlatformDocsPage({
     ? {
         title: "Documentazione",
         subtitle: "Guida operativa per piattaforma e admin tenant generata dai file Markdown del repository.",
-        english: "English",
-        italian: "Italiano",
+        english: "\uD83C\uDDEC\uD83C\uDDE7",
+        italian: "\uD83C\uDDEE\uD83C\uDDF9",
       }
     : {
         title: "Documentation",
         subtitle: "Platform and tenant-admin operating guide generated from the repository Markdown docs.",
-        english: "English",
-        italian: "Italiano",
+        english: "\uD83C\uDDEC\uD83C\uDDE7",
+        italian: "\uD83C\uDDEE\uD83C\uDDF9",
       };
 
   return (
@@ -52,12 +52,14 @@ export default async function PlatformDocsPage({
         <div className="inline-flex w-fit overflow-hidden rounded-lg border border-outline-variant/40">
           <Link
             href={`/platform/docs?doc=${encodeURIComponent(activeDoc.slug)}`}
+            aria-label="English"
             className={`px-3 py-1.5 text-sm transition ${lang === "en" ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"}`}
           >
             {copy.english}
           </Link>
           <Link
             href={`/platform/docs?doc=${encodeURIComponent(activeDoc.slug)}&lang=it`}
+            aria-label="Italiano"
             className={`px-3 py-1.5 text-sm transition ${lang === "it" ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"}`}
           >
             {copy.italian}

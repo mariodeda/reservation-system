@@ -1,48 +1,86 @@
-# Disponibilita E Tavoli Tenant
+# Disponibilita e tavoli
 
-Disponibilita e tavoli determinano cosa il calendario pubblico puo offrire e
-cosa vede lo staff nella pagina prenotazioni. E una delle sezioni piu importanti
-da capire prima di accettare prenotazioni live.
+Disponibilita e tavoli decidono cosa gli ospiti possono prenotare e cosa lo
+staff puo gestire in sicurezza. E l'area piu importante per evitare overbooking,
+assegnazioni tavolo sbagliate e slot confusi.
 
-## Pagina Disponibilita
+## Cosa controlla la disponibilita
 
 La disponibilita controlla:
 
+- Orari servizio settimanali.
+- Nomi servizio.
+- Intervalli slot.
+- Durata tavolo specifica servizio.
+- Durata tavolo default.
 - Numero minimo ospiti.
 - Numero massimo ospiti.
-- Finestra prenotabile.
+- Finestra booking.
 - Lead time.
-- Durata tavolo default.
-- Finestre servizio settimanali.
-- Override date speciali.
 - Giorni chiusi.
+- Date speciali.
 - Slot bloccati.
+- Servizi fermati solo per oggi.
 
-Queste impostazioni lavorano insieme. Cambiare un solo valore puo influenzare
-booking pubblico, slot card staff, conflitti tavoli e calendario sala/giorno.
+I tavoli controllano:
 
-## Servizi Settimanali
+- Capacita fisica.
+- Offering del tavolo.
+- Stato attivo.
+- Possibilita di unire tavoli.
 
-Ogni riga servizio settimanale contiene:
+Il calendario pubblico dipende da entrambi. Pensa alla disponibilita come
+"quando si puo prenotare" e ai tavoli come "dove si puo sedere".
 
-- Nome servizio.
-- Da.
-- A.
-- Ogni (min).
-- Durata.
-- Azioni.
+## Panoramica pagina disponibilita
 
-Gli orari usano formato 24 ore. La capacita non e piu gestita dalle righe
-servizio settimanali quando esistono tavoli attivi. I posti dei tavoli attivi
-guidano i coperti prenotabili.
+Usa Disponibilita quando:
 
-Usa nomi servizio chiari come `Pranzo`, `Cena`, `Cena Patio` o `Bar`. Lo staff
-vede questi nomi durante creazione prenotazioni e revisione disponibilita.
+- Cambiano orari ristorante.
+- Cambiano pranzo o cena.
+- Si aggiunge o rimuove un servizio.
+- Una festivita o evento privato cambia una data.
+- Un orario deve essere bloccato.
+- Lead time o finestra booking cambiano.
+- Cambia massimo gruppo online.
+- Durata tavolo differisce per servizio.
 
-## Da, A E Ogni
+Evita cambi live durante servizio intenso salvo necessita. Possono influenzare
+subito il booking pubblico.
 
-`Da` e il primo orario slot possibile del servizio. `A` e la fine finestra
-servizio. `Ogni (min)` controlla l'intervallo tra slot generati.
+## Servizi settimanali
+
+I servizi settimanali definiscono finestre normali ripetute.
+
+Ogni riga include:
+
+| Campo | Significato |
+| --- | --- |
+| Nome servizio | Etichetta staff e ospite, come Pranzo o Cena. |
+| Da | Primo orario del servizio. |
+| A | Fine finestra servizio. |
+| Ogni (min) | Intervallo slot, per esempio ogni 15 o 30 minuti. |
+| Durata | Quanto le prenotazioni occupano tavoli. |
+| Azioni | Modifica, duplica o rimuovi riga secondo controlli UI. |
+
+Gli orari usano formato 24 ore. Usa nomi chiari.
+
+## Nome servizio
+
+Usa nomi come:
+
+- Pranzo.
+- Cena.
+- Brunch.
+- Pranzo Patio.
+- Bar.
+- Sala Privata.
+
+Evita `Servizio 1`. Lo staff vede il nome durante gestione prenotazioni.
+
+## Da e A
+
+`Da` e il primo orario servizio. `A` e la fine finestra.
 
 Esempio:
 
@@ -52,110 +90,219 @@ A: 15:00
 Ogni: 30
 ```
 
-Crea slot come 12:00, 12:30, 13:00, 13:30 e cosi via secondo le regole servizio.
+Crea slot in base a intervallo e regole servizio.
 
-## Durata Tavolo
+## Ogni (min)
 
-Esistono due livelli di durata:
+Controlla quanto spesso appaiono slot.
 
-- Durata tavolo default: fallback usato quando una riga servizio non ha durata.
-- Durata servizio: override per servizio/giorno.
+Intervalli brevi danno flessibilita ma aumentano complessita. Intervalli lunghi
+sono semplici ma riducono opzioni.
 
-La durata effettiva guida:
+Scelte comuni:
 
-- Finestre conflitto tavoli.
-- Calcoli sovrapposizione slot.
-- Coperti prenotati per slot.
-- Stato disponibilita.
-- Larghezza o posizionamento prenotazione nel calendario sala/giorno.
+- 15 minuti: flessibile, piu complesso.
+- 30 minuti: equilibrio comune.
+- 60 minuti: semplice, meno flessibile.
 
-Se la cena gira tavoli in 120 minuti e il pranzo in 75, imposta queste durate
-sulle righe servizio. Lascia il default come fallback sicuro.
+## Durata
 
-## Pagina Tavoli
+Durata e quanto una prenotazione occupa capacita tavolo.
 
-I tavoli rappresentano la capacita reale. Ogni tavolo ha:
+Esempio:
 
-- Etichetta.
-- Capacita.
-- Stato attivo.
-- Binding offering opzionale.
-- Metadata unibile.
+- Pranzo: 75 minuti.
+- Cena: 120 minuti.
+- Degustazione: 180 minuti.
 
-Quando esistono tavoli attivi per un offering, i posti attivi guidano la
-capacita slot. Se un tavolo e inattivo, non deve contribuire alla disponibilita.
+Influenza:
 
-Usa binding offering quando un tavolo appartiene solo a una area o canale, come
-patio o bar. Lascialo non associato solo se deve stare nel pool condiviso.
+- Conflitti tavoli.
+- Calcoli coperti slot.
+- Pressione disponibilita.
+- Layout sala/giorno.
+- Sicurezza slot successivi.
 
-## Tavoli Unibili
+Durata troppo corta puo permettere overbooking. Durata troppo lunga blocca
+troppa disponibilita.
 
-I tavoli unibili permettono al sistema di suggerire o assegnare combinazioni per
-gruppi grandi. I metadata devono riflettere possibilita fisiche reali. Non
-marcare tavoli come unibili se lo staff non puo davvero unirli durante servizio.
+## Durata default e durata servizio
 
-Per gruppi grandi, l'assegnazione puo usare un set di tavoli. I controlli
-conflitto devono considerare ogni tavolo del set.
+| Tipo durata | Quando usata |
+| --- | --- |
+| Durata tavolo default | Fallback quando servizio non ha durata specifica. |
+| Durata servizio | Valore preferito per quel servizio e giorno. |
 
-## Giorni Chiusi, Date Speciali E Slot Bloccati
+Usa durata servizio quando pranzo, cena o brunch hanno tempi diversi. Mantieni
+default come fallback sicuro.
 
-Usa giorni chiusi per chiusure intere, come festivita.
+## Minimo e massimo ospiti
 
-Usa override date speciali quando una data specifica ha orari diversi, come
-Capodanno o un evento privato.
+Minimo controlla il booking piu piccolo. Massimo controlla il gruppo singolo piu
+grande.
 
-Usa slot bloccati per chiusure mirate dentro un servizio normale, come festa
-privata alle 20:00 o pausa cucina.
+Massimo ospiti non e capacita slot. Il ristorante puo avere 80 posti ma
+permettere online solo gruppi da 12 o 20.
 
-## Lead Time E Finestra Booking
+Per gruppi oltre massimo online, staff decide se gestire manualmente secondo
+policy e fattibilita tavoli.
 
-Il lead time impedisce agli ospiti di prenotare troppo vicino al servizio. La
-finestra booking controlla quanto avanti nel futuro si puo prenotare.
+## Finestra booking
 
-Per oggi, il lead time influenza anche i controlli stop rapido. Se l'ultimo
-orario prenotabile del servizio e gia passato dopo aver applicato il lead time,
-lo switch stop e disabilitato perche non resta nulla da fermare online.
+Controlla quanto avanti nel futuro gli ospiti possono prenotare.
 
-## Fermare Prenotazioni Oggi
+Esempi:
 
-L'azione rapida in header permette allo staff di fermare prenotazioni online per
-un servizio oggi. Usala quando il ristorante e pieno, sotto organico, ha un
-evento privato o non accetta piu prenotazioni online per il servizio restante.
+- 14 giorni: breve termine.
+- 30 giorni: finestra comune.
+- 90 giorni: utile per ristoranti destination o eventi.
 
-I servizi fermati manualmente sono visibili nei controlli e nelle slot card.
-Questa visibilita evita che lo staff confonda uno stop manuale con errore
-sistema.
+Se gli ospiti non possono prenotare una data futura, controlla finestra booking
+prima di pensare a chiusura.
 
-## Checklist Setup Pratico
+## Lead time
 
-Prima di andare live:
+Lead time impedisce booking troppo vicini all'orario.
 
-1. Crea tutti i tavoli attivi con capacita corretta.
-2. Disabilita tavoli che non devono contare per la capacita online.
-3. Associa tavoli a offering se necessario.
-4. Configura servizi settimanali per ogni giorno.
-5. Imposta durate specifiche dove pranzo e cena differiscono.
-6. Imposta minimo e massimo ospiti.
-7. Imposta lead time e finestra booking.
-8. Aggiungi chiusure note e date speciali.
-9. Testa alcune date di disponibilita pubblica.
-10. Crea una prenotazione staff di test e verifica assegnazione tavoli.
+Esempio: lead time 120 minuti significa che un ospite non puo prenotare 19:00
+dopo le 17:00.
 
-## Troubleshooting
+Protegge lo staff da booking last-minute. Lo staff puo comunque creare booking
+manuale se sicuro.
 
-Se appaiono troppi coperti disponibili:
+## Giorni chiusi
 
-- Controlla tavoli attivi e capacita.
-- Controlla se tavoli sono duplicati tra offering.
-- Controlla se tavoli inattivi sono ancora attivi.
-- Controlla se un servizio usa ancora capacita legacy perche non esistono
-  tavoli attivi per quell'offering.
+Bloccano intere date. Usa per:
 
-Se prenotazioni vengono rifiutate in modo inatteso:
+- Festivita.
+- Ferie staff.
+- Ristrutturazione.
+- Buyout privati.
+- Chiusure impreviste.
 
-- Controlla max party size.
-- Controlla lead time.
-- Controlla slot bloccati.
-- Controlla giorni chiusi e override date speciali.
-- Controlla durata effettiva tavolo e prenotazioni sovrapposte.
-- Controlla se esiste un tavolo o set di tavoli uniti valido.
+Sono piu chiari che bloccare ogni slot.
+
+## Date speciali
+
+Sovrascrivono gli orari normali per una data.
+
+Usa per:
+
+- Capodanno.
+- San Valentino.
+- Brunch unico.
+- Evento privato con orari diversi.
+- Servizio festivo diverso dal normale.
+
+Testa sempre dopo salvataggio. Sono fonte comune di confusione perche
+sovrascrivono lo schedule normale.
+
+## Slot bloccati
+
+Chiudono orari specifici dentro un servizio aperto.
+
+Usa per:
+
+- Pausa cucina.
+- Evento privato a un orario.
+- Hold gruppo grande.
+- Manutenzione.
+- Carenza staff temporanea.
+
+Se tutta la data e chiusa, usa giorno chiuso. Se tutto il servizio e chiuso solo
+oggi, usa stop rapido o data speciale in base al caso.
+
+## Servizi fermati oggi
+
+L'azione rapida header ferma booking online per un servizio oggi. E operativa,
+temporanea e visibile allo staff.
+
+Usa quando:
+
+- Servizio pieno inaspettatamente.
+- Ristorante sotto organico.
+- Meteo impatta seating.
+- Cucina chiede di fermare nuovi booking online.
+
+Non elimina prenotazioni esistenti.
+
+## Tavoli e capacita
+
+Quando esistono tavoli attivi per un offering, i posti tavolo guidano la
+capacita slot.
+
+Quindi:
+
+- Tavoli attivi contano.
+- Tavoli inattivi non contano.
+- Tavoli bound contano solo per offering corrispondente.
+- Tavoli uniti possono aiutare gruppi grandi.
+
+La capacita deve riflettere seating reale, non obiettivo vendite.
+
+## Capacita legacy
+
+Se non esistono tavoli attivi per un offering, il sistema puo usare capacita
+legacy del servizio. E compatibilita. Per operazioni accurate, configura tavoli
+reali.
+
+Se i coperti sembrano troppo alti o bassi, controlla se usa tavoli o legacy.
+
+## Processo sicuro di modifica
+
+Quando cambi disponibilita:
+
+1. Fai il minimo cambio necessario.
+2. Salva.
+3. Controlla la data interessata in Prenotazioni.
+4. Controlla una risposta pubblica o pagina booking se possibile.
+5. Conferma che lo staff capisca il cambio.
+
+Per grandi cambi schedule, evita picchi di booking attivo.
+
+## Checklist setup
+
+Prima del live:
+
+1. Crea tavoli con etichette e capacita accurate.
+2. Disabilita tavoli non disponibili.
+3. Associa tavoli a offering dove serve.
+4. Configura servizi settimanali.
+5. Imposta durate specifiche.
+6. Imposta durata default.
+7. Imposta minimo e massimo ospiti.
+8. Imposta lead time.
+9. Imposta finestra booking.
+10. Aggiungi giorni chiusi noti.
+11. Aggiungi date speciali note.
+12. Aggiungi slot bloccati.
+13. Testa booking pubblico per giorno normale.
+14. Testa booking pubblico per data speciale.
+15. Crea booking staff test e assegna tavolo.
+
+## Domande comuni
+
+### Perche capacita e stata rimossa dalle righe servizio?
+
+Quando i tavoli sono configurati, la capacita deve venire dai tavoli attivi.
+Questo e piu accurato di un numero scritto in ogni riga servizio.
+
+### Cambio durata tavolo o intervallo slot?
+
+Cambia durata quando gli ospiti occupano tavoli per tempo diverso. Cambia
+intervallo quando vuoi orari booking piu o meno frequenti.
+
+### Perche cambiare durata cambia i coperti?
+
+Durata piu lunga sovrappone prenotazioni a piu slot futuri. Durata piu corta
+libera capacita prima.
+
+### Perche non posso fermare un servizio oggi?
+
+L'ultimo orario prenotabile puo essere gia passato dopo lead time. Non resta
+niente da fermare online.
+
+### Cosa fare per evento privato?
+
+Se tutta la data e privata, usa giorno chiuso o data speciale. Se solo alcuni
+orari, usa slot bloccati. Se e decisione same-day temporanea, usa stop oggi.

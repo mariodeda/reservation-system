@@ -1,193 +1,337 @@
-# Tenant Reservations
+# Reservations
 
-The reservations page is the main operational screen for restaurant staff. It is
-where staff watch availability, add bookings, assign tables, update statuses,
-manage the waitlist, and handle service-day exceptions.
+The Reservations page is the main live-service workspace. Staff use it to review
+availability, create bookings, manage waitlist entries, assign tables, update
+reservation status, send review requests, and understand the day from both a
+slot and floor perspective.
 
-## Page Layout
+Use this page whenever you need more control than the dashboard provides.
 
-The page includes:
+## What The Page Is For
 
-- Date selector.
-- Offering selector when multiple offerings exist.
-- Service and slot availability cards.
-- Reservation list.
-- New reservation modal.
-- Floor/day calendar modal.
-- Waitlist modal.
+The Reservations page answers these questions:
 
-Use the date and offering controls first. Most other information on the page is
-computed from that selection.
-
-## Service And Slot Cards
-
-Slot cards show the state of a specific bookable time. They are designed to help
-staff quickly answer:
-
-- Is this slot still bookable?
+- What date and offering am I managing?
+- Which services are open?
+- Which slots are bookable?
 - How many covers are already reserved?
-- How much pressure is on this service?
-- Why is this slot unavailable?
+- Why is a slot unavailable?
+- Which guests are expected?
+- Which guests are seated or completed?
+- Which tables are assigned?
+- Is there a waitlist?
+- Can we accept another booking?
 
-Slot cards show booked covers compared with active table capacity. This is
-reserved covers over total bookable covers for the slot, not the maximum size of
-one reservation.
+## Page Areas
 
-Unavailable reasons can include:
+| Area | Purpose |
+| --- | --- |
+| Date selector | Chooses the service date. |
+| Offering selector | Chooses the bookable area or channel when the restaurant has more than one. |
+| Service cards | Summarize service-level slot status and capacity pressure. |
+| Slot cards | Show availability for each bookable time. |
+| Reservation list | Shows bookings for the selected date and offering. |
+| New reservation modal | Adds staff, phone, or walk-in bookings. |
+| Floor/day modal | Shows the whole day visually across tables. |
+| Waitlist modal | Manages parties waiting for a possible opening. |
 
-- Service stopped today.
-- Time blocked.
-- Booking cutoff passed.
-- Not enough covers left.
-- Fully booked.
-- Service ended.
-- Restaurant closed.
+Most information depends on the selected date and offering. If the page looks
+wrong, confirm those two controls first.
 
-When a service is closed because the latest slot plus table duration has passed,
-the availability icon is hidden and the covers recap is greyed out while still
-remaining readable.
+## Date Selector
 
-## How Covers Are Calculated
+Use the date selector to move between days. Staff commonly use it to:
 
-When active tables exist for an offering, their active seats drive slot
-capacity. Existing active reservations are counted against slots they overlap.
-Overlap is based on the effective table duration for that service and date.
+- Prepare for tomorrow.
+- Review a future large party.
+- Check a past reservation.
+- Add a booking for a future date.
 
-Example: if dinner has a 90-minute duration, a 19:00 reservation affects later
-slots that overlap that 90-minute window. This is why the same guest count can
-appear in more than one slot's booked-cover calculation.
+If availability cannot load for a date, refresh once, then check whether the
+date has special rules, closed days, or recently edited availability.
 
-This is intentional. It prevents the restaurant from accepting too many covers
-across overlapping table turns.
+## Offering Selector
 
-## Opening The New Reservation Modal
+Some restaurants have multiple offerings, such as:
 
-Staff can open the new reservation modal from actions on the page or by
-clicking an available slot. When opened from a slot, the modal should prefill the
-selected date, service, and time so staff can create the booking quickly.
+- Main dining.
+- Patio.
+- Bar.
+- Private room.
 
-The modal collects:
+If an offering selector appears, choose the correct area before reading slot
+capacity or assigning tables. Tables can be bound to specific offerings, so a
+patio table may not be available when viewing main dining.
 
-- Offering.
+## Service Cards
+
+Service cards summarize each service on the selected date. A service is a block
+of time such as lunch or dinner.
+
+The service card helps staff understand:
+
+- Service name.
+- Service hours.
+- Slot interval.
+- Reserved covers versus total active table capacity.
+- Capacity pressure.
+- Whether the service is closed, stopped, or still bookable.
+
+Capacity indicators should be read as operational pressure, not as a guarantee
+that every possible party can be accepted. A slot can still be unavailable for a
+specific party size, cutoff, block, or table conflict.
+
+## Slot Cards
+
+Slot cards represent individual bookable times. They should show:
+
+- Time.
+- Booked covers.
+- Total slot capacity.
+- Availability state.
+- Specific unavailable reason when not bookable.
+
+Clicking a bookable slot should open the new reservation modal with date,
+service, offering, and time prefilled.
+
+## Unavailable Slot Reasons
+
+When a slot is not available, staff should see why. Common reasons:
+
+| Reason | Meaning | Staff Response |
+| --- | --- | --- |
+| Service stopped today | Staff manually stopped online bookings for this service. | Existing bookings remain valid. Reopen only if operationally safe. |
+| Time blocked | A manager blocked that time. | Check blocked-slot setup or manager notes. |
+| Booking cutoff passed | Lead time no longer allows new online booking. | Staff may still decide whether a manual booking is possible. |
+| Not enough covers left | The slot cannot fit the requested party size. | Try another time, smaller party, or manual manager override if appropriate. |
+| Fully booked | No meaningful capacity remains. | Use waitlist or another service time. |
+| Service ended | The service is past its latest slot plus duration. | Do not accept new bookings for that service unless manually approved. |
+| Restaurant closed | The date is closed or outside schedule. | Check closed days and special dates. |
+
+## Covers Explained
+
+Slot covers show reserved covers over total available table capacity for that
+slot. Example:
+
+```text
+24 / 80 covers
+```
+
+This means 24 guest seats are already reserved against 80 active table seats for
+that slot. It does not mean the restaurant accepts a single party of 80.
+
+Maximum party size is a separate booking policy. Staff should not confuse total
+capacity with the largest allowed booking.
+
+## Why Covers Can Appear In Multiple Slots
+
+Reservations occupy capacity for their effective table duration. If dinner has a
+90-minute duration, a 19:00 booking can affect 19:00, 19:30, and 20:00 slot
+pressure depending on the slot interval.
+
+This is expected and prevents overbooking across turns. It may look like covers
+are counted more than once, but they are being counted in each overlapping time
+window where the table is still occupied.
+
+## New Reservation Modal
+
+Use the new reservation modal for:
+
+- Phone bookings.
+- Walk-ins.
+- Staff-entered bookings.
+- Operational exceptions.
+- Bookings created from a selected slot.
+
+Required information typically includes:
+
 - Date.
+- Offering.
 - Service.
 - Time.
-- Guest count.
+- Party size.
 - Guest name.
-- Phone.
-- Email.
-- Notes and allergies.
+- Phone or email.
 
-Inputs should have visible labels. Staff should never need to guess which field
-they are editing during service.
+Optional but useful information:
 
-## Staff-Created Reservations
+- Allergies.
+- Seating preference.
+- High chair or accessibility needs.
+- Special occasion.
+- Internal notes.
 
-Staff-created reservations may bypass some public booking restrictions so staff
-can record real-world bookings, phone bookings, or operational exceptions.
-However, the system still protects important rules:
+Every input should have a visible label. If staff cannot tell what a field means,
+that is a usability issue to report.
 
-- Table conflicts must be respected.
-- Seated reservations cannot be modified or deleted.
-- Completed reservations cannot be modified or deleted.
-- Unsafe table assignment should be cleared when core booking details change.
+## Staff Booking Versus Public Booking
+
+Staff bookings may allow operational exceptions that public guests cannot make
+online. This is useful for real restaurant work, but staff should still respect:
+
+- Physical table capacity.
+- Table conflicts.
+- Service hours.
+- Guest contact quality.
+- Seated/completed edit locks.
+- Restaurant manager policy.
+
+Do not use staff booking to routinely bypass rules that protect the restaurant
+from overbooking.
+
+## Reservation List
+
+The reservation list shows bookings for the selected date and offering. Staff
+should scan for:
+
+- Arrival time.
+- Guest name.
+- Party size.
+- Status.
+- Source, such as online or staff.
+- Table assignment.
+- Notes or allergies.
+- Email warnings.
+- Available actions.
+
+During service, keep statuses up to date so the list remains useful for the next
+staff member.
+
+## Floor/Day Calendar Modal
+
+Open the floor/day modal when the list is not enough. It is useful for visual
+questions:
+
+- Which tables are occupied now?
+- Which tables turn soon?
+- Where are overlaps?
+- Can a large party fit later?
+- Is there a gap between lunch and dinner?
+
+The modal shows the whole day. The current-time sweep line is placed at the
+bottom to avoid covering reservation time labels. Closed periods should remain
+visually understandable, especially for restaurants with separate lunch and
+dinner services.
+
+## Waitlist Modal
+
+Use the waitlist when demand exists but a confirmed booking cannot currently be
+accepted.
+
+Good waitlist entries include:
+
+- Guest name.
+- Party size.
+- Phone number.
+- Desired time or time range.
+- Notes about flexibility.
+- Any urgency or special needs.
+
+When capacity opens, staff can contact the guest and create or update a
+reservation according to the restaurant's process.
 
 ## Reservation Actions
 
-Actions can include:
+Common actions include:
 
-- Table assignment.
+- Assign table.
 - Edit reservation.
 - Delete reservation.
 - Send review email.
+- Update status.
 
-Actions are displayed inline with table selection where space allows. Buttons
-should be clearly named so staff understand what each action does.
+Actions should be clear and named. If an action is disabled, check the
+reservation status and eligibility before assuming the UI is broken.
 
-Seated or completed reservations cannot be modified or deleted. Completed
-reservations collapse visually and show only the minimum operational details
-until expanded:
+## Seated And Completed Locking
+
+Once a reservation is seated or completed:
+
+- Edit is disabled.
+- Delete is disabled.
+- Core booking details should not be changed.
+
+This protects service history and prevents accidental edits after guests have
+already arrived or left.
+
+## Completed Reservation Display
+
+Completed reservations collapse to a minimal view:
 
 ```text
 12:00
-Guest name · 2 guests
+Guest name - 2 guests
 Completed
 ```
 
-This keeps completed visits from visually competing with active service work.
+This keeps active work readable. Expand the card only when details are needed.
 
-## Table Assignment
+## Email Warnings On Reservation Cards
 
-Table assignment lets staff assign a single table or a joined set of tables.
-Joined tables are only valid when the table setup allows them.
+If the reservation card warns that the guest email is not reachable:
 
-The dropdown should remain readable in light and dark themes. Rows should be
-vertically centered, and hover tooltips should explain the table information
-being shown.
+1. Call the guest.
+2. Confirm the reservation details by phone.
+3. Ask for a corrected email address.
+4. Update contact details where possible.
+5. Add a note if follow-up is still needed.
 
-If a reservation's date, time, service, offering, guest count, or duration
-changes, the existing table assignment may no longer be safe. In that case, the
-system should revalidate conflicts and clear unsafe assignments.
+Do not rely on email for that guest until the address is corrected.
 
-## Floor/Day Calendar
+## Common Reservation Page Questions
 
-The floor/day calendar opens as a modal. It displays the whole day so staff can
-understand service flow at a glance.
+### Why can staff add a booking when public booking would reject it?
 
-The current-time sweep indicator is shown at the bottom so it does not overlap
-reservation timing content. Restaurants may have continuous opening hours or
-separate lunch and dinner windows, so the calendar must handle closed gaps
-without pretending they are bookable time.
+Staff workflows support real-world exceptions. However, table conflicts and
+status locks still protect the restaurant.
 
-Use this modal when staff need a visual answer to questions like:
+### Why did my table assignment disappear after editing?
 
-- Which tables are occupied later?
-- Where are the turn overlaps?
-- Is there a quiet gap between services?
-- Can a larger booking be placed safely?
+Changing date, time, service, offering, party size, or duration can make the old
+table assignment unsafe. The system may clear it so staff can choose a valid
+table again.
 
-## Waitlist
+### Why is a slot greyed out but still visible?
 
-The waitlist opens as a modal from the reservations page. Staff can add, update,
-and seat waitlist entries.
+The slot is part of the day's structure, but it is not currently bookable. The
+reason should be shown on the card.
 
-Use the waitlist when demand exists but a booking cannot currently be accepted.
-When capacity becomes available, staff can convert or manually create a
-reservation from the waitlist context.
+### Why are there no actions on a reservation?
 
-## Review Request Action
+The reservation may be completed, seated, cancelled, or otherwise in a state
+where actions are not allowed.
 
-Staff can send a review request email only after a reservation is completed. If
-the review request was already sent, the action is disabled and states that the
-request was already sent.
+## Troubleshooting
 
-If the action is unavailable, check:
+### Availability Fails To Load
 
-- Reservation status.
-- Whether a review email was already sent.
-- Whether the guest has an email address.
-- Whether platform email policy and review URL are configured.
+1. Confirm the selected date.
+2. Refresh the page.
+3. Confirm the staff session is still valid.
+4. Try a different date.
+5. Check whether availability settings were recently edited.
+6. Ask platform support to check logs if it persists.
 
-## Troubleshooting The Reservations Page
+### Covers Look Too High
 
-If availability fails to load:
+1. Check active table capacities.
+2. Check offering binding.
+3. Check whether active tables are duplicated.
+4. Check service duration overlap.
+5. Check whether reservations are correctly active or cancelled.
 
-1. Confirm the selected date is valid.
-2. Refresh the page and check whether the tenant session is still active.
-3. Check whether availability configuration is valid.
-4. Ask a platform administrator to check route logs for the availability API.
+### A Booking Cannot Be Added
 
-If covers look too high:
+1. Read the unavailable reason.
+2. Check party size.
+3. Check lead time and booking window.
+4. Check closed days and blocked slots.
+5. Check table availability.
+6. Check whether the service was stopped today.
 
-1. Confirm active table seats for the selected offering.
-2. Confirm whether booked covers are appearing in multiple overlapping slots
-   because of service duration.
-3. Confirm the service duration and default duration values.
-4. Check for active reservations in the same overlapping window.
+### Notifications Appear But No Reservation Is Visible
 
-If notifications duplicate:
-
-1. Confirm whether multiple browser tabs are open.
-2. Check whether the same reservation id is repeated.
-3. Refresh one tab and verify unread state.
-4. Report persistent duplicate reservation-created events to platform support.
+1. Confirm selected date and offering.
+2. Refresh the reservation list.
+3. Check whether the booking belongs to another offering.
+4. Ask platform support if the notification continues to point nowhere.

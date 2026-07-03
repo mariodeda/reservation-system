@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PLATFORM_DOCS, platformDocBySlug, readPlatformDoc, renderMarkdown } from "@/lib/platform-docs";
 import PlatformDocsPage from "@/app/platform/(console)/docs/page";
+import TenantDocsPage from "@/app/admin/[slug]/(panel)/docs/page";
 import PlatformShell from "@/components/platform/PlatformShell";
 
 vi.mock("next/navigation", () => ({
@@ -29,13 +30,19 @@ describe("platform documentation", () => {
     expect(screen.getByRole("link", { name: "docs" })).toHaveAttribute("href", "/platform/docs?doc=system-overview&lang=it");
   });
 
+  it("can render internal documentation links against a tenant docs base path", async () => {
+    const doc = platformDocBySlug("tenant-admin-reservations");
+    render(<div>{renderMarkdown("[tables](./tables-and-floor.md)", doc, "it", "/admin/acme/docs")}</div>);
+    expect(screen.getByRole("link", { name: "tables" })).toHaveAttribute("href", "/admin/acme/docs?doc=tenant-admin-tables-and-floor&lang=it");
+  });
+
   it("loads a selected documentation page", async () => {
     const page = await PlatformDocsPage({ searchParams: Promise.resolve({ doc: "tenant-admin-reservations" }) });
     render(page);
 
     expect(screen.getByRole("heading", { name: "Documentation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Reservations" })).toHaveAttribute("href", "/platform/docs?doc=tenant-admin-reservations");
-    expect(screen.getByRole("heading", { name: "Tenant Reservations" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Reservations" })).toBeInTheDocument();
   });
 
   it("loads Italian documentation when requested", async () => {
@@ -44,7 +51,19 @@ describe("platform documentation", () => {
 
     expect(screen.getByRole("heading", { name: "Documentazione" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Prenotazioni" })).toHaveAttribute("href", "/platform/docs?doc=tenant-admin-reservations&lang=it");
-    expect(screen.getByRole("heading", { name: "Prenotazioni tenant" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Prenotazioni" })).toBeInTheDocument();
+  });
+
+  it("loads tenant documentation under the admin tenant route", async () => {
+    const page = await TenantDocsPage({
+      params: Promise.resolve({ slug: "acme" }),
+      searchParams: Promise.resolve({ doc: "tenant-admin-reservations", lang: "it" }),
+    });
+    render(page);
+
+    expect(screen.getByRole("heading", { name: "Guida staff" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Prenotazioni" })).toHaveAttribute("href", "/admin/acme/docs?doc=tenant-admin-reservations&lang=it");
+    expect(screen.getByRole("heading", { name: "Prenotazioni" })).toBeInTheDocument();
   });
 
   it("keeps every configured doc readable", async () => {

@@ -1,84 +1,185 @@
-# Notifiche Ed Email Tenant
+# Notifiche ed email
 
-Le notifiche tenant aiutano lo staff a vedere nuove prenotazioni mentre lavora
-nell'admin. Lo stato email aiuta a capire se gli ospiti probabilmente riceveranno
-conferme e richieste recensione.
+Le notifiche aiutano lo staff a reagire a nuove attivita booking. Lo stato email
+aiuta a capire se gli ospiti ricevono messaggi e quando serve follow-up
+telefonico.
 
-## Notifiche
+## Tipi di notifica
 
-L'admin tenant ascolta eventi prenotazione tramite server-sent events. Nuove
-prenotazioni possono produrre:
+L'admin tenant puo mostrare:
 
-- Notifica sulla campanella.
+- Notifiche campanella nell'header.
 - Toast in basso a destra.
+- Warning sulle card prenotazione.
 
-Il popup campanella mostra notifiche recenti. `Segna tutte come lette` dovrebbe
-pulire lo stato unread nella UI. Chiudere un toast con il pulsante X dovrebbe
-anche segnare quella notifica come letta.
+Le notifiche sono alert. Non sono i dati prenotazione stessi.
 
-Le notifiche non sono prenotazioni. Pulire una notifica non elimina e non
-cancella il booking. La prenotazione resta visibile nella lista.
+## Popup campanella
 
-## Protezione Duplicati
+Mostra notifiche recenti.
 
-Il browser deduplica eventi reservation-created per reservation id, quindi la
-stessa prenotazione non dovrebbe generare notifiche doppie o triple nella stessa
-tab.
+Lo staff puo:
 
-Se lo staff vede duplicati:
+- Aprire campanella per rivedere notifiche.
+- Usare `Segna tutte lette` per pulire stato unread.
+- Cliccare notifica per attenzione operativa.
 
-- Controlla se sono aperte piu tab browser.
-- Conferma se le righe duplicate indicano la stessa prenotazione esatta.
-- Aggiorna tab obsolete.
-- Segnala duplicati persistenti al supporto piattaforma con orario prenotazione
-  e nome ospite.
+Se unread non si pulisce:
 
-## Warning Email Prenotazione
+1. Clicca Segna tutte lette una volta.
+2. Chiudi e riapri popup.
+3. Aggiorna pagina.
+4. Segnala se unread ritorna sulle stesse notifiche.
 
-Le card prenotazione possono mostrare warning delivery email quando l'indirizzo
-ospite e noto come non raggiungibile tramite reject SMTP o bounce processing.
+## Toast
 
-Lo staff dovrebbe chiamare l'ospite quando una card avvisa che l'email non e
-raggiungibile. Se l'ospite fornisce email corretta, aggiorna prenotazione o
-contatto cliente secondo il workflow disponibile.
+I toast appaiono in basso a destra. Sono utili durante servizio per notare nuove
+prenotazioni online senza lasciare la schermata corrente.
 
-## Email Conferma Prenotazione
+Cliccare X dovrebbe chiudere il toast e segnare la notifica letta. Non cancella
+la prenotazione.
 
-Le conferme prenotazione sono controllate dalla configurazione piattaforma. Lo
-staff non abilita o disabilita il flusso globale da admin tenant.
+## Protezione duplicati
 
-Se un ospite dice di non aver ricevuto conferma:
+Il browser dovrebbe deduplicare eventi reservation-created per reservation id in
+una singola tab. Lo staff puo comunque confondersi quando:
 
-1. Controlla se la prenotazione ha email.
-2. Controlla se la card mostra warning email.
-3. Chiedi al supporto piattaforma di controllare log email per stato sent,
-   failed o skipped.
-4. Conferma che l'ospite abbia controllato spam o promozioni.
+- Sono aperte piu tab.
+- Lo stesso ospite fa piu prenotazioni reali.
+- Una tab vecchia si riconnette.
+- Le notifiche vengono confuse con righe prenotazione.
 
-## Email Richiesta Recensione
+Nel dubbio, controlla la lista prenotazioni per data e offering selezionati.
 
-Lo staff puo inviare una richiesta recensione solo dopo che una prenotazione e
-completata. Se gia inviata, l'azione e disabilitata e mostrata come gia inviata.
+## Troubleshooting notifiche
 
-Le email recensione usano URL recensione e template configurati dalla
-piattaforma. Non esiste un form feedback custom in questa applicazione.
+### Mark all read non fa nulla
 
-Se l'azione manca o e disabilitata, controlla:
+Prova:
 
-- La prenotazione e completata.
-- L'ospite ha email.
-- Una richiesta recensione non e gia stata inviata.
-- Policy email piattaforma e URL recensione sono configurati.
+1. Chiudi e riapri popup.
+2. Aggiorna pagina.
+3. Controlla se notifiche sono gia lette ma visibili come storico.
+4. Segnala se indicatori unread restano attivi.
 
-## Cosa Escalare
+### Toast ritorna sempre
 
-Contatta supporto piattaforma quando:
+Prova:
 
-- Conferme prenotazione sono skipped o failed per molti ospiti.
-- Pulsanti email recensione non sono disponibili su prenotazioni completate.
-- Warning SMTP appaiono su molte prenotazioni.
-- Le notifiche non si puliscono dopo "segna come lette".
-- Nuove prenotazioni online non appaiono senza refresh.
+1. Controlla altre tab browser.
+2. Aggiorna tab attiva.
+3. Conferma se la prenotazione e nuova o vecchia.
+4. Segnala nome ospite, data e orario se si ripete.
 
-Includi nome ristorante, data, nome ospite, orario prenotazione e testo warning
-visibile. Questo da agli operatori contesto sufficiente per filtrare i log.
+### Nuove prenotazioni non appaiono
+
+Prova:
+
+1. Aggiorna lista prenotazioni.
+2. Conferma data selezionata.
+3. Conferma offering selezionato.
+4. Controlla connessione internet.
+5. Chiedi supporto piattaforma se persiste.
+
+## Email conferma prenotazione
+
+Le conferme booking sono controllate da configurazione piattaforma. Lo staff non
+abilita SMTP o policy conferma da admin tenant.
+
+Se un ospite dice che conferma non e arrivata:
+
+1. Conferma indirizzo email.
+2. Controlla warning email sulla prenotazione.
+3. Conferma dettagli per telefono se serve.
+4. Chiedi al supporto di controllare log email.
+
+## Allegati calendario
+
+Le conferme booking possono includere allegato calendario. I client email lo
+mostrano in modi diversi:
+
+- Alcuni mostrano invito RSVP.
+- Alcuni mostrano allegato `.ics`.
+- Alcuni aggiungono evento dopo accettazione.
+- Alcuni nascondono dettagli calendario in menu.
+
+Se ospite non trova evento, conferma prima che email sia arrivata, poi chiedi di
+controllare come il client mostra allegati calendario.
+
+## Email richiesta recensione
+
+Le richieste recensione partono dopo visita completed, automaticamente dopo il
+ritardo configurato o manualmente dallo staff quando disponibile.
+
+Staff puo inviare solo quando:
+
+- Prenotazione completed.
+- Ospite ha email.
+- Richiesta non gia inviata.
+- Policy piattaforma lo consente.
+- Tenant ha URL recensione.
+- SMTP pronto.
+
+Non esiste form feedback custom in questa applicazione. I link puntano al sito
+recensione esterno configurato da piattaforma.
+
+## Warning email su card
+
+Un warning significa che il sistema pensa che l'email ospite non sia
+raggiungibile. Puo succedere per:
+
+- SMTP ha rifiutato destinatario subito.
+- Provider ha riportato bounce dopo.
+- Invio precedente fallito.
+
+Risposta staff:
+
+1. Chiama ospite.
+2. Conferma prenotazione.
+3. Chiedi email corretta.
+4. Aggiorna prenotazione/cliente se possibile.
+5. Aggiungi nota se serve follow-up.
+
+## Sent, failed e skipped
+
+I log email piattaforma usano tre stati:
+
+| Stato | Significato per staff |
+| --- | --- |
+| Sent | L'app ha inviato e SMTP ha accettato. Non garantisce che ospite lo abbia visto. |
+| Failed | Invio fallito o bounce registrato. Staff puo dover chiamare. |
+| Skipped | Il sistema non ha inviato per policy o configurazione. |
+
+Lo staff tenant di solito non vede i log email completi. Chiedi supporto quando
+serve.
+
+## Domande email comuni
+
+### Lo staff puo reinviare conferma booking?
+
+Usa le azioni disponibili sulla card. Se non esiste reinvio, conferma per
+telefono e chiedi supporto se il reinvio e supportato.
+
+### Posso inviare recensione prima del completamento?
+
+No. Le recensioni sono per visite completed.
+
+### Perche recensione gia inviata?
+
+Il sistema registra invii per prevenire duplicati. Se gia inviata, il pulsante
+resta disabilitato.
+
+### Nessun warning significa delivery garantita?
+
+No. Significa solo che il sistema non ha registrato fallimenti noti.
+
+## Quando escalare
+
+Escala a supporto piattaforma quando:
+
+- Molti ospiti segnalano conferme mancanti.
+- Email recensione non disponibile su booking completed.
+- Warning email appaiono su molte prenotazioni.
+- Notifiche non si puliscono dopo refresh.
+- Nuove prenotazioni online non appaiono.
+- Servono cambi SMTP, template, URL recensione o policy email.

@@ -9,6 +9,7 @@ export const am = {
     customers: "Clients",
     tables: "Tables",
     settings: "Settings",
+    docs: "Help",
     signOut: "Sign out",
   },
   status: {
@@ -432,6 +433,10 @@ export const am = {
     slotUnavailable: "Unavailable (past, too soon, or blocked)",
     slotServiceStopped: "Service stopped today",
     slotBlocked: "Time blocked",
+    slotStopAction: (time: string) => `Stop online bookings for ${time}`,
+    slotResumeAction: (time: string) => `Resume online bookings for ${time}`,
+    slotStopSaved: "Slot booking state updated.",
+    slotStopError: "Could not update this slot.",
     slotLeadTime: "Booking cutoff passed",
     slotNotEnoughCovers: "Not enough covers left",
     serviceEnded: "Service ended",
