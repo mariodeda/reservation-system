@@ -4,16 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type ReservationNotification } from "./useReservationEvents";
 import Tooltip from "@/components/ui/Tooltip";
+import { am } from "@/i18n";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function timeAgo(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 5) return "just now";
-  if (s < 60) return `${s}s ago`;
+  if (s < 5) return am.notifications.justNow;
+  if (s < 60) return am.notifications.secondsAgo(s);
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  return `${Math.floor(m / 60)}h ago`;
+  if (m < 60) return am.notifications.minutesAgo(m);
+  return am.notifications.hoursAgo(Math.floor(m / 60));
 }
 
 function formatTime(t: string) {
@@ -76,7 +77,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
                   {n.name}
                 </p>
                 <p className="text-xs text-on-surface-variant mt-0.5">
-                  {n.partySize} {n.partySize === 1 ? "guest" : "guests"} · {formatTime(n.time)} · {n.service}
+                  {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
                 </p>
               </div>
             </div>
@@ -86,12 +87,12 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
                   ? "bg-emerald-400/15 text-emerald-400"
                   : "bg-sky-400/15 text-sky-400"
               }`}>
-                {n.source === "web" ? "Online" : "Staff"}
+                {n.source === "web" ? am.notifications.online : am.notifications.staff}
               </span>
               <button
                 onClick={() => { setVisible(false); setTimeout(onDismiss, 350); }}
                 className="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/60 hover:text-on-surface transition"
-                aria-label="Dismiss"
+                aria-label={am.notifications.dismiss}
               >
                 <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                   <line x1="1" y1="1" x2="11" y2="11" /><line x1="11" y1="1" x2="1" y2="11" />
@@ -105,7 +106,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
               onClick={view}
               className="flex-1 text-xs font-semibold rounded-lg py-1.5 bg-primary/15 text-primary hover:bg-primary/25 transition"
             >
-              View reservations
+              {am.notifications.viewReservations}
             </button>
           </div>
         </div>
@@ -214,10 +215,10 @@ export function NotificationBell({
 
   return (
     <div ref={ref} className="relative">
-      <Tooltip content={connected ? "Notifications" : "Reconnecting..."}>
+      <Tooltip content={connected ? am.notifications.title : am.notifications.reconnecting}>
       <button
         onClick={toggleOpen}
-        aria-label={`Notifications${visibleUnreadCount > 0 ? `, ${visibleUnreadCount} unread` : ""}`}
+        aria-label={visibleUnreadCount > 0 ? am.notifications.unreadAria(visibleUnreadCount) : am.notifications.title}
         className="relative w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
       >
         <BellIcon />
@@ -235,17 +236,17 @@ export function NotificationBell({
         <div className="absolute right-0 top-10 w-80 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
           {/* header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-outline-variant/20">
-            <span className="text-sm font-semibold text-on-surface">Notifications</span>
+            <span className="text-sm font-semibold text-on-surface">{am.notifications.title}</span>
             <div className="flex items-center gap-2">
               {!connected && (
-                <span className="text-[10px] text-amber-400 font-medium">Reconnecting…</span>
+                <span className="text-[10px] text-amber-400 font-medium">{am.notifications.reconnectingShort}</span>
               )}
               {visibleUnreadCount > 0 && (
                 <button
                   onClick={markAllReadNow}
                   className="text-[11px] text-primary hover:text-primary/70 font-medium transition"
                 >
-                  Mark all read
+                  {am.notifications.markAllRead}
                 </button>
               )}
             </div>
@@ -256,9 +257,9 @@ export function NotificationBell({
             {unreadNotifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-on-surface-variant/50">
                 <BellIcon className="w-6 h-6 mx-auto mb-2" />
-                <p>{notifications.length === 0 ? "No notifications yet" : "No unread notifications"}</p>
+                <p>{notifications.length === 0 ? am.notifications.noNotifications : am.notifications.noUnread}</p>
                 <p className="text-xs mt-1 text-on-surface-variant/40">
-                  {connected ? "Listening for new reservations…" : "Connecting…"}
+                  {connected ? am.notifications.listening : am.notifications.connecting}
                 </p>
               </div>
             ) : (
@@ -280,7 +281,7 @@ export function NotificationBell({
                         <span className="text-[10px] text-on-surface-variant/50 shrink-0">{timeAgo(n.receivedAt)}</span>
                       </div>
                       <p className="text-xs text-on-surface-variant mt-0.5">
-                        {n.partySize} {n.partySize === 1 ? "guest" : "guests"} · {formatTime(n.time)} · {n.service}
+                        {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
                       </p>
                       <div className="flex items-center gap-1.5 mt-1">
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
@@ -288,7 +289,7 @@ export function NotificationBell({
                             ? "bg-emerald-400/15 text-emerald-400"
                             : "bg-sky-400/15 text-sky-400"
                         }`}>
-                          {n.source === "web" ? "Online" : "Staff"}
+                          {n.source === "web" ? am.notifications.online : am.notifications.staff}
                         </span>
                         <span className="text-[10px] text-on-surface-variant/40">{n.date}</span>
                       </div>
@@ -305,7 +306,7 @@ export function NotificationBell({
                 onClick={() => { setOpen(false); router.push(`/admin/${slug}/reservations`); }}
                 className="inline-flex items-center justify-center gap-1 text-xs text-primary hover:text-primary/70 font-medium transition"
               >
-                View all reservations
+                {am.notifications.viewAllReservations}
                 <ArrowRightIcon />
               </button>
             </div>

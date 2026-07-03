@@ -76,7 +76,7 @@ describe("TodayBookingControls", () => {
     await screen.findByRole("button", { name: "Today bookings" });
     await user.click(screen.getByRole("button", { name: "Today bookings" }));
 
-    expect(screen.getByText("Today booking controls")).toBeInTheDocument();
+    expect(screen.getAllByText("Today booking controls").length).toBeGreaterThan(0);
     const lunch = screen.getByText("Lunch").closest("div")!.parentElement!.parentElement!;
     expect(within(lunch).getByText("Stopped")).toBeInTheDocument();
     expect(screen.getByText("1 stopped")).toBeInTheDocument();

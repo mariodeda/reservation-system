@@ -79,16 +79,30 @@ describe("managed table assignment", () => {
     expect(body.tableId).toBe("t2");
   });
 
-  it.each(["seated", "completed"] as const)("does not show Suggest once a reservation is %s", (status) => {
+  it("does not show Suggest once a reservation is seated", () => {
     render(
       <ReservationRow
-        r={row({ status })}
+        r={row({ status: "seated" })}
         onChanged={() => {}}
         tables={[table({ id: "t1" }), table({ id: "t2", label: "9" })]}
       />,
     );
 
     expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest" })).not.toBeInTheDocument();
+  });
+
+  it("keeps completed reservations collapsed without table controls or Suggest", () => {
+    render(
+      <ReservationRow
+        r={row({ status: "completed" })}
+        onChanged={() => {}}
+        tables={[table({ id: "t1" }), table({ id: "t2", label: "9" })]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /expand/i })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Suggest" })).not.toBeInTheDocument();
   });
 
@@ -105,6 +119,6 @@ describe("managed table assignment", () => {
     render(<ReservationRow r={row()} onChanged={() => {}} tables={[]} />);
     // free-text variant shows an "Assign a table…" affordance, not a <select>
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
-    expect(screen.getByText(/Assign a table/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Assign a table/i).length).toBeGreaterThan(0);
   });
 });

@@ -10,8 +10,10 @@ public API.
 
 ## Architecture
 
+Full operator and staff documentation lives in [`docs/`](./docs/README.md).
+
 - **Public booking API** (CORS-gated, per-tenant): `/api/availability`,
-  `/api/reservations`, `/api/reservations/lookup`, `/api/tenant`, `/api/feedback/*`.
+  `/api/reservations`, `/api/reservations/lookup`, `/api/tenant`.
   Marketing sites select their tenant with `?tenant=<publicKey>` (falls back to the
   Host header). Cross-origin access is allowed only from each tenant's configured
   origins.

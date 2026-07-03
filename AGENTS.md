@@ -18,7 +18,7 @@ per-tenant SMTP settings. There is no global SMTP configuration.
 ## Product Surfaces
 
 - **Public booking API**: `/api/availability`, `/api/reservations`,
-  `/api/reservations/lookup`, `/api/tenant`, `/api/feedback/*`.
+  `/api/reservations/lookup`, `/api/tenant`.
   Marketing sites are separate apps and select the tenant with
   `?tenant=<publicKey>`; Host fallback exists for same-domain deployments.
 - **Staff admin**: `/admin/<slug>`. Staff manage reservations, waitlist,
@@ -139,14 +139,16 @@ per-tenant SMTP settings. There is no global SMTP configuration.
 - Email log access is tenant-scoped. Do not allow cross-tenant reads by
   reservation id alone.
 
-## Public Feedback
+## Review Requests
 
-- Public feedback links are token-based and tenant-scoped.
-- Disabling outbound email globally should suppress new sends but should not by
-  itself invalidate already-issued feedback links.
-- Disabling feedback/review collection should make public feedback links return
-  the disabled response.
-- Keep CORS behavior for `/api/feedback/[token]`; marketing sites need it.
+- Review request emails remain supported and should funnel through
+  `feedback-automation.ts` for policy, attendance, delay, and idempotency
+  checks.
+- There is no custom public feedback form in this application. Do not re-add
+  `/api/feedback/*` or token-based feedback collection support unless the
+  product explicitly reintroduces it.
+- Review request links should point to the tenant's platform-configured
+  `settings.reviewUrl`.
 
 ## Platform Console
 
