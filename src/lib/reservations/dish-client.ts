@@ -33,7 +33,12 @@ export interface DishReservationDetail {
   name?: string;
   phone?: string;
   email?: string;
+  occasion?: string;
   notes?: string;
+  internalGuestInformation?: string;
+  allergies?: string;
+  diet?: string;
+  visits?: string;
   rawText: string;
 }
 
@@ -265,7 +270,12 @@ export function parseDishReservationDetail(html: string, externalId: string): Di
     name,
     phone: fieldAfter(text, "Phone"),
     email: fieldAfter(text, "Email"),
+    occasion: fieldAfter(text, "Occasion"),
     notes: fieldAfter(text, "Reservation notes"),
+    internalGuestInformation: fieldAfter(text, "Internal guest information"),
+    allergies: fieldAfter(text, "Allergies"),
+    diet: fieldAfter(text, "Diet"),
+    visits: fieldAfter(text, "Visits"),
     rawText: text.slice(0, 5000),
   };
 }

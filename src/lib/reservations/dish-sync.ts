@@ -93,8 +93,13 @@ function notesFor(item: DishReservationListItem, detail?: ReturnType<typeof pars
     item.origin ? `DISH origin: ${item.origin}` : undefined,
     item.status ? `DISH status: ${item.status}` : undefined,
     detail?.createdAt ? `DISH created: ${detail.createdAt}` : undefined,
+    detail?.source ? `DISH source: ${detail.source}` : undefined,
+    detail?.visits ? `DISH visits: ${detail.visits}` : undefined,
     item.notes,
     detail?.notes,
+    detail?.internalGuestInformation ? `Internal guest information: ${detail.internalGuestInformation}` : undefined,
+    detail?.allergies ? `Allergies: ${detail.allergies}` : undefined,
+    detail?.diet ? `Diet: ${detail.diet}` : undefined,
   ].map((p) => p?.trim()).filter(Boolean) as string[];
   return [...new Set(parts)].join("\n") || undefined;
 }
@@ -128,6 +133,7 @@ async function importDishItem(
     name,
     email: safeText(detail?.email || item.email, 254),
     phone: safeText(detail?.phone, 80),
+    occasion: safeText(detail?.occasion, 80),
     notes: notesFor(item, detail),
     status: mapStatus(item.status),
     source: "dish",
@@ -148,6 +154,7 @@ async function importDishItem(
         name,
         email: patch.email ?? "",
         phone: patch.phone ?? "",
+        occasion: patch.occasion,
         notes: patch.notes,
         source: "dish",
         status: patch.status,
@@ -170,6 +177,7 @@ async function importDishItem(
       name,
       email: patch.email ?? "",
       phone: patch.phone ?? "",
+      occasion: patch.occasion,
       notes: patch.notes,
       source: "dish",
       status: patch.status,

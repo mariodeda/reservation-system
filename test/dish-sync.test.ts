@@ -44,12 +44,17 @@ function detailHtml() {
       '#' Guests ${externalPartySize}
       Date 10/07/2026 12:30 PM - 2:00 PM
       Source Google
+      Occasion Birthday
       Created 10/07/2026 9:00 AM
       Last name Lovelace
       First name Ada
       Phone +39 333 123 4567
       Email ada@example.com
+      Visits 4
       Reservation notes Detail note
+      Internal guest information Prefers the window
+      Allergies Peanuts
+      Diet Vegetarian
     </body></html>
   `;
 }
@@ -125,6 +130,11 @@ describe("DISH HTML sync", () => {
       partySize: 3,
       phone: "+39 333 123 4567",
       email: "ada@example.com",
+      occasion: "Birthday",
+      visits: "4",
+      internalGuestInformation: "Prefers the window",
+      allergies: "Peanuts",
+      diet: "Vegetarian",
     });
   });
 
@@ -244,6 +254,12 @@ describe("DISH HTML sync", () => {
     });
     expect(reservations[0].notes).toContain("External source: DISH");
     expect(reservations[0].notes).toContain("DISH origin: Google");
+    expect(reservations[0].notes).toContain("DISH source: Google");
+    expect(reservations[0].notes).toContain("DISH visits: 4");
+    expect(reservations[0].notes).toContain("Internal guest information: Prefers the window");
+    expect(reservations[0].notes).toContain("Allergies: Peanuts");
+    expect(reservations[0].notes).toContain("Diet: Vegetarian");
+    expect(reservations[0].occasion).toBe("Birthday");
 
     const external = await listExternalReservationViews(tenantId, [reservations[0].id]);
     expect(external.get(reservations[0].id)).toMatchObject({
