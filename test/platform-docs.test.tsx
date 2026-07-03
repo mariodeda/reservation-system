@@ -23,6 +23,12 @@ describe("platform documentation", () => {
     expect(screen.getByRole("link", { name: "docs" })).toHaveAttribute("href", "/platform/docs?doc=system-overview");
   });
 
+  it("preserves Italian language on internal documentation links", async () => {
+    const doc = platformDocBySlug("api-and-security");
+    render(<div>{renderMarkdown("[docs](./system-overview.md)", doc, "it")}</div>);
+    expect(screen.getByRole("link", { name: "docs" })).toHaveAttribute("href", "/platform/docs?doc=system-overview&lang=it");
+  });
+
   it("loads a selected documentation page", async () => {
     const page = await PlatformDocsPage({ searchParams: Promise.resolve({ doc: "tenant-admin-reservations" }) });
     render(page);
@@ -32,9 +38,19 @@ describe("platform documentation", () => {
     expect(screen.getByRole("heading", { name: "Tenant Reservations" })).toBeInTheDocument();
   });
 
+  it("loads Italian documentation when requested", async () => {
+    const page = await PlatformDocsPage({ searchParams: Promise.resolve({ doc: "tenant-admin-reservations", lang: "it" }) });
+    render(page);
+
+    expect(screen.getByRole("heading", { name: "Documentazione" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Prenotazioni" })).toHaveAttribute("href", "/platform/docs?doc=tenant-admin-reservations&lang=it");
+    expect(screen.getByRole("heading", { name: "Prenotazioni tenant" })).toBeInTheDocument();
+  });
+
   it("keeps every configured doc readable", async () => {
     for (const doc of PLATFORM_DOCS) {
       await expect(readPlatformDoc(doc)).resolves.toContain("#");
+      await expect(readPlatformDoc(doc, "it")).resolves.toContain("#");
     }
   });
 

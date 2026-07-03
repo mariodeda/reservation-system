@@ -6,23 +6,26 @@ import type { ReactNode } from "react";
 export type PlatformDoc = {
   slug: string;
   title: string;
+  titleIt: string;
   path: string;
   group: "Overview" | "Platform Admin" | "Tenant Admin";
 };
 
+export type PlatformDocLang = "en" | "it";
+
 export const PLATFORM_DOCS: PlatformDoc[] = [
-  { slug: "index", title: "Documentation Home", path: "README.md", group: "Overview" },
-  { slug: "system-overview", title: "System Overview", path: "system-overview.md", group: "Overview" },
-  { slug: "api-and-security", title: "API And Security Model", path: "api-and-security.md", group: "Overview" },
-  { slug: "platform-admin", title: "Platform Admin Guide", path: "platform-admin/README.md", group: "Platform Admin" },
-  { slug: "platform-admin-tenant-management", title: "Tenant Management", path: "platform-admin/tenant-management.md", group: "Platform Admin" },
-  { slug: "platform-admin-email-operations", title: "Email Operations", path: "platform-admin/email-operations.md", group: "Platform Admin" },
-  { slug: "platform-admin-logs-and-monitoring", title: "Logs And Monitoring", path: "platform-admin/logs-and-monitoring.md", group: "Platform Admin" },
-  { slug: "tenant-admin", title: "Tenant Admin Guide", path: "tenant-admin/README.md", group: "Tenant Admin" },
-  { slug: "tenant-admin-reservations", title: "Reservations", path: "tenant-admin/reservations.md", group: "Tenant Admin" },
-  { slug: "tenant-admin-availability-and-tables", title: "Availability And Tables", path: "tenant-admin/availability-and-tables.md", group: "Tenant Admin" },
-  { slug: "tenant-admin-customers-analytics-settings", title: "Customers, Analytics, And Settings", path: "tenant-admin/customers-analytics-settings.md", group: "Tenant Admin" },
-  { slug: "tenant-admin-notifications-and-email", title: "Notifications And Email", path: "tenant-admin/notifications-and-email.md", group: "Tenant Admin" },
+  { slug: "index", title: "Documentation Home", titleIt: "Home documentazione", path: "README.md", group: "Overview" },
+  { slug: "system-overview", title: "System Overview", titleIt: "Panoramica sistema", path: "system-overview.md", group: "Overview" },
+  { slug: "api-and-security", title: "API And Security Model", titleIt: "API e sicurezza", path: "api-and-security.md", group: "Overview" },
+  { slug: "platform-admin", title: "Platform Admin Guide", titleIt: "Guida admin piattaforma", path: "platform-admin/README.md", group: "Platform Admin" },
+  { slug: "platform-admin-tenant-management", title: "Tenant Management", titleIt: "Gestione ristoranti", path: "platform-admin/tenant-management.md", group: "Platform Admin" },
+  { slug: "platform-admin-email-operations", title: "Email Operations", titleIt: "Operazioni email", path: "platform-admin/email-operations.md", group: "Platform Admin" },
+  { slug: "platform-admin-logs-and-monitoring", title: "Logs And Monitoring", titleIt: "Log e monitoraggio", path: "platform-admin/logs-and-monitoring.md", group: "Platform Admin" },
+  { slug: "tenant-admin", title: "Tenant Admin Guide", titleIt: "Guida admin tenant", path: "tenant-admin/README.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-reservations", title: "Reservations", titleIt: "Prenotazioni", path: "tenant-admin/reservations.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-availability-and-tables", title: "Availability And Tables", titleIt: "Disponibilita e tavoli", path: "tenant-admin/availability-and-tables.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-customers-analytics-settings", title: "Customers, Analytics, And Settings", titleIt: "Clienti, statistiche e impostazioni", path: "tenant-admin/customers-analytics-settings.md", group: "Tenant Admin" },
+  { slug: "tenant-admin-notifications-and-email", title: "Notifications And Email", titleIt: "Notifiche ed email", path: "tenant-admin/notifications-and-email.md", group: "Tenant Admin" },
 ];
 
 const docsBySlug = new Map(PLATFORM_DOCS.map((doc) => [doc.slug, doc]));
@@ -32,16 +35,33 @@ export function platformDocBySlug(slug: string | undefined): PlatformDoc {
   return docsBySlug.get(slug ?? "") ?? PLATFORM_DOCS[0];
 }
 
-export async function readPlatformDoc(doc: PlatformDoc): Promise<string> {
+export function platformDocLang(input: string | undefined): PlatformDocLang {
+  return input === "it" ? "it" : "en";
+}
+
+export function platformDocTitle(doc: PlatformDoc, lang: PlatformDocLang): string {
+  return lang === "it" ? doc.titleIt : doc.title;
+}
+
+export function platformDocGroupLabel(group: PlatformDoc["group"], lang: PlatformDocLang): string {
+  if (lang === "en") return group;
+  switch (group) {
+    case "Overview": return "Panoramica";
+    case "Platform Admin": return "Admin piattaforma";
+    case "Tenant Admin": return "Admin tenant";
+  }
+}
+
+export async function readPlatformDoc(doc: PlatformDoc, lang: PlatformDocLang = "en"): Promise<string> {
   const docsRoot = path.join(process.cwd(), "docs");
-  const absolute = path.resolve(docsRoot, doc.path);
+  const absolute = path.resolve(docsRoot, lang === "it" ? path.join("it", doc.path) : doc.path);
   if (!absolute.startsWith(path.resolve(docsRoot))) {
     throw new Error("Invalid documentation path.");
   }
   return readFile(absolute, "utf8");
 }
 
-export function renderMarkdown(markdown: string, currentDoc: PlatformDoc): ReactNode[] {
+export function renderMarkdown(markdown: string, currentDoc: PlatformDoc, lang: PlatformDocLang = "en"): ReactNode[] {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
@@ -73,7 +93,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc): React
     const heading = /^(#{1,4})\s+(.+)$/.exec(line);
     if (heading) {
       const level = heading[1].length;
-      const children = renderInline(heading[2], currentDoc);
+      const children = renderInline(heading[2], currentDoc, lang);
       const className = level === 1
         ? "text-2xl font-semibold text-on-surface"
         : level === 2
@@ -98,14 +118,14 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc): React
         <div key={blocks.length} className="overflow-x-auto rounded-lg border border-outline-variant/30">
           <table className="min-w-full text-sm">
             <thead className="bg-surface-container-high text-left text-on-surface">
-              <tr>{header.map((cell, idx) => <th key={idx} className="px-3 py-2 font-semibold">{renderInline(cell, currentDoc)}</th>)}</tr>
+              <tr>{header.map((cell, idx) => <th key={idx} className="px-3 py-2 font-semibold">{renderInline(cell, currentDoc, lang)}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20">
               {rows.map((row, rowIdx) => (
                 <tr key={rowIdx}>
                   {header.map((_, cellIdx) => (
                     <td key={cellIdx} className="px-3 py-2 text-on-surface-variant align-top">
-                      {renderInline(row[cellIdx] ?? "", currentDoc)}
+                      {renderInline(row[cellIdx] ?? "", currentDoc, lang)}
                     </td>
                   ))}
                 </tr>
@@ -125,7 +145,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc): React
       }
       blocks.push(
         <ul key={blocks.length} className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-on-surface-variant">
-          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc)}</li>)}
+          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc, lang)}</li>)}
         </ul>,
       );
       continue;
@@ -139,7 +159,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc): React
       }
       blocks.push(
         <ol key={blocks.length} className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-on-surface-variant">
-          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc)}</li>)}
+          {items.map((item, idx) => <li key={idx}>{renderInline(item, currentDoc, lang)}</li>)}
         </ol>,
       );
       continue;
@@ -152,7 +172,7 @@ export function renderMarkdown(markdown: string, currentDoc: PlatformDoc): React
     }
     blocks.push(
       <p key={blocks.length} className="text-sm leading-relaxed text-on-surface-variant">
-        {renderInline(paragraph.join(" "), currentDoc)}
+        {renderInline(paragraph.join(" "), currentDoc, lang)}
       </p>,
     );
   }
@@ -173,7 +193,7 @@ function splitTableRow(row: string): string[] {
   return row.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
 }
 
-function renderInline(text: string, currentDoc: PlatformDoc): ReactNode[] {
+function renderInline(text: string, currentDoc: PlatformDoc, lang: PlatformDocLang): ReactNode[] {
   const parts: ReactNode[] = [];
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
@@ -187,7 +207,7 @@ function renderInline(text: string, currentDoc: PlatformDoc): ReactNode[] {
     } else {
       const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
       if (link) {
-        const href = resolveDocHref(link[2], currentDoc);
+        const href = resolveDocHref(link[2], currentDoc, lang);
         parts.push(
           <Link key={parts.length} href={href} className="font-medium text-primary hover:text-primary/70">
             {link[1]}
@@ -201,12 +221,12 @@ function renderInline(text: string, currentDoc: PlatformDoc): ReactNode[] {
   return parts;
 }
 
-function resolveDocHref(href: string, currentDoc: PlatformDoc): string {
+function resolveDocHref(href: string, currentDoc: PlatformDoc, lang: PlatformDocLang): string {
   if (/^https?:\/\//i.test(href)) return href;
   const withoutAnchor = href.split("#")[0];
   if (!withoutAnchor.endsWith(".md")) return href;
   const normalized = path.posix.normalize(path.posix.join(path.posix.dirname(currentDoc.path), withoutAnchor.replace(/^\.\//, "")));
   const doc = docsByPath.get(normalized);
-  return doc ? `/platform/docs?doc=${encodeURIComponent(doc.slug)}` : "/platform/docs";
+  const langParam = lang === "it" ? "&lang=it" : "";
+  return doc ? `/platform/docs?doc=${encodeURIComponent(doc.slug)}${langParam}` : `/platform/docs${lang === "it" ? "?lang=it" : ""}`;
 }
-
