@@ -31,15 +31,11 @@ export default async function TenantDocsPage({
     ? {
         title: "Guida staff",
         subtitle: "Documentazione operativa per usare il pannello del ristorante, gestire prenotazioni, tavoli, disponibilita, clienti, notifiche ed email.",
-        english: "\uD83C\uDDEC\uD83C\uDDE7",
-        italian: "\uD83C\uDDEE\uD83C\uDDF9",
         section: "Admin ristorante",
       }
     : {
         title: "Staff Guide",
         subtitle: "Operational documentation for using the restaurant panel, reservations, tables, availability, customers, notifications, and email.",
-        english: "\uD83C\uDDEC\uD83C\uDDE7",
-        italian: "\uD83C\uDDEE\uD83C\uDDF9",
         section: "Restaurant Admin",
       };
 
@@ -51,22 +47,6 @@ export default async function TenantDocsPage({
           <p className="mt-1 max-w-3xl text-sm text-on-surface-variant">
             {copy.subtitle}
           </p>
-        </div>
-        <div className="inline-flex w-fit overflow-hidden rounded-lg border border-outline-variant/40">
-          <Link
-            href={`${basePath}?doc=${encodeURIComponent(activeDoc.slug)}`}
-            aria-label="English"
-            className={`px-3 py-1.5 text-sm transition ${lang === "en" ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"}`}
-          >
-            {copy.english}
-          </Link>
-          <Link
-            href={`${basePath}?doc=${encodeURIComponent(activeDoc.slug)}&lang=it`}
-            aria-label="Italiano"
-            className={`px-3 py-1.5 text-sm transition ${lang === "it" ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"}`}
-          >
-            {copy.italian}
-          </Link>
         </div>
       </div>
 

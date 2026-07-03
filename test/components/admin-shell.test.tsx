@@ -80,6 +80,8 @@ describe("AdminShell", () => {
     const settingsButton = screen.getByRole("button", { name: "Settings" });
     const helpLink = screen.getByRole("link", { name: "Help" });
     const italian = screen.getByRole("button", { name: "Italiano" });
+    expect(screen.getByTestId("language-flag-it")).toBeInTheDocument();
+    expect(screen.getByTestId("language-flag-en")).toBeInTheDocument();
     expect(settingsButton.className).toContain("text-primary");
     expect(helpLink).toHaveAttribute("href", "/admin/acme/docs");
     expect(settingsButton.compareDocumentPosition(italian) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

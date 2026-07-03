@@ -9,6 +9,7 @@ import { useReservationEvents } from "./useReservationEvents";
 import { NotificationBell, ReservationToastStack } from "./NotificationBell";
 import TodayBookingControls from "./TodayBookingControls";
 import Tooltip from "@/components/ui/Tooltip";
+import LanguageFlag from "@/components/ui/LanguageFlag";
 
 export default function AdminShell({
   slug,
@@ -296,7 +297,7 @@ export default function AdminShell({
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                   }`}
                 >
-                  {l === "it" ? "\uD83C\uDDEE\uD83C\uDDF9" : "\uD83C\uDDEC\uD83C\uDDE7"}
+                  <LanguageFlag locale={l} />
                 </button>
                 </Tooltip>
               ))}

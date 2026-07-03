@@ -76,5 +76,7 @@ describe("platform documentation", () => {
   it("adds Docs to the platform shell navigation", () => {
     render(<PlatformShell username="ops"><span>body</span></PlatformShell>);
     expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute("href", "/platform/docs");
+    expect(screen.getByTestId("language-flag-it")).toBeInTheDocument();
+    expect(screen.getByTestId("language-flag-en")).toBeInTheDocument();
   });
 });

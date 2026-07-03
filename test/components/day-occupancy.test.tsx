@@ -71,12 +71,14 @@ describe("DayOccupancy", () => {
     );
   });
 
-  it("calls onPickSlot with service id and time when a slot is clicked", async () => {
+  it("opens slot actions before creating a reservation from a slot", async () => {
     const user = userEvent.setup();
     adminJson.mockResolvedValue(day());
     const onPick = vi.fn();
     render(<DayOccupancy date="2099-06-12" onPickSlot={onPick} />);
     await user.click(await screen.findByRole("button", { name: /12:00/ }));
+    expect(screen.getByRole("dialog", { name: "Slot actions" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add reservation at 12:00" }));
     expect(onPick).toHaveBeenCalledWith("lunch", "12:00");
   });
 
@@ -157,7 +159,7 @@ describe("DayOccupancy", () => {
     expect(screen.queryByText("Open")).not.toBeInTheDocument();
   });
 
-  it("toggles an individual slot stop without picking the slot", async () => {
+  it("toggles an individual slot stop from the slot actions modal without picking the slot", async () => {
     const user = userEvent.setup();
     const onPick = vi.fn();
     const onChanged = vi.fn();
@@ -185,7 +187,9 @@ describe("DayOccupancy", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: /^Stop online bookings for 12:00$/i }));
+    await user.click(await screen.findByRole("button", { name: /12:00.*4\/10 covers booked/i }));
+    expect(screen.getByRole("dialog", { name: "Slot actions" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Stop online bookings for 12:00/i }));
 
     await waitFor(() =>
       expect(adminJson).toHaveBeenCalledWith("/api/admin/slot-blocks", expect.objectContaining({

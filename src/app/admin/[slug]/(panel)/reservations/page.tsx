@@ -201,10 +201,10 @@ export default function ReservationsPage() {
         <h1 className="min-w-0 flex-1 truncate text-xl sm:text-2xl font-semibold">{am.reservations.title}</h1>
         <div className="flex shrink-0 gap-2">
           <button
-            onClick={() => { setShowWalkIn((s) => !s); setShowForm(false); }}
+            onClick={() => { setShowWalkIn(true); setShowForm(false); }}
             className="border border-outline-variant/40 text-on-surface-variant hover:text-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition"
           >
-            {showWalkIn ? am.reservations.close : am.walkIn.button}
+            {am.walkIn.button}
           </button>
           <button
             onClick={() => {
@@ -218,16 +218,6 @@ export default function ReservationsPage() {
           </button>
         </div>
       </div>
-
-      {showWalkIn && (
-        <WalkInForm
-          date={date}
-          offerings={offerings}
-          tz={tz}
-          tables={activeTables}
-          onCreated={() => { setShowWalkIn(false); load(); }}
-        />
-      )}
 
       {!searching && (
         <>
@@ -326,7 +316,7 @@ export default function ReservationsPage() {
           )}
 
           {showForm && (
-            <NewReservationModal onClose={() => setShowForm(false)}>
+            <ReservationModal title={am.reservations.newReservation} onClose={() => setShowForm(false)}>
               <NewReservationForm
                 date={date}
                 offerings={offerings}
@@ -336,9 +326,22 @@ export default function ReservationsPage() {
                   load();
                 }}
               />
-            </NewReservationModal>
+            </ReservationModal>
           )}
+
         </>
+      )}
+
+      {showWalkIn && (
+        <ReservationModal title={am.walkIn.title} onClose={() => setShowWalkIn(false)}>
+          <WalkInForm
+            date={date}
+            offerings={offerings}
+            tz={tz}
+            tables={activeTables}
+            onCreated={() => { setShowWalkIn(false); load(); }}
+          />
+        </ReservationModal>
       )}
 
       {/* offering filter (only when more than one offering) */}
@@ -560,10 +563,9 @@ function WalkInForm({
   return (
     <form
       onSubmit={submit}
-      className="bg-surface-container border border-primary/30 rounded-xl p-4 space-y-3"
+      className="space-y-4"
     >
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-semibold">{am.walkIn.title}</span>
+      <div className="flex items-center gap-2 flex-wrap rounded-lg border border-primary/25 bg-primary/10 px-3 py-2">
         <span className="text-xs text-on-surface-variant">{am.walkIn.subtitle}</span>
         <span className="ml-auto text-xs text-primary font-semibold tabular-nums">{nowTime}</span>
       </div>
@@ -1070,19 +1072,19 @@ function ReservationField({ label, className = "", children }: { label: string; 
   );
 }
 
-function NewReservationModal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function ReservationModal({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-[190] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="new-reservation-title"
+      aria-labelledby="reservation-modal-title"
     >
       <div className="mx-auto flex h-full w-full max-w-3xl items-center">
         <div className="max-h-full w-full overflow-y-auto rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
           <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-outline-variant/25 bg-surface px-4 py-3">
-            <h2 id="new-reservation-title" className="text-sm font-semibold text-on-surface">
-              {am.reservations.newReservation}
+            <h2 id="reservation-modal-title" className="text-sm font-semibold text-on-surface">
+              {title}
             </h2>
             <button
               type="button"

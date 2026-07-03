@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
 import Tooltip from "@/components/ui/Tooltip";
+import LanguageFlag from "@/components/ui/LanguageFlag";
 
 function LoginForm() {
   const router = useRouter();
@@ -68,7 +69,7 @@ function LoginForm() {
                   : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
               }`}
             >
-              {l === "it" ? "\uD83C\uDDEE\uD83C\uDDF9" : "\uD83C\uDDEC\uD83C\uDDE7"}
+              <LanguageFlag locale={l} />
             </button>
             </Tooltip>
           ))}

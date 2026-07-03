@@ -6,6 +6,19 @@ import { adminJson, toast } from "./api";
 import { am } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
 
+type SelectedSlot = {
+  service: string;
+  serviceLabel: string;
+  time: string;
+  booked: number;
+  capacity: number;
+  remaining: number;
+  statusLabel: string;
+  blocked: boolean;
+  ended: boolean;
+  canToggleStop: boolean;
+};
+
 /**
  * Per-service capacity view for a date. Each slot tile carries its own covers
  * status so staff can scan availability without reconciling a service summary
@@ -33,6 +46,7 @@ export default function DayOccupancy({
   const [day, setDay] = useState<DayAvailability | null>(null);
   const [error, setError] = useState(false);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
 
   const loadDay = useCallback((cancelled: () => boolean = () => false) => {
     setError(false);
@@ -65,6 +79,7 @@ export default function DayOccupancy({
       });
       await loadDay();
       await onSlotStopChanged?.();
+      setSelectedSlot((slot) => slot && slot.service === service && slot.time === time ? { ...slot, blocked } : slot);
       toast(am.availability.slotStopSaved);
     } catch (err) {
       toast(err instanceof Error ? err.message : am.availability.slotStopError, "error");
@@ -116,62 +131,38 @@ export default function DayOccupancy({
                 const title = `${s.time}: ${am.availability.slotStatus(s.booked, s.capacity, s.remaining)}. ${status.label}`;
                 const blocked = s.unavailableReason === "blocked";
                 const canToggleStop = allowSlotStops && !ended && s.unavailableReason !== "service_disabled";
-                const stopLabel = blocked
-                  ? am.availability.slotResumeAction(s.time)
-                  : am.availability.slotStopAction(s.time);
-                const saving = savingSlot === `${svc.id}:${s.time}`;
+                const hasActions = Boolean(onPickSlot || canToggleStop);
                 return (
                   <Tooltip key={s.time} content={title} className="w-full">
-                    <div className="relative w-full">
-                      <button
-                        type="button"
-                        disabled={!onPickSlot}
-                        onClick={() => onPickSlot?.(svc.id, s.time)}
-                        aria-label={title}
-                        className={`min-h-[72px] w-full rounded-lg border px-3 py-2 text-left tabular-nums transition-all ${canToggleStop ? "pr-11" : ""} ${status.className} ${onPickSlot ? "cursor-pointer hover:brightness-110 active:scale-[0.98]" : "cursor-default"}`}
-                      >
-                        <span className="flex items-start justify-between gap-2">
-                          <span className="text-base font-semibold leading-none">{s.time}</span>
-                          {!ended && <span className={`mt-0.5 h-2.5 w-2.5 rounded-full ${status.dotClass}`} aria-hidden="true" />}
-                        </span>
-                        <span className="mt-2 block text-xs font-semibold leading-tight">
-                          {am.availability.covers(s.booked, s.capacity)}
-                        </span>
-                        <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide leading-tight opacity-80">
-                          {status.shortLabel}
-                        </span>
-                      </button>
-                      {canToggleStop && (
-                        <Tooltip content={stopLabel}>
-                          <button
-                            type="button"
-                            disabled={saving}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void toggleSlotStop(svc.id, s.time, !blocked);
-                            }}
-                            aria-label={stopLabel}
-                            className={`absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md border transition ${
-                              blocked
-                                ? "border-primary/60 bg-primary/20 text-primary hover:bg-primary/30"
-                                : "border-outline-variant/50 bg-surface-container/80 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-                            } disabled:opacity-50`}
-                          >
-                            {blocked ? (
-                              <span
-                                aria-hidden="true"
-                                className="ml-0.5 h-0 w-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-current"
-                              />
-                            ) : (
-                              <span aria-hidden="true" className="flex items-center gap-0.5">
-                                <span className="h-3 w-1 rounded-sm bg-current" />
-                                <span className="h-3 w-1 rounded-sm bg-current" />
-                              </span>
-                            )}
-                          </button>
-                        </Tooltip>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      disabled={!hasActions}
+                      onClick={() => setSelectedSlot({
+                        service: svc.id,
+                        serviceLabel: svc.label,
+                        time: s.time,
+                        booked: s.booked,
+                        capacity: s.capacity,
+                        remaining: s.remaining,
+                        statusLabel: status.label,
+                        blocked,
+                        ended,
+                        canToggleStop,
+                      })}
+                      aria-label={title}
+                      className={`min-h-[72px] w-full rounded-lg border px-3 py-2 text-left tabular-nums transition-all ${status.className} ${hasActions ? "cursor-pointer hover:brightness-110 active:scale-[0.98]" : "cursor-default"}`}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="text-base font-semibold leading-none">{s.time}</span>
+                        {!ended && <span className={`mt-0.5 h-2.5 w-2.5 rounded-full ${status.dotClass}`} aria-hidden="true" />}
+                      </span>
+                      <span className="mt-2 block text-xs font-semibold leading-tight">
+                        {am.availability.covers(s.booked, s.capacity)}
+                      </span>
+                      <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide leading-tight opacity-80">
+                        {status.shortLabel}
+                      </span>
+                    </button>
                   </Tooltip>
                 );
               })}
@@ -179,6 +170,66 @@ export default function DayOccupancy({
           </div>
         );
       })}
+      {selectedSlot && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="slot-actions-title">
+          <div className="w-full max-w-md rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-outline-variant/20 px-4 py-3">
+              <div>
+                <h2 id="slot-actions-title" className="text-base font-semibold text-on-surface">
+                  {am.availability.slotActionsTitle}
+                </h2>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  {selectedSlot.serviceLabel} · {selectedSlot.time}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSlot(null)}
+                aria-label={am.reservations.close}
+                className="rounded-lg px-2 py-1 text-xl leading-none text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high px-3 py-2">
+                <div className="text-sm font-semibold text-on-surface">
+                  {am.availability.slotStatus(selectedSlot.booked, selectedSlot.capacity, selectedSlot.remaining)}
+                </div>
+                <div className="mt-1 text-xs text-on-surface-variant">{selectedSlot.statusLabel}</div>
+              </div>
+              {onPickSlot && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPickSlot(selectedSlot.service, selectedSlot.time);
+                    setSelectedSlot(null);
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg bg-primary px-3 py-2.5 text-left text-sm font-semibold text-on-primary transition hover:brightness-105"
+                >
+                  <span>{am.availability.slotAddReservationAction(selectedSlot.time)}</span>
+                  <span aria-hidden="true">+</span>
+                </button>
+              )}
+              {selectedSlot.canToggleStop && (
+                <button
+                  type="button"
+                  disabled={savingSlot === `${selectedSlot.service}:${selectedSlot.time}`}
+                  onClick={() => void toggleSlotStop(selectedSlot.service, selectedSlot.time, !selectedSlot.blocked)}
+                  className="w-full rounded-lg border border-outline-variant/40 px-3 py-2.5 text-left text-sm font-semibold text-on-surface transition hover:bg-surface-container-high disabled:opacity-60"
+                >
+                  {selectedSlot.blocked
+                    ? am.availability.slotResumeAction(selectedSlot.time)
+                    : am.availability.slotStopAction(selectedSlot.time)}
+                  <span className="mt-1 block text-xs font-normal text-on-surface-variant">
+                    {selectedSlot.blocked ? am.availability.slotResumeHint : am.availability.slotStopHint}
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

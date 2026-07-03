@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import SystemLogo from "@/components/SystemLogo";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
+import LanguageFlag from "@/components/ui/LanguageFlag";
 
 export default function PlatformShell({
   username,
@@ -79,7 +80,7 @@ export default function PlatformShell({
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                   }`}
                 >
-                  {l === "it" ? "\uD83C\uDDEE\uD83C\uDDF9" : "\uD83C\uDDEC\uD83C\uDDE7"}
+                  <LanguageFlag locale={l} />
                 </button>
                 </Tooltip>
               ))}
