@@ -18,7 +18,7 @@ function day(over: Partial<DayAvailability> = {}): DayAvailability {
         { time: "12:00", capacity: 10, booked: 4, remaining: 6, available: true },   // open (green)
         { time: "12:30", capacity: 10, booked: 8, remaining: 2, available: true },   // nearly full (amber)
         { time: "13:00", capacity: 10, booked: 10, remaining: 0, available: false }, // full (rose)
-        { time: "13:30", capacity: 10, booked: 5, remaining: 5, available: false },  // blocked/past (grey)
+        { time: "13:30", capacity: 10, booked: 5, remaining: 5, available: false, unavailableReason: "blocked" },  // blocked (grey)
       ], turnMinutes: 120 },
     ],
     ...over,
@@ -41,13 +41,13 @@ describe("DayOccupancy", () => {
     expect(screen.getByRole("button", { name: /12:00.*4\/10 covers booked.*6 left.*healthy availability/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /12:30.*8\/10 covers booked.*2 left.*low availability/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /13:00.*10\/10 covers booked.*0 left.*fully booked/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /13:30.*5\/10 covers booked.*5 left.*unavailable/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /13:30.*5\/10 covers booked.*5 left.*time blocked/i })).toBeInTheDocument();
     // a tile per slot, coloured per fullness (open/amber/full/blocked)
     for (const t of ["12:00", "12:30", "13:00", "13:30"]) {
       expect(screen.getByRole("button", { name: new RegExp(t) })).toBeInTheDocument();
     }
     expect(screen.getByText("Full")).toBeInTheDocument();
-    expect(screen.getAllByText(/unavailable/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/time blocked/i).length).toBeGreaterThan(0);
   });
 
   it("renders a closed-day message", async () => {
@@ -123,7 +123,7 @@ describe("DayOccupancy", () => {
           label: "Dinner",
           turnMinutes: 120,
           slots: [
-            { time: "18:00", capacity: 20, booked: 1, remaining: 19, available: false },
+            { time: "18:00", capacity: 20, booked: 1, remaining: 19, available: false, unavailableReason: "service_disabled" },
             { time: "18:30", capacity: 20, booked: 7, remaining: 13, available: true },
             { time: "19:00", capacity: 20, booked: 4, remaining: 16, available: true },
           ],

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { DayAvailability } from "@/lib/reservations/types";
+import type { DayAvailability, SlotUnavailableReason } from "@/lib/reservations/types";
 import { adminJson } from "./api";
 import { am } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
@@ -141,7 +141,7 @@ function serviceHasEnded(date: string, lastSlot: string | undefined, turnMinutes
 }
 
 function slotCoverStatus(
-  slot: { capacity: number; booked: number; remaining: number; available: boolean },
+  slot: { capacity: number; booked: number; remaining: number; available: boolean; unavailableReason?: SlotUnavailableReason },
   serviceEnded: boolean,
 ) {
   if (serviceEnded) {
@@ -161,9 +161,10 @@ function slotCoverStatus(
     };
   }
   if (!slot.available) {
+    const label = slotUnavailableLabel(slot.unavailableReason);
     return {
-      label: am.availability.slotUnavailable,
-      shortLabel: am.availability.unavailableShort,
+      label,
+      shortLabel: label,
       className: "bg-surface-container-high text-on-surface-variant/60 border-outline-variant/30",
       dotClass: "bg-on-surface-variant/40",
     };
@@ -193,4 +194,19 @@ function slotCoverStatus(
       dotClass: "bg-emerald-300",
     }
   );
+}
+
+function slotUnavailableLabel(reason: SlotUnavailableReason | undefined): string {
+  switch (reason) {
+    case "service_disabled":
+      return am.availability.slotServiceStopped;
+    case "blocked":
+      return am.availability.slotBlocked;
+    case "lead_time":
+      return am.availability.slotLeadTime;
+    case "capacity":
+      return am.availability.slotNotEnoughCovers;
+    default:
+      return am.availability.slotUnavailable;
+  }
 }

@@ -10,6 +10,7 @@ import {
   type Reservation,
   type RestaurantTable,
   type ServiceId,
+  type SlotUnavailableReason,
   type ServiceWindow,
 } from "./types";
 import { getOffering, getOfferings, offeringOf } from "./offerings";
@@ -219,8 +220,17 @@ export function getDayAvailability(
         const remaining = Math.max(0, capacity - booked);
         const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
         const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
-        const available = !disabled && !blocked.has(time) && !tooSoon && remaining >= config.minPartySize;
-        return { time, capacity, booked, remaining, available };
+        const blockedSlot = blocked.has(time);
+        const unavailableReason: SlotUnavailableReason | undefined = disabled
+          ? "service_disabled"
+          : blockedSlot
+            ? "blocked"
+            : tooSoon
+              ? "lead_time"
+              : remaining < config.minPartySize
+                ? "capacity"
+                : undefined;
+        return { time, capacity, booked, remaining, available: !unavailableReason, unavailableReason };
       }),
     };
   });

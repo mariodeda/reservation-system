@@ -194,6 +194,7 @@ describe("getDayAvailability", () => {
     });
     const day = getDayAvailability(cfg, [res({ date: "2026-06-12", time: "12:00", partySize: 4 })], "2026-06-12");
     expect(day.services[0].slots[0].available).toBe(false);
+    expect(day.services[0].slots[0].unavailableReason).toBe("capacity");
     expect(day.full).toBe(true);
   });
 
@@ -296,6 +297,7 @@ describe("getDayAvailability", () => {
     const cfg = makeConfig({ blockedSlots: { "2026-06-12": ["13:00"] } });
     const day = getDayAvailability(cfg, [], "2026-06-12");
     expect(day.services[0].slots.find((s) => s.time === "13:00")!.available).toBe(false);
+    expect(day.services[0].slots.find((s) => s.time === "13:00")!.unavailableReason).toBe("blocked");
     expect(day.services[0].slots.find((s) => s.time === "12:00")!.available).toBe(true);
   });
 
@@ -304,6 +306,7 @@ describe("getDayAvailability", () => {
     const cfg = makeConfig({ disabledServices: { "2026-06-12": { main: ["lunch"] } } });
     const day = getDayAvailability(cfg, [], "2026-06-12");
     expect(day.services[0].slots.every((s) => !s.available)).toBe(true);
+    expect(day.services[0].slots.every((s) => s.unavailableReason === "service_disabled")).toBe(true);
     expect(day.full).toBe(true);
   });
 
@@ -312,7 +315,9 @@ describe("getDayAvailability", () => {
     const cfg = makeConfig({ leadMinutes: 200 });
     const day = getDayAvailability(cfg, [], "2026-06-11");
     expect(day.services[0].slots.find((s) => s.time === "12:00")!.available).toBe(false);
+    expect(day.services[0].slots.find((s) => s.time === "12:00")!.unavailableReason).toBe("lead_time");
     expect(day.services[0].slots.find((s) => s.time === "13:00")!.available).toBe(false);
+    expect(day.services[0].slots.find((s) => s.time === "13:00")!.unavailableReason).toBe("lead_time");
     expect(day.services[0].slots.find((s) => s.time === "14:00")!.available).toBe(true);
   });
 

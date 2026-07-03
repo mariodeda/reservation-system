@@ -178,7 +178,10 @@ export interface SlotAvailability {
   booked: number;
   remaining: number;
   available: boolean;
+  unavailableReason?: SlotUnavailableReason;
 }
+
+export type SlotUnavailableReason = "service_disabled" | "blocked" | "lead_time" | "capacity";
 
 export interface ServiceAvailability {
   id: ServiceId;

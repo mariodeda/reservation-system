@@ -1059,6 +1059,15 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 const field =
   "h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm w-full focus:border-primary outline-none [color-scheme:dark]";
 
+function ReservationField({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <label className={`min-w-0 space-y-1 ${className}`}>
+      <span className="block text-[11px] font-semibold uppercase text-on-surface-variant">{label}</span>
+      {children}
+    </label>
+  );
+}
+
 function NewReservationModal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
@@ -1171,29 +1180,36 @@ function NewReservationForm({
   return (
     <form onSubmit={submit} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {multiOffering && (
-        <select
-          value={form.offering}
-          onChange={(e) => {
-            const id = e.target.value;
-            const svcs = offerings.find((o) => o.id === id)?.services ?? [];
-            setForm((f) => ({ ...f, offering: id, service: svcs.some((s) => s.id === f.service) ? f.service : (svcs[0]?.id ?? f.service) }));
-          }}
-          className={`${field} col-span-2 sm:col-span-4`}
-        >
-          {offerings.map((o) => (
-            <option key={o.id} value={o.id}>{o.label}</option>
+        <ReservationField label={am.reservations.offeringLabel} className="col-span-2 sm:col-span-4">
+          <select
+            value={form.offering}
+            onChange={(e) => {
+              const id = e.target.value;
+              const svcs = offerings.find((o) => o.id === id)?.services ?? [];
+              setForm((f) => ({ ...f, offering: id, service: svcs.some((s) => s.id === f.service) ? f.service : (svcs[0]?.id ?? f.service) }));
+            }}
+            className={field}
+          >
+            {offerings.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
+        </ReservationField>
+      )}
+      <ReservationField label={am.reservations.dateLabel}>
+        <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className={field} />
+      </ReservationField>
+      <ReservationField label={am.reservations.serviceLabel}>
+        <select value={form.service} onChange={(e) => set("service", e.target.value)} className={field}>
+          {services.length === 0 && <option value="dinner">{am.reservations.defaultService}</option>}
+          {services.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
           ))}
         </select>
-      )}
-      <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className={field} />
-      <select value={form.service} onChange={(e) => set("service", e.target.value)} className={field}>
-        {services.length === 0 && <option value="dinner">{am.reservations.defaultService}</option>}
-        {services.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.label}
-          </option>
-        ))}
-      </select>
+      </ReservationField>
+      <ReservationField label={am.reservations.timeLabel}>
       {!customTime && svcSlots.length > 0 ? (
         <select value={form.time} onChange={(e) => set("time", e.target.value)} className={field}>
           {!svcSlots.some((s) => s.time === form.time) && <option value={form.time}>{form.time}</option>}
@@ -1206,18 +1222,29 @@ function NewReservationForm({
       ) : (
         <input type="time" value={form.time} onChange={(e) => set("time", e.target.value)} className={field} />
       )}
-      <input type="number" min={1} value={form.partySize} onChange={(e) => set("partySize", Number(e.target.value))} placeholder={am.reservations.guests} className={field} />
+      </ReservationField>
+      <ReservationField label={am.reservations.guests}>
+        <input type="number" min={1} value={form.partySize} onChange={(e) => set("partySize", Number(e.target.value))} placeholder={am.reservations.guests} className={field} />
+      </ReservationField>
 
       <label className="col-span-2 sm:col-span-4 flex items-center gap-2 text-xs text-on-surface-variant -mt-1">
         <input type="checkbox" checked={customTime} onChange={(e) => setCustomTime(e.target.checked)} />
         {am.reservations.customTime}
       </label>
 
-      <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={am.reservations.guestNamePlaceholder} className={`${field} col-span-2`} />
-      <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder={am.reservations.phone} className={field} />
-      <input value={form.email} onChange={(e) => set("email", e.target.value)} placeholder={am.reservations.email} className={field} />
-      <input value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder={am.reservations.notesPlaceholder} className={`${field} col-span-2 sm:col-span-3`} />
-      <button type="submit" disabled={busy} className="bg-primary text-on-primary rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
+      <ReservationField label={am.reservations.guestNameLabel} className="col-span-2">
+        <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={am.reservations.guestNamePlaceholder} className={field} />
+      </ReservationField>
+      <ReservationField label={am.reservations.phone}>
+        <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder={am.reservations.phone} className={field} />
+      </ReservationField>
+      <ReservationField label={am.reservations.email}>
+        <input value={form.email} onChange={(e) => set("email", e.target.value)} placeholder={am.reservations.email} className={field} />
+      </ReservationField>
+      <ReservationField label={am.reservations.notesLabel} className="col-span-2 sm:col-span-3">
+        <input value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder={am.reservations.notesPlaceholder} className={field} />
+      </ReservationField>
+      <button type="submit" disabled={busy} className="h-9 self-end bg-primary text-on-primary rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
         {busy ? am.row.saving : am.reservations.add}
       </button>
       {error && <p className="col-span-full text-sm text-rose-400">{error}</p>}
