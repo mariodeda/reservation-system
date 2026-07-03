@@ -14,7 +14,7 @@ platform-only screens.
 | Area | What It Is For |
 | --- | --- |
 | Restaurants | Tenant cards, tenant creation, status, SMTP health summary, email feature state, and tenant detail access. |
-| Tenant detail | Branding, public booking API configuration, origins, domains, SMTP, email policy, templates, review URL, staff password reset, impersonation, mock data, and destructive actions. |
+| Tenant detail | Branding, public booking API configuration, origins, domains, SMTP, email policy, templates, review URL, external reservation integrations, staff password reset, impersonation, mock data, and destructive actions. |
 | Logs | Platform-visible route failures and operational events. |
 | Email logs | Sent, failed, and skipped email activity across tenants. |
 | Docs | This bilingual operating guide. |
@@ -32,6 +32,8 @@ external integrations:
 - Enable or disable outbound email flows.
 - Maintain booking confirmation and review request templates.
 - Configure review URLs for post-visit review request emails.
+- Configure and monitor one-way external reservation integrations such as
+  TheFork and DISH.
 - Monitor SMTP health, API logs, and email delivery logs.
 - Reset staff passwords when necessary.
 - Use impersonation only for support and debugging.
@@ -50,9 +52,11 @@ cross-tenant mistakes.
 6. Configure SMTP and run an SMTP health check.
 7. Configure booking confirmation and review request templates.
 8. Configure the review URL if review request emails will be enabled.
-9. Enable the desired email events only after SMTP and templates are ready.
-10. Create or reset staff credentials and share them through a secure channel.
-11. Ask staff to configure tables, availability, services, and policy before
+9. Configure external reservation integrations only after the restaurant has
+   supplied the correct provider credentials and restaurant identifier.
+10. Enable the desired email events only after SMTP and templates are ready.
+11. Create or reset staff credentials and share them through a secure channel.
+12. Ask staff to configure tables, availability, services, and policy before
     accepting live bookings.
 
 ## Reading Restaurant Cards
@@ -65,6 +69,8 @@ without opening each tenant:
 - SMTP health shows whether the app can connect to the tenant SMTP server.
 - Booking confirmation state shows whether that flow is actually ready.
 - Review request state shows whether review request email is actually ready.
+- External sync setup shows whether TheFork or DISH are configured and enabled
+  on the tenant detail page.
 
 Email flow state is derived from real readiness. A flow should show active only
 when the tenant-wide email switch, the specific event switch, SMTP readiness,
@@ -110,3 +116,15 @@ impersonated mutations so support activity remains auditable.
 3. Look for `sent`, `failed`, or `skipped`.
 4. If skipped, fix the policy/configuration reason first.
 5. If sent but not received, check recipient spam/quarantine and later bounces.
+
+### External bookings are missing or stale
+
+1. Open the tenant detail page and confirm the provider integration is enabled.
+2. For TheFork, confirm Client ID, Client secret, Restaurant UUID, webhook URL,
+   and tenant-specific webhook token.
+3. For DISH, confirm the manager login still succeeds.
+4. Run the relevant manual sync and watch the progress result.
+5. Open platform logs and search `external_sync`, provider name, or external
+   reservation id.
+6. Remember that external reservations are read-only locally except for table
+   assignment, but they still reduce public availability for that tenant.

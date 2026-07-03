@@ -34,6 +34,8 @@ sections include:
 - Email flow policy.
 - Email templates.
 - Review URL.
+- TheFork one-way sync.
+- DISH one-way sync.
 - Mock data operations.
 - Staff password reset.
 - Impersonation.
@@ -105,6 +107,101 @@ readiness:
 
 Review request readiness also depends on a review URL and usable template
 content. If the review URL is missing, the review flow should not appear active.
+
+## External Reservation Integrations
+
+External reservation integrations are configured per tenant from tenant detail.
+They are one-way imports into our system: imported reservations appear in the
+tenant reservation UI, count against our public availability APIs, and are
+clearly labeled as external. Staff can assign a local table, but booking
+details, status, guest contact data, and email actions remain controlled by the
+external platform.
+
+### TheFork
+
+TheFork uses official B2B API credentials plus a tenant-specific webhook.
+
+Required fields:
+
+- Client ID.
+- Client secret.
+- Restaurant UUID.
+- Enabled toggle.
+
+The Restaurant UUID is required. Do not enable a group-only TheFork integration
+for a tenant, because group-level data cannot strictly prove that each
+reservation belongs to one restaurant tenant. The platform prevents enabling
+the same TheFork Restaurant UUID on multiple tenants.
+
+When saving TheFork credentials, the platform validates the API connection
+before storing the integration as enabled. If validation fails, the previous
+working configuration remains in place.
+
+The webhook URL is generated per tenant:
+
+```text
+/api/integrations/thefork/webhook/<tenantId>
+```
+
+Configure TheFork to call that tenant-specific URL with:
+
+```http
+Authorization: Bearer <tenant-specific-token>
+```
+
+The webhook handler verifies the URL tenant id, the tenant-specific token, and
+the TheFork restaurant UUID. A webhook sent to the wrong tenant URL or with a
+restaurant mismatch is rejected and logged.
+
+Manual actions:
+
+- **Sync now** imports today's TheFork updates.
+- **First sync** imports upcoming TheFork reservations through the tenant
+  booking window and skips existing imports.
+
+### DISH
+
+DISH does not provide a public reservation API for this account. The DISH
+integration is a read-only manager-page sync that depends on authenticated HTML
+pages staying compatible.
+
+Required fields:
+
+- DISH email.
+- DISH password.
+- Enabled toggle.
+
+When saving DISH credentials, the platform tests the login before enabling the
+integration. The password is stored encrypted and is never returned to the
+browser. The platform prevents enabling the same DISH login email on multiple
+tenants, because the HTML flow has no stronger stable restaurant identifier.
+
+Manual actions:
+
+- **Sync now** imports today.
+- **First sync** imports upcoming reservations through the tenant booking
+  window and skips existing imports.
+- **Backfill last 60 days** imports the last 60 calendar days, including today,
+  and skips existing imports.
+
+Scheduled DISH sync runs through `POST /api/platform/cron/dish-sync` every 15
+minutes. It syncs today and tomorrow for all active tenants with enabled DISH
+integrations. It does not run historical backfills automatically.
+
+### Operational Rules
+
+External reservations must remain tenant-scoped at every layer:
+
+- Integration credentials are stored per tenant.
+- External reservation links are keyed by tenant id, provider, and external id.
+- Imports write through the tenant-scoped reservation store.
+- Public availability counts external covers for the same tenant only.
+- Guest self-service lookup does not expose external reservations.
+- Local booking confirmation and review email actions are disabled for external
+  reservations.
+
+Use platform logs to investigate sync behavior. Search for `external_sync`,
+`thefork`, `dish`, or an external reservation id.
 
 ## Staff Password Reset
 

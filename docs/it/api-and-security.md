@@ -130,6 +130,28 @@ Le mutazioni sensibili richiedono riautenticazione con password operatore. Vale
 per azioni distruttive e supporto privilegiato come eliminazione tenant, reset
 password staff e impersonificazione.
 
+## Endpoint Integrazioni Esterne
+
+Le integrazioni prenotazioni esterne importano dati in un singolo tenant e non
+devono mai diventare canali dati cross-tenant.
+
+Gli URL webhook TheFork sono tenant-specific:
+
+```text
+POST /api/integrations/thefork/webhook/<tenantId>
+Authorization: Bearer <token-specifico-tenant>
+```
+
+L'handler verifica tenant id dal path, token webhook tenant-specific e
+Restaurant UUID TheFork nel payload o nei dati API successivi. Payload webhook
+con tenant, token, identificativo ristorante, metodo o tipo evento non
+supportato vengono rifiutati o ignorati e loggati come eventi `external_sync`.
+
+DISH non ha webhook pubblico in ingresso. Viene letto da azioni manuali
+controllate dalla piattaforma e dal cron `dish-sync`. Le credenziali DISH sono
+tenant-scoped, testate prima dell'abilitazione, cifrate a riposo e non tornano
+mai al browser.
+
 ## Sanitizzazione E Redazione
 
 Impostazioni tenant e configurazione disponibilita devono essere sanitizzate

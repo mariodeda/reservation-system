@@ -655,12 +655,12 @@ export default function TenantDetail() {
           <input className={`${field} font-mono`} readOnly value={theFork?.webhookUrl ?? ""} onFocus={(e) => e.currentTarget.select()} />
         </label>
         {webhookToken && (
-          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+          <div className="rounded-lg border border-outline-variant/40 bg-surface-container-high p-3 text-xs text-on-surface-variant">
             Copy this token now. It is shown only once:
             <input className={`${field} mt-1 font-mono`} readOnly value={webhookToken} onFocus={(e) => e.currentTarget.select()} />
             Configure TheFork webhook with this URL and header:
-            <div className="mt-1 font-mono text-amber-50">Authorization: Bearer {webhookToken}</div>
-            <div className="mt-1 text-amber-100/80">Query token fallback is supported only if TheFork cannot send custom headers.</div>
+            <div className="mt-1 font-mono text-on-surface">Authorization: Bearer {webhookToken}</div>
+            <div className="mt-1 text-on-surface-variant">Query token fallback is supported only if TheFork cannot send custom headers.</div>
           </div>
         )}
         <div className="grid sm:grid-cols-3 gap-2 text-xs text-on-surface-variant">
@@ -731,9 +731,6 @@ export default function TenantDetail() {
             v={dishForm.enabled}
             on={(v) => setDishForm((p) => ({ ...p, enabled: v }))}
           />
-          <div className="text-xs text-on-surface-variant self-center">
-            Password saved: {dish?.passwordSet ? "yes" : "no"} / Sync type: read-only manager login
-          </div>
           <Field label="DISH email" v={dishForm.email} on={(v) => setDishForm((p) => ({ ...p, email: v }))} />
           <Field
             label={`DISH password${dish?.passwordSet ? " (leave blank to keep current)" : ""}`}
@@ -743,7 +740,7 @@ export default function TenantDetail() {
             type="password"
           />
         </div>
-        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 p-3 text-xs text-amber-100">
+        <div className="rounded-lg border border-outline-variant/40 bg-surface-container-high p-3 text-xs text-on-surface-variant">
           DISH does not provide a public reservation API for this account. This integration is read-only and depends on the manager HTML pages staying compatible; saving credentials always tests the login before enabling sync.
         </div>
         <div className="grid sm:grid-cols-2 gap-2 text-xs text-on-surface-variant">

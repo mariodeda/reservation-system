@@ -17,8 +17,10 @@ observability records:
 - Tenant or reservation identifiers where available.
 - Request metadata, including body metadata where available.
 
-Filters support searching by route, reason, request id, reservation id, and
-reference. Use these filters before scanning manually.
+Filters support searching by route, reason, request id, reservation id,
+reference, and metadata. Use these filters before scanning manually. Metadata
+search is important for external integrations because provider names, triggers,
+date ranges, and external ids live in metadata.
 
 ## Metadata
 
@@ -35,6 +37,55 @@ reason. This helps diagnose issues such as:
 
 Body metadata should be visible in the platform admin metadata section when it
 is available. Secrets must still be redacted.
+
+## External Integration Monitoring
+
+TheFork and DISH syncs write platform-visible operational events. Filter logs by
+tenant and search for `external_sync`, `thefork`, `dish`, a sync trigger, or an
+external reservation id.
+
+Important event names:
+
+| Event | Meaning |
+| --- | --- |
+| `external_sync.started` | A sync run started. Metadata includes provider, trigger, date range, and options. |
+| `external_sync.completed` | A sync run finished. Metadata includes imported, updated, skipped, and error counts. |
+| `external_sync.failed` | The whole sync failed, for example login, API, timeout, or configuration failure. |
+| `external_sync.reservation_failed` | One external reservation failed while the rest of the sync continued. |
+| `external_sync.webhook_processed` | A TheFork webhook was accepted and imported or updated a reservation. |
+| `external_sync.webhook_failed` | A TheFork webhook was accepted but import failed. |
+| `external_sync.webhook_rejected` | A TheFork webhook was rejected before import, such as bad token or restaurant mismatch. |
+| `external_sync.webhook_ignored` | A TheFork webhook was valid but not a supported reservation create/update event. |
+
+External sync triggers:
+
+- `manual`: operator clicked Sync now.
+- `first`: operator clicked First sync.
+- `history60`: operator clicked DISH Backfill last 60 days.
+- `cron`: scheduled DISH cron.
+- `webhook`: external webhook-driven flow, where applicable.
+- `system`: fallback when a lower-level sync was called without a specific
+  trigger.
+
+For TheFork incidents:
+
+1. Search `external_sync` and filter by tenant.
+2. Check `external_sync.webhook_rejected` for token, body, rate limit, or
+   restaurant mismatch issues.
+3. Check `external_sync.webhook_failed` or `external_sync.reservation_failed`
+   for API/import errors.
+4. Confirm the tenant TheFork Restaurant UUID matches TheFork's restaurant
+   context.
+
+For DISH incidents:
+
+1. Search `external_sync` and `dish`, then filter by tenant.
+2. Check whether cron runs every 15 minutes through
+   `POST /api/platform/cron/dish-sync`.
+3. Check `external_sync.failed` for login, HTML parsing, timeout, or connection
+   issues.
+4. Use Sync now for today, First sync for upcoming bookings, and Backfill last
+   60 days only when historical imports need to be repaired.
 
 ## Email Logs
 
@@ -56,7 +107,8 @@ skipped is often expected when policy says not to send.
 
 SMTP health is tenant-specific. It is displayed on restaurant cards and can be
 refreshed manually by a platform operator. Scheduled SMTP checks should continue
-independently from manual checks.
+independently from manual checks. Schedule
+`POST /api/platform/cron/smtp-health` every 6 hours.
 
 Use SMTP health to identify configuration or connectivity issues. Use email
 logs to understand individual send attempts.

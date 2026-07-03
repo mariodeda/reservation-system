@@ -14,7 +14,7 @@ operativi da schermate piattaforma.
 | Area | A Cosa Serve |
 | --- | --- |
 | Ristoranti | Card tenant, creazione tenant, stato, riepilogo salute SMTP, stato funzionalita email e accesso dettaglio. |
-| Dettaglio tenant | Branding, API pubblica booking, origini, domini, SMTP, policy email, template, URL recensione, reset password staff, impersonificazione, mock data e azioni distruttive. |
+| Dettaglio tenant | Branding, API pubblica booking, origini, domini, SMTP, policy email, template, URL recensione, integrazioni prenotazioni esterne, reset password staff, impersonificazione, mock data e azioni distruttive. |
 | Log | Errori route e eventi operativi visibili dalla piattaforma. |
 | Log email | Attivita email sent, failed e skipped su tutti i tenant. |
 | Docs | Questa guida operativa bilingue. |
@@ -32,6 +32,8 @@ delivery e integrazioni esterne:
 - Abilitare o disabilitare flussi email.
 - Mantenere template conferma prenotazione e richiesta recensione.
 - Configurare URL recensioni.
+- Configurare e monitorare integrazioni one-way di prenotazioni esterne come
+  TheFork e DISH.
 - Monitorare salute SMTP, log API e log delivery email.
 - Resettare password staff quando necessario.
 - Usare impersonificazione solo per supporto e debug.
@@ -50,9 +52,11 @@ errori cross-tenant.
 6. Configura SMTP ed esegui un controllo salute SMTP.
 7. Configura template conferma prenotazione e richiesta recensione.
 8. Configura URL recensione se le email recensione saranno abilitate.
-9. Abilita gli eventi email solo dopo che SMTP e template sono pronti.
-10. Crea o resetta credenziali staff e condividile tramite canale sicuro.
-11. Chiedi allo staff di configurare tavoli, disponibilita, servizi e policy
+9. Configura integrazioni esterne solo dopo che il ristorante ha fornito
+   credenziali provider e identificativo ristorante corretti.
+10. Abilita gli eventi email solo dopo che SMTP e template sono pronti.
+11. Crea o resetta credenziali staff e condividile tramite canale sicuro.
+12. Chiedi allo staff di configurare tavoli, disponibilita, servizi e policy
     prima di accettare prenotazioni live.
 
 ## Lettura Card Ristorante
@@ -65,6 +69,8 @@ tenant:
 - Salute SMTP indica se l'app puo connettersi al server SMTP tenant.
 - Stato conferma prenotazione indica se il flusso puo davvero inviare.
 - Stato richiesta recensione indica se il flusso recensione puo davvero inviare.
+- Setup sync esterno indica se TheFork o DISH sono configurati e abilitati nel
+  dettaglio tenant.
 
 Lo stato email deriva da readiness reale. Un flusso deve risultare attivo solo
 quando switch email globale, switch evento specifico, SMTP, template richiesti,
@@ -111,3 +117,16 @@ registrano le mutazioni fatte in impersonificazione.
 3. Cerca `sent`, `failed` o `skipped`.
 4. Se skipped, correggi prima la ragione di policy/configurazione.
 5. Se sent ma non ricevuta, controlla spam/quarantena e bounce successivi.
+
+### Prenotazioni esterne mancanti o non aggiornate
+
+1. Apri dettaglio tenant e conferma che l'integrazione provider sia abilitata.
+2. Per TheFork, conferma Client ID, Client secret, Restaurant UUID, URL webhook
+   e token webhook tenant-specific.
+3. Per DISH, conferma che il login manager funzioni ancora.
+4. Esegui il sync manuale rilevante e osserva il risultato progresso.
+5. Apri log piattaforma e cerca `external_sync`, nome provider o external
+   reservation id.
+6. Ricorda che le prenotazioni esterne sono read-only localmente tranne
+   assegnazione tavolo, ma riducono comunque la disponibilita pubblica del
+   tenant.

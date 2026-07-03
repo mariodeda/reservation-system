@@ -133,6 +133,28 @@ Sensitive platform mutations require operator password re-authentication. This
 pattern applies to destructive actions and privileged support actions such as
 tenant deletion, staff password reset, and impersonation.
 
+## External Integration Endpoints
+
+External reservation integrations import data into a single tenant and must
+never become cross-tenant data channels.
+
+TheFork webhook URLs are tenant-specific:
+
+```text
+POST /api/integrations/thefork/webhook/<tenantId>
+Authorization: Bearer <tenant-specific-token>
+```
+
+The handler verifies the tenant id from the path, the tenant-specific webhook
+token, and the TheFork Restaurant UUID in the payload or follow-up API data.
+Webhook payloads with the wrong tenant, token, restaurant identifier, method, or
+unsupported event type are rejected or ignored and logged as `external_sync`
+events.
+
+DISH has no public incoming webhook. It is pulled by platform-controlled manual
+actions and the `dish-sync` cron. DISH credentials are tenant-scoped, tested
+before enabling, encrypted at rest, and never returned to the browser.
+
 ## Sanitization And Redaction
 
 Tenant settings and availability config must be sanitized before persistence.
