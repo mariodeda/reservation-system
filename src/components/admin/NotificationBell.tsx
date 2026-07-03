@@ -99,9 +99,11 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
             <div className="flex items-center gap-2 min-w-0">
               <BellIcon className="w-4 h-4 shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-on-surface leading-tight truncate">
-                  {n.name}
-                </p>
+                <Tooltip content={n.name} className="max-w-full">
+                  <span className="block text-sm font-semibold text-on-surface leading-tight truncate">
+                    {n.name}
+                  </span>
+                </Tooltip>
                 <p className="text-xs text-on-surface-variant mt-0.5">
                   {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
                 </p>
@@ -299,7 +301,9 @@ export function NotificationBell({
                     }`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-on-surface truncate">{n.name}</span>
+                        <Tooltip content={n.name} className="min-w-0 flex-1">
+                          <span className="text-sm font-semibold text-on-surface truncate">{n.name}</span>
+                        </Tooltip>
                         <span className="text-[10px] text-on-surface-variant/50 shrink-0">{timeAgo(n.receivedAt)}</span>
                       </div>
                       <p className="text-xs text-on-surface-variant mt-0.5">

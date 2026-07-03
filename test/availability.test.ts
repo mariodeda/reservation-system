@@ -346,6 +346,14 @@ describe("getDayAvailability", () => {
     expect(day.services).toEqual([]);
   });
 
+  it("can include past slots for admin history views while keeping them unavailable", () => {
+    setup();
+    const day = getDayAvailability(makeConfig(), [], "2026-06-10", undefined, undefined, { includePastSlots: true });
+    expect(day.past).toBe(true);
+    expect(day.services[0].slots).toHaveLength(3);
+    expect(day.services[0].slots.every((s) => !s.available && s.unavailableReason === "lead_time")).toBe(true);
+  });
+
   it("returns no services beyond the booking window", () => {
     setup();
     const cfg = makeConfig({ bookingWindowDays: 5 });

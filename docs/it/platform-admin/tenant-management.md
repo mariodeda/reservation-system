@@ -184,11 +184,10 @@ identificativo ristorante stabile piu forte.
 Azioni manuali:
 
 - **Sync now** importa oggi.
-- **First sync** importa prenotazioni future fino alla booking window tenant e
-  salta import gia presenti.
-- **Backfill last 60 days** importa gli ultimi 60 giorni calendario, incluso
-  oggi, e salta import gia presenti. La piattaforma lo esegue in batch da 7
-  giorni per mantenere reattive le pagine manager DISH e la UI piattaforma.
+- **Sync last 60 days** importa gli ultimi 60 giorni calendario, incluso oggi,
+  e salta import gia presenti. Usalo per il primo import e per recuperare dati
+  mancanti. La piattaforma lo esegue in batch da 7 giorni per mantenere
+  reattive le pagine manager DISH e la UI piattaforma.
 
 Il sync DISH schedulato gira tramite `POST /api/platform/cron/dish-sync` ogni
 15 minuti. Sincronizza oggi e domani per tutti i tenant attivi con integrazione

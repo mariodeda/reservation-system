@@ -61,7 +61,7 @@ Trigger sync esterni:
 
 - `manual`: l'operatore ha cliccato Sync now.
 - `first`: l'operatore ha cliccato First sync.
-- `history60`: l'operatore ha cliccato DISH Backfill last 60 days.
+- `history60`: l'operatore ha cliccato DISH Sync last 60 days.
 - `cron`: cron DISH schedulato.
 - `webhook`: flusso guidato da webhook esterno, dove applicabile.
 - `system`: fallback quando un sync di basso livello e stato chiamato senza
@@ -84,8 +84,8 @@ Per incident DISH:
    `POST /api/platform/cron/dish-sync`.
 3. Controlla `external_sync.failed` per login, parsing HTML, timeout o problemi
    connessione.
-4. Usa Sync now per oggi, First sync per prenotazioni future e Backfill last 60
-   days solo quando serve riparare import storici.
+4. Usa Sync now per oggi e Sync last 60 days per il primo import o per
+   recuperare import storici.
 
 ## Log Email
 

@@ -29,6 +29,7 @@ export const am = {
     theFork: "TheFork",
     externalPlatform: (platform: string) => `External - ${platform}`,
     externalReadOnlyHint: (platform: string) => `Imported from ${platform}. Booking details and status must be managed on ${platform}; table assignment is local and can be changed here.`,
+    externalOrigin: (origin: string) => `Origin: ${origin}`,
     externalStatus: (status: string) => `External status: ${status}`,
     externalMealStatus: (status: string) => `External meal status: ${status}`,
     externalUpdatedAt: (time: string) => `External updated: ${time}`,

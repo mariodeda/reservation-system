@@ -194,6 +194,7 @@ export function getDayAvailability(
   dateStr: string,
   offeringId?: OfferingId,
   tables?: RestaurantTable[],
+  options: { includePastSlots?: boolean } = {},
 ): DayAvailability {
   const offering = getOffering(config, offeringId);
   const resolvedId = offering.id;
@@ -202,7 +203,7 @@ export function getDayAvailability(
   const closed = isClosed(config, dateStr, resolvedId);
   const beyondWindow = dateStr > addDays(now.dateStr, config.bookingWindowDays);
 
-  if (closed || dayPast || beyondWindow) {
+  if (closed || beyondWindow || (dayPast && !options.includePastSlots)) {
     return { date: dateStr, offering: resolvedId, closed, past: dayPast, full: false, services: [] };
   }
 
@@ -219,7 +220,7 @@ export function getDayAvailability(
         const booked = bookedCoversForSlot(config, reservations, dateStr, time, resolvedId, w.id, turnMinutes);
         const remaining = Math.max(0, capacity - booked);
         const overbookedBy = Math.max(0, booked - capacity);
-        const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
+        const tooSoon = dateStr < now.dateStr || (dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes);
         const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
         const blockedSlot = blocked.has(time);
         const unavailableReason: SlotUnavailableReason | undefined = disabled
@@ -237,7 +238,7 @@ export function getDayAvailability(
   });
 
   const full = services.every((s) => s.slots.every((sl) => !sl.available));
-  return { date: dateStr, offering: resolvedId, closed: false, past: false, full, services };
+  return { date: dateStr, offering: resolvedId, closed: false, past: dayPast, full, services };
 }
 
 /** Day status for a single offering (no past/window handling — caller does that). */

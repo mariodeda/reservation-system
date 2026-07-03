@@ -186,11 +186,23 @@ function parsePartySize(text: string): number {
   return match ? Math.max(1, Math.trunc(Number(match[1])) || 1) : 1;
 }
 
+function cleanDishGuestName(value: string | undefined): string | undefined {
+  const cleaned = (value ?? "")
+    // DISH can render responsive contact labels inside reservation rows; after
+    // tag stripping they show up as guest-name text like "Ph o ne Em a il".
+    .replace(/(^|\s)["'“”]?\s*P\s*h\s*o\s*n\s*e\s+E\s*m\s*a\s*i\s*l\s*["'“”]?(?=\s|$)/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^["'“”]+|["'“”]+$/g, "")
+    .trim();
+  return cleaned || undefined;
+}
+
 function parseNameFromRow(text: string): string {
-  return text
+  return cleanDishGuestName(text
     .replace(/^\d{1,2}:\d{2}\s*(AM|PM)\s*/i, "")
     .replace(/\s+\d+\s+guest\(s\)[\s\S]*$/i, "")
-    .trim() || "DISH guest";
+    .trim()) || "DISH guest";
 }
 
 function parseNotes(text: string): string | undefined {
@@ -239,7 +251,7 @@ export function parseDishReservationDetail(html: string, externalId: string): Di
   };
   const firstName = fieldAfter(text, "First name");
   const lastName = fieldAfter(text, "Last name");
-  const name = [firstName, lastName].filter(Boolean).join(" ").trim() || undefined;
+  const name = cleanDishGuestName([firstName, lastName].filter(Boolean).join(" "));
   return {
     externalId,
     status: fieldAfter(text, "Status"),

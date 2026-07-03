@@ -183,11 +183,10 @@ restaurant identifier.
 Manual actions:
 
 - **Sync now** imports today.
-- **First sync** imports upcoming reservations through the tenant booking
-  window and skips existing imports.
-- **Backfill last 60 days** imports the last 60 calendar days, including today,
-  and skips existing imports. The platform runs this in 7-day batches so the
-  DISH manager pages and platform UI remain responsive.
+- **Sync last 60 days** imports the last 60 calendar days, including today, and
+  skips existing imports. Use it for the initial import and for repair catch-up
+  runs. The platform runs this in 7-day batches so the DISH manager pages and
+  platform UI remain responsive.
 
 Scheduled DISH sync runs through `POST /api/platform/cron/dish-sync` every 15
 minutes. It syncs today and tomorrow for all active tenants with enabled DISH

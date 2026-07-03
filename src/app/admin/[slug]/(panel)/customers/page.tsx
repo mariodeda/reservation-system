@@ -240,7 +240,9 @@ function CustomerRow({
         {/* Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold truncate">{customer.name}</span>
+            <Tooltip content={customer.name} className="min-w-0 max-w-full">
+              <span className="font-semibold truncate">{customer.name}</span>
+            </Tooltip>
             {customer.vip && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-widest shrink-0">
                 <StarIcon className="h-3 w-3" />

@@ -29,6 +29,7 @@ export const it = {
     theFork: "TheFork",
     externalPlatform: (platform: string) => `Esterna - ${platform}`,
     externalReadOnlyHint: (platform: string) => `Importata da ${platform}. Dettagli e stato vanno gestiti su ${platform}; l'assegnazione tavolo e locale e si puo cambiare qui.`,
+    externalOrigin: (origin: string) => `Origine: ${origin}`,
     externalStatus: (status: string) => `Stato esterno: ${status}`,
     externalMealStatus: (status: string) => `Stato servizio esterno: ${status}`,
     externalUpdatedAt: (time: string) => `Aggiornata esternamente: ${time}`,

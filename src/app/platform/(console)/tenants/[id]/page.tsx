@@ -498,39 +498,10 @@ export default function TenantDetail() {
     }
   }
 
-  async function firstSyncDish() {
-    if (!confirm("Run the first DISH sync now? This imports upcoming DISH reservations through the tenant booking window without sending tenant popup notifications.")) return;
-    setDishBusy("firstSync");
-    setDishSyncStatus("First DISH sync running. Existing imports will be skipped.");
-    try {
-      const d = await platformJsonWithTimeout<{
-        result: { imported: number; updated: number; skipped: number; errors: number };
-        range: { startDate: string; endDate: string };
-      }>(
-        `/api/platform/tenants/${id}/dish/sync`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "first" }),
-        },
-        EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
-      );
-      const message = `First DISH sync complete (${d.range.startDate} to ${d.range.endDate}): ${d.result.imported} imported, ${d.result.skipped} already present/skipped, ${d.result.errors} errors.`;
-      setDishSyncStatus(message);
-      toast(message);
-      await loadDish();
-    } catch (err) {
-      setDishSyncStatus(err instanceof Error ? err.message : "DISH first sync failed.");
-      toast(err instanceof Error ? err.message : "DISH first sync failed.", "error");
-    } finally {
-      setDishBusy(null);
-    }
-  }
-
-  async function backfillDishHistory() {
-    if (!confirm("Backfill DISH reservations from the last 60 days? Existing imports will be skipped and tenant popup notifications will not be sent.")) return;
+  async function syncDishHistory() {
+    if (!confirm("Sync DISH reservations from the last 60 days? Existing imports will be skipped and tenant popup notifications will not be sent.")) return;
     setDishBusy("history60");
-    setDishSyncStatus("DISH history backfill starting in 7-day batches. Existing imports will be skipped.");
+    setDishSyncStatus("DISH 60-day sync starting in 7-day batches. Existing imports will be skipped.");
     try {
       type DishHistoryBatchResponse = {
         result: { imported: number; updated: number; skipped: number; errors: number };
@@ -569,16 +540,16 @@ export default function TenantDetail() {
         complete = d.range.complete !== false || !d.range.nextStartDate;
         batchStartDate = d.range.nextStartDate;
         setDishSyncStatus(
-          `DISH history batch ${batches} complete (${d.range.startDate} to ${d.range.endDate}). Totals: ${totals.imported} imported, ${totals.skipped} skipped, ${totals.errors} errors.`,
+          `DISH 60-day sync batch ${batches} complete (${d.range.startDate} to ${d.range.endDate}). Totals: ${totals.imported} imported, ${totals.skipped} skipped, ${totals.errors} errors.`,
         );
       }
-      const message = `DISH history backfill complete (${totalStartDate} to ${totalEndDate}) in ${batches} batches: ${totals.imported} imported, ${totals.skipped} already present/skipped, ${totals.errors} errors.`;
+      const message = `DISH 60-day sync complete (${totalStartDate} to ${totalEndDate}) in ${batches} batches: ${totals.imported} imported, ${totals.skipped} already present/skipped, ${totals.errors} errors.`;
       setDishSyncStatus(message);
       toast(message);
       await loadDish();
     } catch (err) {
-      setDishSyncStatus(err instanceof Error ? err.message : "DISH history backfill failed.");
-      toast(err instanceof Error ? err.message : "DISH history backfill failed.", "error");
+      setDishSyncStatus(err instanceof Error ? err.message : "DISH 60-day sync failed.");
+      toast(err instanceof Error ? err.message : "DISH 60-day sync failed.", "error");
     } finally {
       setDishBusy(null);
     }
@@ -820,19 +791,11 @@ export default function TenantDetail() {
           </button>
           <button
             type="button"
-            onClick={firstSyncDish}
+            onClick={syncDishHistory}
             disabled={!!dishBusy || !dish?.enabled}
             className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
           >
-            {dishBusy === "firstSync" ? "Importing..." : "First sync"}
-          </button>
-          <button
-            type="button"
-            onClick={backfillDishHistory}
-            disabled={!!dishBusy || !dish?.enabled}
-            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
-          >
-            {dishBusy === "history60" ? "Backfilling..." : "Backfill last 60 days"}
+            {dishBusy === "history60" ? "Syncing 60 days..." : "Sync last 60 days"}
           </button>
         </div>
       </section>

@@ -45,6 +45,7 @@ export default function ReservationRow({
     ? { provider: r.source, label: externalReservationLabel(r.source), externalId: "" }
     : undefined);
   const externalReadOnly = !!externalPlatform;
+  const dishExternal = externalPlatform?.provider === "dish" ? externalPlatform : undefined;
   const canEditOrDelete = !externalReadOnly && r.status !== "seated" && r.status !== "completed";
 
   async function setStatus(status: ReservationStatus) {
@@ -131,7 +132,9 @@ export default function ReservationRow({
         <div className="flex-1 min-w-0 space-y-2">
           {/* Name row */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold truncate max-w-[180px] sm:max-w-[260px]">{r.name}</span>
+            <Tooltip content={r.name} className="min-w-0 max-w-[180px] sm:max-w-[260px]">
+              <span className="font-semibold truncate">{r.name}</span>
+            </Tooltip>
             {r.customerVip && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-widest">
                 <StarIcon />
@@ -258,34 +261,57 @@ export default function ReservationRow({
                       </span>
                     </Tooltip>
                   )}
-                  {r.phone && (
-                    <Tooltip content={`${am.row.phone}: ${r.phone}`}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <PhoneIcon />
-                        {r.phone}
-                      </span>
-                    </Tooltip>
-                  )}
-                  {r.occasion && (
-                    <Tooltip content={`${am.row.occasion}: ${r.occasion}`}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <OccasionIcon />
-                        {r.occasion}
-                      </span>
-                    </Tooltip>
-                  )}
-                  {r.notes && (
-                    <Tooltip content={`${am.row.notes}: ${r.notes}`}>
-                      <span className="italic">"{r.notes}"</span>
-                    </Tooltip>
-                  )}
-                  {r.dietaryNotes && (
-                    <Tooltip content={`${am.customers.dietaryAlert}: ${r.dietaryNotes}`}>
-                      <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium">
-                        <WarningIcon />
-                        {r.dietaryNotes}
-                      </span>
-                    </Tooltip>
+                  {dishExternal ? (
+                    <>
+                      {dishExternal.externalMealStatus && (
+                        <Tooltip content={am.row.externalOrigin(dishExternal.externalMealStatus)}>
+                          <span className="inline-flex items-center gap-1.5">
+                            <ExternalPlatformIcon provider="dish" />
+                            {am.row.externalOrigin(dishExternal.externalMealStatus)}
+                          </span>
+                        </Tooltip>
+                      )}
+                      {dishExternal.externalStatus && (
+                        <Tooltip content={am.row.externalStatus(dishExternal.externalStatus)}>
+                          <span className="inline-flex items-center gap-1.5">
+                            <StatusMiniIcon />
+                            {am.row.externalStatus(dishExternal.externalStatus)}
+                          </span>
+                        </Tooltip>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {r.phone && (
+                        <Tooltip content={`${am.row.phone}: ${r.phone}`}>
+                          <span className="inline-flex items-center gap-1.5">
+                            <PhoneIcon />
+                            {r.phone}
+                          </span>
+                        </Tooltip>
+                      )}
+                      {r.occasion && (
+                        <Tooltip content={`${am.row.occasion}: ${r.occasion}`}>
+                          <span className="inline-flex items-center gap-1.5">
+                            <OccasionIcon />
+                            {r.occasion}
+                          </span>
+                        </Tooltip>
+                      )}
+                      {r.notes && (
+                        <Tooltip content={`${am.row.notes}: ${r.notes}`}>
+                          <span className="italic">"{r.notes}"</span>
+                        </Tooltip>
+                      )}
+                      {r.dietaryNotes && (
+                        <Tooltip content={`${am.customers.dietaryAlert}: ${r.dietaryNotes}`}>
+                          <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium">
+                            <WarningIcon />
+                            {r.dietaryNotes}
+                          </span>
+                        </Tooltip>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1057,6 +1083,15 @@ function OccasionIcon() {
       <path d="M3.5 7.5h9v6h-9z" />
       <path d="M2.8 5h10.4v2.5H2.8z" />
       <path d="M8 5H5.4a1.4 1.4 0 1 1 1.1-2.3L8 5Zm0 0h2.6a1.4 1.4 0 1 0-1.1-2.3L8 5Z" />
+    </svg>
+  );
+}
+
+function StatusMiniIcon() {
+  return (
+    <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 8.2 6.7 11 12.2 5" />
+      <path d="M8 1.8a6.2 6.2 0 1 1 0 12.4 6.2 6.2 0 0 1 0-12.4Z" />
     </svg>
   );
 }

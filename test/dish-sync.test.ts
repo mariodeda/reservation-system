@@ -128,6 +128,44 @@ describe("DISH HTML sync", () => {
     });
   });
 
+  it("removes DISH responsive contact labels from scraped guest names", () => {
+    const html = `
+      <html><body>
+        <div data-reservation-id="dish-res-2"
+          data-reservation-status="CONFIRMED"
+          data-reservation-origin="DISH"
+          data-reservation-start-date="2026-07-10T19:30:00Z"
+          data-edit-url="/reservation/dish-res-2">
+          7:30 PM "Ph o ne Em a il" Bonino Dragonetti 2 guest(s)
+        </div>
+        <div data-reservation-id="dish-res-3"
+          data-reservation-status="CONFIRMED"
+          data-reservation-origin="DISH"
+          data-reservation-start-date="2026-07-10T20:00:00Z"
+          data-edit-url="/reservation/dish-res-3">
+          8:00 PM Matthias Ph o ne Em a il Schal 4 guest(s)
+        </div>
+      </body></html>
+    `;
+
+    const items = parseDishReservationList(html);
+    expect(items.map((item) => item.name)).toEqual(["Bonino Dragonetti", "Matthias Schal"]);
+  });
+
+  it("removes DISH contact labels from detail-derived names", () => {
+    const detail = `
+      <html><body>
+        Status CONFIRMED
+        '#' Guests 2
+        Date 10/07/2026 7:30 PM - 9:30 PM
+        Last name Bonino Dragonetti
+        First name "Ph o ne Em a il"
+      </body></html>
+    `;
+
+    expect(parseDishReservationDetail(detail, "dish-res-2").name).toBe("Bonino Dragonetti");
+  });
+
   it("builds the DISH SSO email login body like the browser form submit", () => {
     const html = `
       <form>
