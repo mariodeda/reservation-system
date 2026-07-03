@@ -17,8 +17,10 @@ let db: MySQLDB;
 let tenantId: string;
 
 let adminFeedbackRoute: typeof import("@/app/api/admin/reservations/[id]/feedback/route");
+let adminEmailSettingsRoute: typeof import("@/app/api/admin/settings/email/route");
 let adminReservationsRoute: typeof import("@/app/api/admin/reservations/route");
 let adminReservationRoute: typeof import("@/app/api/admin/reservations/[id]/route");
+let feedbackCronRoute: typeof import("@/app/api/platform/cron/feedback-requests/route");
 let emailLogStore: typeof import("@/lib/reservations/email-log-store");
 let store: typeof import("@/lib/reservations/store");
 let auth: typeof import("@/lib/reservations/auth");
@@ -69,8 +71,10 @@ beforeAll(async () => {
   emailLogStore = await import("@/lib/reservations/email-log-store");
   store = await import("@/lib/reservations/store");
   adminFeedbackRoute = await import("@/app/api/admin/reservations/[id]/feedback/route");
+  adminEmailSettingsRoute = await import("@/app/api/admin/settings/email/route");
   adminReservationsRoute = await import("@/app/api/admin/reservations/route");
   adminReservationRoute = await import("@/app/api/admin/reservations/[id]/route");
+  feedbackCronRoute = await import("@/app/api/platform/cron/feedback-requests/route");
 
   const { getTenantStore, resetTenantStore } = await import("@/lib/reservations/tenant-store");
   const { hashPassword, templateSettings } = await import("@/lib/reservations/tenant");
@@ -97,12 +101,13 @@ afterAll(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 beforeEach(async () => {
   const p = poolMod.getPool();
-  await p.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
-  await p.query("DELETE FROM reservation_emails WHERE tenant_id = ?", [tenantId]);
+  await p.query("DELETE FROM reservations");
+  await p.query("DELETE FROM reservation_emails");
   await p.query("DELETE FROM rate_limits WHERE k LIKE 'feedback-%'");
   const { getTenantStore } = await import("@/lib/reservations/tenant-store");
   const tenant = (await getTenantStore().getById(tenantId))!;
@@ -111,6 +116,7 @@ beforeEach(async () => {
     feedbackEnabled: true,
     emailEnabled: true,
     emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+    feedbackAutoSendEnabled: true,
     feedbackRequestDelayHours: 0,
     reviewUrl: "https://g.page/r/fb-test/review",
     allowedOrigins: [marketingOrigin],
@@ -127,6 +133,43 @@ async function makeCompleted(email = "guest@x.io") {
   await s.updateReservation(r.id, { status: "completed" });
   return r;
 }
+
+describe("GET/PATCH /api/admin/settings/email", () => {
+  it("lets staff opt out of automatic feedback sends when platform feedback emails are enabled", async () => {
+    const before = await adminEmailSettingsRoute.GET(authed("/api/admin/settings/email"));
+    expect(before.status).toBe(200);
+    expect(await before.json()).toMatchObject({
+      feedbackRequestsEnabled: true,
+      feedbackAutoSendEnabled: true,
+    });
+
+    const patched = await adminEmailSettingsRoute.PATCH(authed("/api/admin/settings/email", {
+      method: "PATCH",
+      body: { feedbackAutoSendEnabled: false },
+    }));
+    expect(patched.status).toBe(200);
+    expect(await patched.json()).toMatchObject({
+      feedbackRequestsEnabled: true,
+      feedbackAutoSendEnabled: false,
+    });
+  });
+
+  it("does not allow staff to change auto-send when platform feedback emails are disabled", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: false },
+      feedbackEnabled: false,
+    });
+
+    const res = await adminEmailSettingsRoute.PATCH(authed("/api/admin/settings/email", {
+      method: "PATCH",
+      body: { feedbackAutoSendEnabled: false },
+    }));
+    expect(res.status).toBe(403);
+  });
+});
 
 /* ---- Admin feedback route: POST (send request) ---- */
 
@@ -370,7 +413,37 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     await vi.waitFor(() => expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce());
   });
 
-  it("sends delayed feedback requests later from the admin reservation list", async () => {
+  it("does not auto-send feedback requests when tenant auto-send is disabled", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackAutoSendEnabled: false,
+      feedbackRequestDelayHours: 24,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    const r = await s.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Opt Out Guest", email: "auto-off@x.io", phone: "1",
+    });
+
+    const res = await adminReservationRoute.PATCH(
+      authed(`/api/admin/reservations/${r.id}`, { method: "PATCH", body: { status: "completed" } }),
+      { params: Promise.resolve({ id: r.id }) },
+    );
+    expect(res.status).toBe(200);
+    await Promise.resolve();
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
+
+  it("sends delayed feedback requests from the platform cron instead of the admin reservation list", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-06-12T13:00:00Z"));
     const { getTenantStore } = await import("@/lib/reservations/tenant-store");
@@ -395,11 +468,21 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
 
     vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
-    const res = await adminReservationsRoute.GET(
+    const listRes = await adminReservationsRoute.GET(
       authed("/api/admin/reservations?date=2026-06-12"),
     );
-    expect(res.status).toBe(200);
-    await vi.waitFor(() => expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce());
+    expect(listRes.status).toBe(200);
+    await Promise.resolve();
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+
+    const cronRes = await feedbackCronRoute.POST(req("/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+    expect(cronRes.status).toBe(200);
+    const json = await cronRes.json();
+    expect(json).toMatchObject({ ok: true, processed: 1, sent: 1, failed: 0 });
+    expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
   });
 });
 

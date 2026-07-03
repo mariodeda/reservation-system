@@ -124,7 +124,7 @@ export const ACTIVE_STATUSES: ReservationStatus[] = [
   "completed",
 ];
 
-export type ReservationSource = "web" | "admin" | "thefork";
+export type ReservationSource = "web" | "admin" | "thefork" | "dish";
 
 export interface Reservation {
   id: string;

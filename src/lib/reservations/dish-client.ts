@@ -1,0 +1,276 @@
+import type { DishIntegration } from "./dish-store";
+
+const DISH_BASE_URL = "https://reservation.dish.co";
+const DISH_SSO_URL = "https://sso.dish.co";
+const DISH_HTTP_TIMEOUT_MS = 20_000;
+
+export interface DishReservationListItem {
+  externalId: string;
+  status: string;
+  origin?: string;
+  email?: string;
+  language?: string;
+  startDate: string;
+  editUrl: string;
+  name: string;
+  partySize: number;
+  notes?: string;
+  rowText: string;
+}
+
+export interface DishReservationDetail {
+  externalId: string;
+  status?: string;
+  source?: string;
+  partySize?: number;
+  startDate?: string;
+  endDate?: string;
+  createdAt?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  rawText: string;
+}
+
+interface CookieJar {
+  header(url: string): string;
+  store(url: string, headers: Headers): void;
+}
+
+function createCookieJar(): CookieJar {
+  const cookies = new Map<string, string>();
+  return {
+    header() {
+      return [...cookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+    },
+    store(_url, headers) {
+      const headersWithSetCookie = headers as Headers & { getSetCookie?: () => string[] };
+      const setCookie = typeof headersWithSetCookie.getSetCookie === "function"
+        ? headersWithSetCookie.getSetCookie()
+        : (headers.get("set-cookie") ? [headers.get("set-cookie")!] : []);
+      for (const raw of setCookie) {
+        const [pair] = raw.split(";");
+        const eq = pair.indexOf("=");
+        if (eq > 0) cookies.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+      }
+    },
+  };
+}
+
+function absoluteUrl(pathOrUrl: string): string {
+  return pathOrUrl.startsWith("http") ? pathOrUrl : `${DISH_BASE_URL}${pathOrUrl.startsWith("/") ? "" : "/"}${pathOrUrl}`;
+}
+
+function resolveUrl(pathOrUrl: string, baseUrl: string): string {
+  return new URL(decodeHtml(pathOrUrl), baseUrl).toString();
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DISH_HTTP_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: init.signal ?? controller.signal, redirect: "manual" });
+  } catch (err) {
+    if (controller.signal.aborted) throw new Error("DISH request timed out.");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function request(jar: CookieJar, url: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const cookie = jar.header(url);
+  if (cookie) headers.set("cookie", cookie);
+  const res = await fetchWithTimeout(url, { ...init, headers });
+  jar.store(url, res.headers);
+  return res;
+}
+
+function attr(html: string, name: string): string | undefined {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`${escaped}="([^"]*)"`, "i").exec(html);
+  return match ? decodeHtml(match[1]) : undefined;
+}
+
+function parseFormValues(html: string): URLSearchParams {
+  const params = new URLSearchParams();
+  const inputRe = /<input\b[^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = inputRe.exec(html))) {
+    const input = match[0];
+    const name = attr(input, "name");
+    if (!name) continue;
+    params.set(name, attr(input, "value") ?? "");
+  }
+  return params;
+}
+
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+}
+
+function stripTags(html: string): string {
+  return decodeHtml(html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function fieldAfter(text: string, label: string): string | undefined {
+  const labels = ["Status", "'#' Guests", "Date", "Source", "Occasion", "Created", "Last name", "First name", "Phone", "Email", "Visits", "Reservation notes", "Internal guest information", "Allergies", "Diet"];
+  const start = text.indexOf(label);
+  if (start < 0) return undefined;
+  const after = text.slice(start + label.length).trim();
+  let end = after.length;
+  for (const next of labels) {
+    if (next === label) continue;
+    const idx = after.indexOf(next);
+    if (idx >= 0 && idx < end) end = idx;
+  }
+  const value = after.slice(0, end).trim();
+  return value || undefined;
+}
+
+function parsePartySize(text: string): number {
+  const match = /(\d+)\s+guest\(s\)/i.exec(text) ?? /'#'\s+Guests\s+(\d+)/i.exec(text);
+  return match ? Math.max(1, Math.trunc(Number(match[1])) || 1) : 1;
+}
+
+function parseNameFromRow(text: string): string {
+  return text
+    .replace(/^\d{1,2}:\d{2}\s*(AM|PM)\s*/i, "")
+    .replace(/\s+\d+\s+guest\(s\)[\s\S]*$/i, "")
+    .trim() || "DISH guest";
+}
+
+function parseNotes(text: string): string | undefined {
+  const notes = [...text.matchAll(/"([^"]+)"\s+\((Reservation Note|Guest request)\)/g)]
+    .map((m) => `${m[2]}: ${m[1].trim()}`)
+    .filter(Boolean);
+  return notes.length ? notes.join("\n") : undefined;
+}
+
+export function parseDishReservationList(html: string): DishReservationListItem[] {
+  const out: DishReservationListItem[] = [];
+  const rowRe = /<[^>]+data-reservation-id="([^"]+)"[\s\S]*?(?=<[^>]+data-reservation-id="|<\/body>|$)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = rowRe.exec(html))) {
+    const block = match[0];
+    const text = stripTags(block);
+    const externalId = decodeHtml(match[1]);
+    const startDate = attr(block, "data-reservation-start-date");
+    const editUrl = attr(block, "data-edit-url") ?? `/reservation/${externalId}`;
+    if (!externalId || !startDate) continue;
+    out.push({
+      externalId,
+      status: attr(block, "data-reservation-status") ?? "",
+      origin: attr(block, "data-reservation-origin"),
+      email: attr(block, "data-reservation-email"),
+      language: attr(block, "data-reservation-languagecode"),
+      startDate,
+      editUrl,
+      name: parseNameFromRow(text),
+      partySize: parsePartySize(text),
+      notes: parseNotes(text),
+      rowText: text,
+    });
+  }
+  return out;
+}
+
+export function parseDishReservationDetail(html: string, externalId: string): DishReservationDetail {
+  const text = stripTags(html);
+  const dateField = fieldAfter(text, "Date");
+  const dateMatch = /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s+(AM|PM)\s+-\s+(\d{1,2}):(\d{2})\s+(AM|PM)/i.exec(dateField ?? "");
+  const toIso = (h: string, m: string, ampm: string) => {
+    let hour = Number(h) % 12;
+    if (ampm.toUpperCase() === "PM") hour += 12;
+    return `${dateMatch?.[3]}-${dateMatch?.[2]}-${dateMatch?.[1]}T${String(hour).padStart(2, "0")}:${m}:00`;
+  };
+  const firstName = fieldAfter(text, "First name");
+  const lastName = fieldAfter(text, "Last name");
+  const name = [firstName, lastName].filter(Boolean).join(" ").trim() || undefined;
+  return {
+    externalId,
+    status: fieldAfter(text, "Status"),
+    source: fieldAfter(text, "Source"),
+    partySize: Number(fieldAfter(text, "'#' Guests") ?? "") || undefined,
+    startDate: dateMatch ? toIso(dateMatch[4], dateMatch[5], dateMatch[6]) : undefined,
+    endDate: dateMatch ? toIso(dateMatch[7], dateMatch[8], dateMatch[9]) : undefined,
+    createdAt: fieldAfter(text, "Created"),
+    firstName,
+    lastName,
+    name,
+    phone: fieldAfter(text, "Phone"),
+    email: fieldAfter(text, "Email"),
+    notes: fieldAfter(text, "Reservation notes"),
+    rawText: text.slice(0, 5000),
+  };
+}
+
+export class DishClient {
+  private readonly jar = createCookieJar();
+
+  constructor(private readonly integration: DishIntegration) {}
+
+  async login(): Promise<void> {
+    if (!this.integration.email || !this.integration.password) throw new Error("DISH credentials are not configured.");
+    const landing = await request(this.jar, `${DISH_BASE_URL}/oauth2/authorization/dish-sso`);
+    const loginUrl = landing.headers.get("location") ? resolveUrl(landing.headers.get("location")!, landing.url || DISH_BASE_URL) : landing.url;
+    const loginPage = await request(this.jar, loginUrl.startsWith("http") ? loginUrl : `${DISH_SSO_URL}${loginUrl}`);
+    const html = await loginPage.text();
+    const action = /<form[^>]+action="([^"]+)"/i.exec(html)?.[1];
+    if (!action) throw new Error("Could not find DISH login form.");
+    const body = parseFormValues(html);
+    body.set("username", this.integration.email);
+    body.set("password", this.integration.password);
+    body.set("login", body.get("login") || "Log in");
+    let currentUrl = resolveUrl(action, loginPage.url || DISH_SSO_URL);
+    const loginRes = await request(this.jar, currentUrl, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    let next = loginRes.headers.get("location");
+    let guard = 0;
+    while (next && guard < 8) {
+      currentUrl = resolveUrl(next, currentUrl);
+      const res = await request(this.jar, currentUrl);
+      next = res.headers.get("location");
+      guard += 1;
+      if (!next && res.url.includes("/reservations")) return;
+    }
+    const check = await this.fetchReservationsHtml(new Date().toISOString().slice(0, 10));
+    if (!check.includes("data-reservation-id") && /Log in|password/i.test(check)) {
+      throw new Error("DISH login failed.");
+    }
+  }
+
+  async fetchReservationsHtml(date: string): Promise<string> {
+    const res = await request(this.jar, `${DISH_BASE_URL}/reservations?date=${encodeURIComponent(date)}&endDate=${encodeURIComponent(date)}`);
+    if (res.status >= 400) throw new Error(`DISH reservations request failed (${res.status}).`);
+    return res.text();
+  }
+
+  async fetchReservationDetailHtml(editUrl: string): Promise<string> {
+    const res = await request(this.jar, absoluteUrl(editUrl));
+    if (res.status >= 400) throw new Error(`DISH reservation detail request failed (${res.status}).`);
+    return res.text();
+  }
+}
+
+export async function testDishCredentials(integration: DishIntegration): Promise<void> {
+  const client = new DishClient(integration);
+  await client.login();
+}

@@ -32,12 +32,24 @@ describe("proxy platform gating", () => {
     expect((await proxy(make("/api/platform/tenants", cookie))).status).toBe(200);
   });
 
-  it("allows the SMTP cron endpoint with the cron bearer secret", async () => {
+  it("allows cron endpoints with the cron bearer secret", async () => {
     vi.stubEnv("CRON_SECRET", "cron-secret");
     expect((await proxy(make("/api/platform/cron/smtp-health", undefined, {
       authorization: "Bearer cron-secret",
     }))).status).toBe(200);
     expect((await proxy(make("/api/platform/cron/smtp-health", undefined, {
+      authorization: "Bearer wrong",
+    }))).status).toBe(401);
+    expect((await proxy(make("/api/platform/cron/feedback-requests", undefined, {
+      authorization: "Bearer cron-secret",
+    }))).status).toBe(200);
+    expect((await proxy(make("/api/platform/cron/feedback-requests", undefined, {
+      authorization: "Bearer wrong",
+    }))).status).toBe(401);
+    expect((await proxy(make("/api/platform/cron/dish-sync", undefined, {
+      authorization: "Bearer cron-secret",
+    }))).status).toBe(200);
+    expect((await proxy(make("/api/platform/cron/dish-sync", undefined, {
       authorization: "Bearer wrong",
     }))).status).toBe(401);
   });

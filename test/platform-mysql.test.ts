@@ -17,6 +17,8 @@ let domainsRoute: typeof import("@/app/api/platform/tenants/[id]/domains/route")
 let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route");
 let impersonationRoute: typeof import("@/app/api/platform/tenants/[id]/impersonation/route");
 let theForkRoute: typeof import("@/app/api/platform/tenants/[id]/thefork/route");
+let dishRoute: typeof import("@/app/api/platform/tenants/[id]/dish/route");
+let DishClient: typeof import("@/lib/reservations/dish-client")["DishClient"];
 let analyticsRoute: typeof import("@/app/api/platform/analytics/route");
 let logsRoute: typeof import("@/app/api/platform/logs/route");
 let emailLogsRoute: typeof import("@/app/api/platform/email-logs/route");
@@ -50,6 +52,8 @@ beforeAll(async () => {
   passwordRoute = await import("@/app/api/platform/tenants/[id]/password/route");
   impersonationRoute = await import("@/app/api/platform/tenants/[id]/impersonation/route");
   theForkRoute = await import("@/app/api/platform/tenants/[id]/thefork/route");
+  dishRoute = await import("@/app/api/platform/tenants/[id]/dish/route");
+  ({ DishClient } = await import("@/lib/reservations/dish-client"));
   analyticsRoute = await import("@/app/api/platform/analytics/route");
   logsRoute = await import("@/app/api/platform/logs/route");
   emailLogsRoute = await import("@/app/api/platform/email-logs/route");
@@ -264,6 +268,92 @@ describe("platform tenant CRUD via routes", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("saves DISH credentials per tenant only after testing login and redacts the password", async () => {
+    const login = vi.spyOn(DishClient.prototype, "login").mockResolvedValue();
+    const ctx = { params: Promise.resolve({ id }) };
+    try {
+      const res = await dishRoute.PATCH(authed(`/api/platform/tenants/${id}/dish`, {
+        method: "PATCH",
+        body: {
+          enabled: true,
+          email: "manager@example.com",
+          password: "dish-secret",
+        },
+      }), ctx);
+      expect(res.status).toBe(200);
+      const saved = await res.json();
+      expect(saved.integration).toMatchObject({
+        enabled: true,
+        email: "manager@example.com",
+        passwordSet: true,
+      });
+      expect(JSON.stringify(saved)).not.toContain("dish-secret");
+      expect(login).toHaveBeenCalledOnce();
+
+      login.mockRejectedValueOnce(new Error("bad login"));
+      const rejected = await dishRoute.PATCH(authed(`/api/platform/tenants/${id}/dish`, {
+        method: "PATCH",
+        body: {
+          enabled: true,
+          email: "manager@example.com",
+          password: "wrong",
+        },
+      }), ctx);
+      expect(rejected.status).toBe(400);
+
+      const read = await (await dishRoute.GET(authed(`/api/platform/tenants/${id}/dish`), ctx)).json();
+      expect(read.integration.email).toBe("manager@example.com");
+      expect(read.integration.passwordSet).toBe(true);
+      expect(JSON.stringify(read)).not.toContain("dish-secret");
+    } finally {
+      login.mockRestore();
+    }
+  });
+
+  it("rejects unsafe cross-tenant external integration reuse", async () => {
+    const second = await tenantsRoute.POST(authed("/api/platform/tenants", {
+      method: "POST",
+      body: { slug: "external-conflict", name: "External Conflict", username: "staff", password: "staffpass1" },
+    }));
+    expect(second.status).toBe(201);
+    const secondId = (await second.json()).tenant.id as string;
+
+    const groupOnly = await theForkRoute.PATCH(authed(`/api/platform/tenants/${secondId}/thefork`, {
+      method: "PATCH",
+      body: {
+        enabled: true,
+        clientId: "client",
+        clientSecret: "secret",
+        groupUuid: "22222222-2222-4222-8222-222222222222",
+      },
+    }), { params: Promise.resolve({ id: secondId }) });
+    expect(groupOnly.status).toBe(400);
+    expect((await groupOnly.json()).error).toMatch(/Restaurant UUID is required/i);
+
+    const duplicateTheFork = await theForkRoute.PATCH(authed(`/api/platform/tenants/${secondId}/thefork`, {
+      method: "PATCH",
+      body: {
+        enabled: true,
+        clientId: "client",
+        clientSecret: "secret",
+        restaurantUuid: "11111111-1111-4111-8111-111111111111",
+      },
+    }), { params: Promise.resolve({ id: secondId }) });
+    expect(duplicateTheFork.status).toBe(409);
+    expect((await duplicateTheFork.json()).error).toMatch(/already enabled for another tenant/i);
+
+    const duplicateDish = await dishRoute.PATCH(authed(`/api/platform/tenants/${secondId}/dish`, {
+      method: "PATCH",
+      body: {
+        enabled: true,
+        email: "manager@example.com",
+        password: "secret",
+      },
+    }), { params: Promise.resolve({ id: secondId }) });
+    expect(duplicateDish.status).toBe(409);
+    expect((await duplicateDish.json()).error).toMatch(/already enabled for another tenant/i);
   });
 
   it("PATCH settings preserves fields omitted by partial clients", async () => {
@@ -591,6 +681,13 @@ describe("platform tenant CRUD via routes", () => {
       [id, new Date().toISOString(), new Date().toISOString()],
     );
     await pool.query(
+      `INSERT INTO tenant_dish_integrations
+       (tenant_id, enabled, email, created_at, updated_at)
+       VALUES (?, 1, 'manager@example.com', ?, ?)
+       ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), email = VALUES(email), updated_at = VALUES(updated_at)`,
+      [id, new Date().toISOString(), new Date().toISOString()],
+    );
+    await pool.query(
       `INSERT INTO external_reservation_links
        (tenant_id, provider, external_id, reservation_id, external_restaurant_id, raw_json, created_at, updated_at)
        VALUES (?, 'thefork', 'tf-cascade', ?, '11111111-1111-4111-8111-111111111111', ?, ?, ?)`,
@@ -603,7 +700,7 @@ describe("platform tenant CRUD via routes", () => {
     expect(del.status).toBe(200);
     expect(await tenantStoreMod.getTenantStore().getById(id)).toBeNull();
     expect(await new MySqlStore(id).listReservations()).toHaveLength(0);
-    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_emails", "tenant_thefork_integrations", "external_reservation_links"]) {
+    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_emails", "tenant_thefork_integrations", "tenant_dish_integrations", "external_reservation_links"]) {
       const [rows] = await pool.query(`SELECT COUNT(*) AS count FROM ${table} WHERE tenant_id = ?`, [id]);
       expect(Number((rows as { count: number }[])[0].count)).toBe(0);
     }

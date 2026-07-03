@@ -39,8 +39,10 @@ interface IntegrationRow extends RowDataPacket {
   updated_at: string;
 }
 
+export type ExternalReservationProvider = "thefork" | "dish";
+
 interface LinkRow extends RowDataPacket {
-  provider: "thefork";
+  provider: ExternalReservationProvider;
   external_id: string;
   reservation_id: string;
   external_status: string | null;
@@ -108,6 +110,21 @@ export async function getTheForkIntegrationByRestaurant(
     [restaurantUuid],
   );
   return rows.length ? toIntegration(rows[0]) : null;
+}
+
+export async function findTheForkTenantByRestaurantUuid(
+  restaurantUuid: string,
+  excludeTenantId?: string,
+): Promise<string | null> {
+  await ensureSchema();
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `SELECT tenant_id FROM tenant_thefork_integrations
+      WHERE restaurant_uuid = ? AND enabled = 1
+        ${excludeTenantId ? "AND tenant_id <> ?" : ""}
+      LIMIT 1`,
+    excludeTenantId ? [restaurantUuid, excludeTenantId] : [restaurantUuid],
+  );
+  return rows[0]?.tenant_id as string | undefined ?? null;
 }
 
 export interface SaveTheForkIntegrationInput {
@@ -197,7 +214,7 @@ export async function markTheForkSyncResult(tenantId: string, error?: string): P
 
 export async function findExternalReservation(
   tenantId: string,
-  provider: "thefork",
+  provider: ExternalReservationProvider,
   externalId: string,
 ): Promise<string | null> {
   await ensureSchema();
@@ -209,7 +226,7 @@ export async function findExternalReservation(
 }
 
 export interface ExternalReservationView {
-  provider: "thefork";
+  provider: ExternalReservationProvider;
   label: string;
   externalId: string;
   externalStatus?: string;
@@ -234,7 +251,7 @@ export async function listExternalReservationViews(
     row.reservation_id,
     {
       provider: row.provider,
-      label: row.provider === "thefork" ? "TheFork" : row.provider,
+      label: row.provider === "thefork" ? "TheFork" : row.provider === "dish" ? "DISH" : row.provider,
       externalId: row.external_id,
       externalStatus: row.external_status ?? undefined,
       externalMealStatus: row.external_meal_status ?? undefined,
@@ -245,7 +262,7 @@ export async function listExternalReservationViews(
 
 export interface UpsertExternalReservationLinkInput {
   tenantId: string;
-  provider: "thefork";
+  provider: ExternalReservationProvider;
   externalId: string;
   reservationId: string;
   externalRestaurantId?: string;

@@ -8,6 +8,7 @@ import { emitReservation } from "@/lib/reservations/events";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { requestContext } from "@/lib/observability/request-context";
 import { observeAdminRoute } from "@/lib/observability/route-events";
+import { isExternalReservationSource } from "@/lib/reservations/external-sources";
 
 export const runtime = "nodejs";
 
@@ -58,12 +59,12 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
   const existing = await store.getReservation(id);
   if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const patchKeys = Object.keys(patch);
-  const externalLocalTablePatch = existing.source === "thefork" && (
+  const externalLocalTablePatch = isExternalReservationSource(existing.source) && (
     (assigningTable && patchKeys.length === 0) ||
     (!assigningTable && patchKeys.length === 1 && Object.prototype.hasOwnProperty.call(patch, "tableLabel"))
   );
-  if (existing.source === "thefork" && !externalLocalTablePatch) {
-    return NextResponse.json({ error: "TheFork reservations are read-only in this system." }, { status: 409 });
+  if (isExternalReservationSource(existing.source) && !externalLocalTablePatch) {
+    return NextResponse.json({ error: "External reservations are read-only in this system." }, { status: 409 });
   }
 
   const locked = existing.status === "seated" || existing.status === "completed";
@@ -174,8 +175,8 @@ async function deleteReservation(req: NextRequest, ctx: { params: Promise<{ id: 
   const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: admin.tenant, session: admin.session, route: "/api/admin/reservations/[id]" });
   const store = getStore().forTenant(admin.tenant.id);
   const existing = await store.getReservation(id);
-  if (existing?.source === "thefork") {
-    return NextResponse.json({ error: "TheFork reservations are read-only in this system." }, { status: 409 });
+  if (existing && isExternalReservationSource(existing.source)) {
+    return NextResponse.json({ error: "External reservations are read-only in this system." }, { status: 409 });
   }
   if (existing && (existing.status === "seated" || existing.status === "completed")) {
     return NextResponse.json({ error: "Seated or completed reservations cannot be deleted." }, { status: 409 });

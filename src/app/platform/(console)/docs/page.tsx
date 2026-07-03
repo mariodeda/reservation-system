@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   PLATFORM_DOCS,
   platformDocBySlug,
@@ -19,25 +20,22 @@ export const metadata = {
 export default async function PlatformDocsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ doc?: string; lang?: string }>;
+  searchParams?: Promise<{ doc?: string }>;
 }) {
   const params = await searchParams;
   const activeDoc = platformDocBySlug(params?.doc);
-  const lang = platformDocLang(params?.lang);
+  const cookieStore = await cookies();
+  const lang = platformDocLang(cookieStore.get("admin-locale")?.value);
   const markdown = await readPlatformDoc(activeDoc, lang);
   const groups = Array.from(new Set(PLATFORM_DOCS.map((doc) => doc.group)));
   const copy = lang === "it"
     ? {
         title: "Documentazione",
         subtitle: "Guida operativa per piattaforma e admin tenant generata dai file Markdown del repository.",
-        english: "\uD83C\uDDEC\uD83C\uDDE7",
-        italian: "\uD83C\uDDEE\uD83C\uDDF9",
       }
     : {
         title: "Documentation",
         subtitle: "Platform and tenant-admin operating guide generated from the repository Markdown docs.",
-        english: "\uD83C\uDDEC\uD83C\uDDE7",
-        italian: "\uD83C\uDDEE\uD83C\uDDF9",
       };
 
   return (
@@ -48,22 +46,6 @@ export default async function PlatformDocsPage({
           <p className="mt-1 text-sm text-on-surface-variant">
             {copy.subtitle}
           </p>
-        </div>
-        <div className="inline-flex w-fit overflow-hidden rounded-lg border border-outline-variant/40">
-          <Link
-            href={`/platform/docs?doc=${encodeURIComponent(activeDoc.slug)}`}
-            aria-label="English"
-            className={`px-3 py-1.5 text-sm transition ${lang === "en" ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"}`}
-          >
-            {copy.english}
-          </Link>
-          <Link
-            href={`/platform/docs?doc=${encodeURIComponent(activeDoc.slug)}&lang=it`}
-            aria-label="Italiano"
-            className={`px-3 py-1.5 text-sm transition ${lang === "it" ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"}`}
-          >
-            {copy.italian}
-          </Link>
         </div>
       </div>
 
@@ -80,7 +62,7 @@ export default async function PlatformDocsPage({
                   return (
                     <Link
                       key={doc.slug}
-                      href={`/platform/docs?doc=${encodeURIComponent(doc.slug)}${lang === "it" ? "&lang=it" : ""}`}
+                      href={`/platform/docs?doc=${encodeURIComponent(doc.slug)}`}
                       className={`block rounded-lg px-2.5 py-2 text-sm transition ${
                         active
                           ? "bg-primary/15 text-primary"

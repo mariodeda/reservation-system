@@ -4,6 +4,12 @@ import { NextRequest } from "next/server";
 vi.mock("@/lib/reservations/smtp-health", () => ({
   runSmtpHealthChecks: async () => [],
 }));
+vi.mock("@/lib/reservations/feedback-automation", () => ({
+  runDueFeedbackRequestCron: async () => [],
+}));
+vi.mock("@/lib/reservations/dish-sync", () => ({
+  runDishSyncCron: async () => [],
+}));
 
 // No MySQL configured -> platform mutations would 401 before ever hitting a store.
 let tenants: typeof import("@/app/api/platform/tenants/route");
@@ -14,10 +20,15 @@ let impersonation: typeof import("@/app/api/platform/tenants/[id]/impersonation/
 let theFork: typeof import("@/app/api/platform/tenants/[id]/thefork/route");
 let theForkTest: typeof import("@/app/api/platform/tenants/[id]/thefork/test/route");
 let theForkSync: typeof import("@/app/api/platform/tenants/[id]/thefork/sync/route");
+let dish: typeof import("@/app/api/platform/tenants/[id]/dish/route");
+let dishTest: typeof import("@/app/api/platform/tenants/[id]/dish/test/route");
+let dishSync: typeof import("@/app/api/platform/tenants/[id]/dish/sync/route");
 let logout: typeof import("@/app/api/platform/logout/route");
 let logs: typeof import("@/app/api/platform/logs/route");
 let emailLogs: typeof import("@/app/api/platform/email-logs/route");
 let smtpCron: typeof import("@/app/api/platform/cron/smtp-health/route");
+let feedbackCron: typeof import("@/app/api/platform/cron/feedback-requests/route");
+let dishCron: typeof import("@/app/api/platform/cron/dish-sync/route");
 let bounces: typeof import("@/app/api/platform/bounces/route");
 let pauth: typeof import("@/lib/reservations/platform-auth");
 
@@ -31,10 +42,15 @@ beforeAll(async () => {
   theFork = await import("@/app/api/platform/tenants/[id]/thefork/route");
   theForkTest = await import("@/app/api/platform/tenants/[id]/thefork/test/route");
   theForkSync = await import("@/app/api/platform/tenants/[id]/thefork/sync/route");
+  dish = await import("@/app/api/platform/tenants/[id]/dish/route");
+  dishTest = await import("@/app/api/platform/tenants/[id]/dish/test/route");
+  dishSync = await import("@/app/api/platform/tenants/[id]/dish/sync/route");
   logout = await import("@/app/api/platform/logout/route");
   logs = await import("@/app/api/platform/logs/route");
   emailLogs = await import("@/app/api/platform/email-logs/route");
   smtpCron = await import("@/app/api/platform/cron/smtp-health/route");
+  feedbackCron = await import("@/app/api/platform/cron/feedback-requests/route");
+  dishCron = await import("@/app/api/platform/cron/dish-sync/route");
   bounces = await import("@/app/api/platform/bounces/route");
   pauth = await import("@/lib/reservations/platform-auth");
 });
@@ -72,6 +88,12 @@ describe("platform routes reject unauthenticated callers (401)", () => {
     expect((await theForkTest.POST(req("/api/platform/tenants/x/thefork/test", "POST"), params("x"))).status).toBe(401);
     expect((await theForkSync.POST(req("/api/platform/tenants/x/thefork/sync", "POST"), params("x"))).status).toBe(401);
   });
+  it("DISH integration GET/PATCH/test/sync", async () => {
+    expect((await dish.GET(req("/api/platform/tenants/x/dish"), params("x"))).status).toBe(401);
+    expect((await dish.PATCH(req("/api/platform/tenants/x/dish", "PATCH"), params("x"))).status).toBe(401);
+    expect((await dishTest.POST(req("/api/platform/tenants/x/dish/test", "POST"), params("x"))).status).toBe(401);
+    expect((await dishSync.POST(req("/api/platform/tenants/x/dish/sync", "POST"), params("x"))).status).toBe(401);
+  });
   it("logs GET", async () => {
     expect((await logs.GET(req("/api/platform/logs"))).status).toBe(401);
   });
@@ -83,6 +105,20 @@ describe("platform routes reject unauthenticated callers (401)", () => {
   });
   it("SMTP cron POST accepts a platform session for manual checks", async () => {
     const res = await smtpCron.POST(await authed("/api/platform/cron/smtp-health", "POST"));
+    expect(res.status).toBe(200);
+  });
+  it("feedback cron POST", async () => {
+    expect((await feedbackCron.POST(req("/api/platform/cron/feedback-requests", "POST"))).status).toBe(401);
+  });
+  it("feedback cron POST accepts a platform session for manual checks", async () => {
+    const res = await feedbackCron.POST(await authed("/api/platform/cron/feedback-requests", "POST"));
+    expect(res.status).toBe(200);
+  });
+  it("DISH sync cron POST", async () => {
+    expect((await dishCron.POST(req("/api/platform/cron/dish-sync", "POST"))).status).toBe(401);
+  });
+  it("DISH sync cron POST accepts a platform session for manual checks", async () => {
+    const res = await dishCron.POST(await authed("/api/platform/cron/dish-sync", "POST"));
     expect(res.status).toBe(200);
   });
   it("bounce ingest POST", async () => {

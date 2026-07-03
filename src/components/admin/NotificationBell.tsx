@@ -26,23 +26,26 @@ function formatTime(t: string) {
 function sourceBadgeClass(source: ReservationNotification["source"]) {
   if (source === "web") return "bg-emerald-400/15 text-emerald-400";
   if (source === "thefork") return "bg-amber-400/15 text-amber-500";
+  if (source === "dish") return "bg-orange-400/15 text-orange-400";
   return "bg-sky-400/15 text-sky-400";
 }
 
 function sourceAccentClass(source: ReservationNotification["source"]) {
   if (source === "web") return "bg-emerald-400";
   if (source === "thefork") return "bg-amber-400";
+  if (source === "dish") return "bg-orange-400";
   return "bg-sky-400";
 }
 
 function sourceLabel(source: ReservationNotification["source"]) {
   if (source === "web") return am.notifications.online;
   if (source === "thefork") return am.notifications.theFork;
+  if (source === "dish") return am.notifications.dish;
   return am.notifications.staff;
 }
 
 function eventLabel(n: ReservationNotification) {
-  if (n.source === "thefork" && n.type === "reservation.updated") return am.notifications.externalUpdated;
+  if ((n.source === "thefork" || n.source === "dish") && n.type === "reservation.updated") return am.notifications.externalUpdated;
   return sourceLabel(n.source);
 }
 

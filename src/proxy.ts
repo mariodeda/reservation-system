@@ -24,6 +24,12 @@ function hasBounceAuth(req: NextRequest): boolean {
   return constantTimeEqual(secret, token);
 }
 
+function isCronEndpoint(pathname: string): boolean {
+  return pathname === "/api/platform/cron/smtp-health" ||
+    pathname === "/api/platform/cron/feedback-requests" ||
+    pathname === "/api/platform/cron/dish-sync";
+}
+
 function constantTimeEqual(a: string | undefined, b: string | undefined): boolean {
   if (!a || !b || a.length !== b.length) return false;
   let diff = 0;
@@ -39,7 +45,7 @@ export async function proxy(req: NextRequest) {
     if (pathname === "/platform/login" || pathname === "/api/platform/login") {
       return noindex(NextResponse.next());
     }
-    if (pathname === "/api/platform/cron/smtp-health" && hasCronAuth(req)) {
+    if (isCronEndpoint(pathname) && hasCronAuth(req)) {
       return noindex(NextResponse.next());
     }
     if (pathname === "/api/platform/bounces" && hasBounceAuth(req)) {

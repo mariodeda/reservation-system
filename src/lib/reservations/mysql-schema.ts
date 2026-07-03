@@ -115,6 +115,27 @@ const MIGRATIONS: Migration[] = [
     },
   },
   {
+    // Read-only DISH Reservation imports. DISH does not expose a public API for
+    // this use case, so platform operators configure tenant-owned credentials
+    // and the sync fetches authenticated reservation HTML without mutating DISH.
+    version: 21,
+    run: async (pool) => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tenant_dish_integrations (
+          tenant_id CHAR(36) NOT NULL PRIMARY KEY,
+          enabled TINYINT(1) NOT NULL DEFAULT 0,
+          email VARCHAR(255) NULL,
+          password_encrypted TEXT NULL,
+          last_sync_at VARCHAR(32) NULL,
+          last_error TEXT NULL,
+          created_at VARCHAR(32) NOT NULL,
+          updated_at VARCHAR(32) NOT NULL,
+          INDEX idx_tdi_enabled (enabled)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    },
+  },
+  {
     // Latest SMTP connectivity result per tenant, refreshed by the platform
     // cron endpoint and shown in the operator restaurant summary.
     version: 17,

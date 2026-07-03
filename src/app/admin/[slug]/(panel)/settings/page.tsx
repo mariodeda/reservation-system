@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { adminJson, toast } from "@/components/admin/api";
 import { am } from "@/i18n";
 
@@ -12,7 +12,21 @@ export default function SettingsPage() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(true);
+  const [feedbackRequestsEnabled, setFeedbackRequestsEnabled] = useState(false);
+  const [feedbackAutoSendEnabled, setFeedbackAutoSendEnabled] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    adminJson<{ feedbackRequestsEnabled: boolean; feedbackAutoSendEnabled: boolean }>("/api/admin/settings/email")
+      .then((data) => {
+        setFeedbackRequestsEnabled(data.feedbackRequestsEnabled);
+        setFeedbackAutoSendEnabled(data.feedbackAutoSendEnabled);
+      })
+      .catch(() => {})
+      .finally(() => setEmailLoading(false));
+  }, []);
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -37,9 +51,56 @@ export default function SettingsPage() {
     }
   }
 
+  async function saveFeedbackAutoSend(enabled: boolean) {
+    const previous = feedbackAutoSendEnabled;
+    setFeedbackAutoSendEnabled(enabled);
+    setEmailSaving(true);
+    try {
+      const data = await adminJson<{ feedbackRequestsEnabled: boolean; feedbackAutoSendEnabled: boolean }>("/api/admin/settings/email", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedbackAutoSendEnabled: enabled }),
+      });
+      setFeedbackRequestsEnabled(data.feedbackRequestsEnabled);
+      setFeedbackAutoSendEnabled(data.feedbackAutoSendEnabled);
+      toast(am.settings.emailPreferencesSaved);
+    } catch (err) {
+      setFeedbackAutoSendEnabled(previous);
+      toast(err instanceof Error ? err.message : am.settings.emailPreferencesError, "error");
+    } finally {
+      setEmailSaving(false);
+    }
+  }
+
   return (
-    <div className="space-y-6 max-w-md">
+    <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-semibold">{am.settings.title}</h1>
+
+      <section className="rounded-xl border border-outline-variant/30 bg-surface-container p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant">
+            {am.settings.emailPreferences}
+          </h2>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            {feedbackRequestsEnabled
+              ? am.settings.feedbackAutoSendHint
+              : am.settings.feedbackAutoSendDisabledHint}
+          </p>
+        </div>
+        <label className={`flex items-center justify-between gap-4 rounded-lg border border-outline-variant/30 bg-surface-container-high px-3 py-3 ${!feedbackRequestsEnabled ? "opacity-60" : ""}`}>
+          <span>
+            <span className="block text-sm font-semibold text-on-surface">{am.settings.feedbackAutoSend}</span>
+            <span className="mt-0.5 block text-xs text-on-surface-variant">{am.settings.feedbackAutoSendDescription}</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={feedbackAutoSendEnabled}
+            disabled={emailLoading || emailSaving || !feedbackRequestsEnabled}
+            onChange={(event) => void saveFeedbackAutoSend(event.target.checked)}
+            className="h-5 w-5 accent-primary disabled:cursor-not-allowed"
+          />
+        </label>
+      </section>
 
       <section className="rounded-xl border border-outline-variant/30 bg-surface-container p-5 space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant">

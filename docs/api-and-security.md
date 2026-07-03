@@ -115,8 +115,19 @@ Major endpoint groups include:
 - `/api/platform/logs`
 - `/api/platform/email-logs`
 - `/api/platform/analytics`
+- `/api/platform/cron/dish-sync`
+- `/api/platform/cron/feedback-requests`
 - `/api/platform/cron/smtp-health`
 - `/api/platform/bounces`
+
+Schedule `/api/platform/cron/dish-sync` every 15 minutes with
+`Authorization: Bearer $CRON_SECRET`. It syncs enabled DISH tenants for today
+and tomorrow, keeping external bookings reflected in staff UI and public
+availability without running historical backfills automatically.
+
+Schedule `/api/platform/cron/smtp-health` every 6 hours with
+`Authorization: Bearer $CRON_SECRET`. Operators can still trigger SMTP checks
+manually from the platform console when investigating a restaurant.
 
 Sensitive platform mutations require operator password re-authentication. This
 pattern applies to destructive actions and privileged support actions such as

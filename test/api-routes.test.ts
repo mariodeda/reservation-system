@@ -112,6 +112,7 @@ beforeEach(async () => {
   const pool = routes.pool.getPool();
   await pool.query("DELETE FROM external_reservation_links WHERE tenant_id = ?", [tenantId]).catch(() => {});
   await pool.query("DELETE FROM tenant_thefork_integrations WHERE tenant_id = ?", [tenantId]).catch(() => {});
+  await pool.query("DELETE FROM tenant_dish_integrations WHERE tenant_id = ?", [tenantId]).catch(() => {});
   await pool.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM tables WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM app_config WHERE tenant_id = ?", [tenantId]);
@@ -602,7 +603,7 @@ describe("public reservation self-service", () => {
     expect(res.status).toBe(404);
   });
 
-  it("does not expose TheFork imports through guest self-service lookup", async () => {
+  it("does not expose external imports through guest self-service lookup", async () => {
     await routes.store.getStore().forTenant(tenantId).createReservation({
       date: "2026-06-12",
       time: "12:30",
@@ -612,6 +613,17 @@ describe("public reservation self-service", () => {
       email: guest().email,
       phone: guest().phone,
       source: "thefork",
+      status: "confirmed",
+    });
+    await routes.store.getStore().forTenant(tenantId).createReservation({
+      date: "2026-06-12",
+      time: "13:00",
+      service: "lunch",
+      partySize: 2,
+      name: "DISH Guest",
+      email: guest().email,
+      phone: guest().phone,
+      source: "dish",
       status: "confirmed",
     });
 
@@ -624,7 +636,7 @@ describe("public reservation self-service", () => {
     expect((await res.json()).reservations).toEqual([]);
   });
 
-  it("rejects admin edits to TheFork-imported reservations", async () => {
+  it("rejects admin edits to external imported reservations", async () => {
     const imported = await routes.store.getStore().forTenant(tenantId).createReservation({
       date: "2026-06-12",
       time: "12:30",
@@ -633,7 +645,7 @@ describe("public reservation self-service", () => {
       name: "TheFork Guest",
       email: guest().email,
       phone: guest().phone,
-      source: "thefork",
+      source: "dish",
       status: "confirmed",
     });
 
@@ -643,7 +655,7 @@ describe("public reservation self-service", () => {
     );
 
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toMatch(/TheFork reservations are read-only/i);
+    expect((await res.json()).error).toMatch(/External reservations are read-only/i);
   });
 
   it("allows staff to assign a local table to a TheFork-imported reservation", async () => {

@@ -112,8 +112,19 @@ Gruppi principali:
 - `/api/platform/logs`
 - `/api/platform/email-logs`
 - `/api/platform/analytics`
+- `/api/platform/cron/dish-sync`
+- `/api/platform/cron/feedback-requests`
 - `/api/platform/cron/smtp-health`
 - `/api/platform/bounces`
+
+Schedulare `/api/platform/cron/dish-sync` ogni 15 minuti con
+`Authorization: Bearer $CRON_SECRET`. Sincronizza i tenant DISH attivi per oggi
+e domani, cosi prenotazioni esterne restano visibili nella UI staff e nella
+disponibilita pubblica senza avviare backfill storici automatici.
+
+Schedulare `/api/platform/cron/smtp-health` ogni 6 ore con
+`Authorization: Bearer $CRON_SECRET`. Gli operatori possono comunque avviare
+controlli SMTP manuali dalla console piattaforma quando indagano un ristorante.
 
 Le mutazioni sensibili richiedono riautenticazione con password operatore. Vale
 per azioni distruttive e supporto privilegiato come eliminazione tenant, reset

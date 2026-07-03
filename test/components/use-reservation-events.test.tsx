@@ -124,6 +124,23 @@ describe("useReservationEvents", () => {
     window.removeEventListener("reservation:new", dispatched);
   });
 
+  it("creates notifications for external DISH reservation update events", () => {
+    const { result } = renderHook(() => useReservationEvents());
+    const source = FakeEventSource.instances[0];
+
+    act(() => {
+      source.emit("reservation.updated", event({ type: "reservation.updated", source: "dish" }));
+    });
+
+    expect(result.current.notifications).toHaveLength(1);
+    expect(result.current.notifications[0]).toMatchObject({
+      id: "res-1",
+      source: "dish",
+      type: "reservation.updated",
+      read: false,
+    });
+  });
+
   it("does not open parallel SSE connections after repeated errors", () => {
     vi.useFakeTimers();
     const { unmount } = renderHook(() => useReservationEvents());

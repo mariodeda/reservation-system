@@ -49,7 +49,21 @@ type TheForkForm = {
   groupUuid: string;
 };
 
-const THEFORK_SYNC_CLIENT_TIMEOUT_MS = 115_000;
+type DishView = {
+  enabled: boolean;
+  email?: string;
+  passwordSet: boolean;
+  lastSyncAt?: string;
+  lastError?: string;
+};
+
+type DishForm = {
+  enabled: boolean;
+  email: string;
+  password: string;
+};
+
+const EXTERNAL_SYNC_CLIENT_TIMEOUT_MS = 115_000;
 
 function encodeBase64Utf8(value: string): string {
   const bytes = new TextEncoder().encode(value);
@@ -67,7 +81,7 @@ async function platformJsonWithTimeout<T>(input: string, init: RequestInit, time
   try {
     return await platformJson<T>(input, { ...init, signal: init.signal ?? controller.signal });
   } catch (err) {
-    if (controller.signal.aborted) throw new Error("TheFork sync timed out in the browser. Re-run it to continue; already imported reservations will be skipped.");
+    if (controller.signal.aborted) throw new Error("External sync timed out in the browser. Re-run it to continue; already imported reservations will be skipped.");
     throw err;
   } finally {
     clearTimeout(timer);
@@ -118,6 +132,14 @@ export default function TenantDetail() {
   const [tfBusy, setTfBusy] = useState<string | null>(null);
   const [webhookToken, setWebhookToken] = useState<string | null>(null);
   const [tfSyncStatus, setTfSyncStatus] = useState<string | null>(null);
+  const [dish, setDish] = useState<DishView | null>(null);
+  const [dishForm, setDishForm] = useState<DishForm>({
+    enabled: false,
+    email: "",
+    password: "",
+  });
+  const [dishBusy, setDishBusy] = useState<string | null>(null);
+  const [dishSyncStatus, setDishSyncStatus] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -146,6 +168,21 @@ export default function TenantDetail() {
     }
   }, [id]);
   useEffect(() => { loadTheFork(); }, [loadTheFork]);
+
+  const loadDish = useCallback(async () => {
+    try {
+      const d = await platformJson<{ integration: DishView | null }>(`/api/platform/tenants/${id}/dish`);
+      setDish(d.integration);
+      setDishForm({
+        enabled: d.integration?.enabled ?? false,
+        email: d.integration?.email ?? "",
+        password: "",
+      });
+    } catch {
+      /* keep page usable if integration is not configured yet */
+    }
+  }, [id]);
+  useEffect(() => { loadDish(); }, [loadDish]);
 
   if (!view || !f) return <p className="text-on-surface-variant">{am.platform.loading}</p>;
   const set = (k: keyof Form, v: string | boolean) => setF((p) => (p ? { ...p, [k]: v } : p));
@@ -352,7 +389,7 @@ export default function TenantDetail() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ startDate: today, endDate: today, filterBy: "updatedDate" }),
         },
-        THEFORK_SYNC_CLIENT_TIMEOUT_MS,
+        EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
       );
       const message = `TheFork sync complete: ${d.result.imported} imported, ${d.result.updated} updated, ${d.result.skipped} skipped, ${d.result.errors} errors.`;
       setTfSyncStatus(message);
@@ -381,7 +418,7 @@ export default function TenantDetail() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mode: "first" }),
         },
-        THEFORK_SYNC_CLIENT_TIMEOUT_MS,
+        EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
       );
       const message = `First sync complete (${d.range.startDate} to ${d.range.endDate}): ${d.result.imported} imported, ${d.result.skipped} already present/skipped, ${d.result.errors} errors.`;
       setTfSyncStatus(message);
@@ -392,6 +429,125 @@ export default function TenantDetail() {
       toast(err instanceof Error ? err.message : "TheFork first sync failed.", "error");
     } finally {
       setTfBusy(null);
+    }
+  }
+
+  async function saveDish() {
+    setDishBusy("save");
+    setDishSyncStatus("Testing DISH login before saving...");
+    try {
+      const res = await platformFetch(`/api/platform/tenants/${id}/dish`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dishForm),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not save DISH integration.");
+      setDish(data.integration);
+      setDishForm((p) => ({ ...p, password: "" }));
+      setDishSyncStatus("DISH login validated and credentials saved.");
+      toast("DISH integration saved.");
+    } catch (err) {
+      setDishSyncStatus(err instanceof Error ? err.message : "Could not save DISH integration.");
+      toast(err instanceof Error ? err.message : "Could not save DISH integration.", "error");
+    } finally {
+      setDishBusy(null);
+    }
+  }
+
+  async function testDish() {
+    setDishBusy("test");
+    try {
+      await platformJson(`/api/platform/tenants/${id}/dish/test`, { method: "POST" });
+      toast("DISH login is valid.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "DISH login test failed.", "error");
+    } finally {
+      setDishBusy(null);
+    }
+  }
+
+  async function syncDish() {
+    setDishBusy("sync");
+    setDishSyncStatus("Manual DISH sync running for today...");
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const d = await platformJsonWithTimeout<{ result: { imported: number; updated: number; skipped: number; errors: number } }>(
+        `/api/platform/tenants/${id}/dish/sync`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ startDate: today, endDate: today }),
+        },
+        EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
+      );
+      const message = `DISH sync complete: ${d.result.imported} imported, ${d.result.updated} updated, ${d.result.skipped} skipped, ${d.result.errors} errors.`;
+      setDishSyncStatus(message);
+      toast(message);
+      await loadDish();
+    } catch (err) {
+      setDishSyncStatus(err instanceof Error ? err.message : "DISH sync failed.");
+      toast(err instanceof Error ? err.message : "DISH sync failed.", "error");
+    } finally {
+      setDishBusy(null);
+    }
+  }
+
+  async function firstSyncDish() {
+    if (!confirm("Run the first DISH sync now? This imports upcoming DISH reservations through the tenant booking window without sending tenant popup notifications.")) return;
+    setDishBusy("firstSync");
+    setDishSyncStatus("First DISH sync running. Existing imports will be skipped.");
+    try {
+      const d = await platformJsonWithTimeout<{
+        result: { imported: number; updated: number; skipped: number; errors: number };
+        range: { startDate: string; endDate: string };
+      }>(
+        `/api/platform/tenants/${id}/dish/sync`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "first" }),
+        },
+        EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
+      );
+      const message = `First DISH sync complete (${d.range.startDate} to ${d.range.endDate}): ${d.result.imported} imported, ${d.result.skipped} already present/skipped, ${d.result.errors} errors.`;
+      setDishSyncStatus(message);
+      toast(message);
+      await loadDish();
+    } catch (err) {
+      setDishSyncStatus(err instanceof Error ? err.message : "DISH first sync failed.");
+      toast(err instanceof Error ? err.message : "DISH first sync failed.", "error");
+    } finally {
+      setDishBusy(null);
+    }
+  }
+
+  async function backfillDishHistory() {
+    if (!confirm("Backfill DISH reservations from the last 60 days? Existing imports will be skipped and tenant popup notifications will not be sent.")) return;
+    setDishBusy("history60");
+    setDishSyncStatus("DISH history backfill running for the last 60 days. Existing imports will be skipped.");
+    try {
+      const d = await platformJsonWithTimeout<{
+        result: { imported: number; updated: number; skipped: number; errors: number };
+        range: { startDate: string; endDate: string };
+      }>(
+        `/api/platform/tenants/${id}/dish/sync`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "history60" }),
+        },
+        EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
+      );
+      const message = `DISH history backfill complete (${d.range.startDate} to ${d.range.endDate}): ${d.result.imported} imported, ${d.result.skipped} already present/skipped, ${d.result.errors} errors.`;
+      setDishSyncStatus(message);
+      toast(message);
+      await loadDish();
+    } catch (err) {
+      setDishSyncStatus(err instanceof Error ? err.message : "DISH history backfill failed.");
+      toast(err instanceof Error ? err.message : "DISH history backfill failed.", "error");
+    } finally {
+      setDishBusy(null);
     }
   }
 
@@ -557,6 +713,88 @@ export default function TenantDetail() {
             className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
           >
             {tfBusy === "firstSync" ? "Importing..." : "First sync"}
+          </button>
+        </div>
+      </section>
+
+      {/* DISH one-way sync */}
+      <section className={card}>
+        <div>
+          <h2 className="font-semibold">DISH one-way sync</h2>
+          <p className="text-xs text-on-surface-variant">
+            Read reservations from DISH using the restaurant manager login. Imported reservations are labeled as external, count against public availability, and stay read-only except local table assignment.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Check
+            label="Enable DISH sync"
+            v={dishForm.enabled}
+            on={(v) => setDishForm((p) => ({ ...p, enabled: v }))}
+          />
+          <div className="text-xs text-on-surface-variant self-center">
+            Password saved: {dish?.passwordSet ? "yes" : "no"} / Sync type: read-only manager login
+          </div>
+          <Field label="DISH email" v={dishForm.email} on={(v) => setDishForm((p) => ({ ...p, email: v }))} />
+          <Field
+            label={`DISH password${dish?.passwordSet ? " (leave blank to keep current)" : ""}`}
+            v={dishForm.password}
+            on={(v) => setDishForm((p) => ({ ...p, password: v }))}
+            placeholder={dish?.passwordSet ? "********" : ""}
+            type="password"
+          />
+        </div>
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 p-3 text-xs text-amber-100">
+          DISH does not provide a public reservation API for this account. This integration is read-only and depends on the manager HTML pages staying compatible; saving credentials always tests the login before enabling sync.
+        </div>
+        <div className="grid sm:grid-cols-2 gap-2 text-xs text-on-surface-variant">
+          <div>Last sync: {dish?.lastSyncAt ?? "never"}</div>
+          <div className={dish?.lastError ? "text-rose-300" : ""}>Last error: {dish?.lastError ?? "none"}</div>
+        </div>
+        {dishSyncStatus && (
+          <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high px-3 py-2 text-xs text-on-surface-variant">
+            {dishSyncStatus}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={saveDish}
+            disabled={!!dishBusy}
+            className="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60"
+          >
+            {dishBusy === "save" ? "Testing..." : "Save DISH"}
+          </button>
+          <button
+            type="button"
+            onClick={testDish}
+            disabled={!!dishBusy || !dish?.passwordSet}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            {dishBusy === "test" ? "Testing..." : "Test login"}
+          </button>
+          <button
+            type="button"
+            onClick={syncDish}
+            disabled={!!dishBusy || !dish?.enabled}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            {dishBusy === "sync" ? "Syncing..." : "Sync now"}
+          </button>
+          <button
+            type="button"
+            onClick={firstSyncDish}
+            disabled={!!dishBusy || !dish?.enabled}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            {dishBusy === "firstSync" ? "Importing..." : "First sync"}
+          </button>
+          <button
+            type="button"
+            onClick={backfillDishHistory}
+            disabled={!!dishBusy || !dish?.enabled}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            {dishBusy === "history60" ? "Backfilling..." : "Backfill last 60 days"}
           </button>
         </div>
       </section>
@@ -838,11 +1076,11 @@ function MockBtn({
   );
 }
 
-function Field({ label, v, on, placeholder }: { label: string; v: string; on: (v: string) => void; placeholder?: string }) {
+function Field({ label, v, on, placeholder, type = "text" }: { label: string; v: string; on: (v: string) => void; placeholder?: string; type?: string }) {
   return (
     <label className="block">
       <span className="text-xs text-on-surface-variant">{label}</span>
-      <input className={field} value={v} onChange={(e) => on(e.target.value)} placeholder={placeholder} />
+      <input className={field} type={type} value={v} onChange={(e) => on(e.target.value)} placeholder={placeholder} />
     </label>
   );
 }

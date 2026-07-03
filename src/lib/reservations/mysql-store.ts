@@ -71,6 +71,30 @@ function toReservation(r: ResRow): Reservation {
   };
 }
 
+export async function listFeedbackRequestCandidates(tenantId: string, limit = 500): Promise<Reservation[]> {
+  await ensureSchema();
+  const safeLimit = Math.min(1000, Math.max(1, Math.trunc(limit)));
+  const [rows] = await getPool().query<ResRow[]>(
+    `SELECT ${RES_COLUMNS}
+       FROM reservations r
+      WHERE r.tenant_id = ?
+        AND r.status = 'completed'
+        AND COALESCE(r.email, '') <> ''
+        AND r.source NOT IN ('thefork', 'dish')
+        AND NOT EXISTS (
+          SELECT 1
+            FROM reservation_emails e
+           WHERE e.reservation_id = r.id
+             AND e.type = 'feedbackRequest'
+             AND e.status = 'sent'
+        )
+      ORDER BY r.\`date\`, r.\`time\`
+      LIMIT ?`,
+    [tenantId, safeLimit],
+  );
+  return rows.map(toReservation);
+}
+
 const INSERT_SQL =
   "INSERT INTO reservations (id, tenant_id, `date`, `time`, offering, service, party_size, name, email, phone, occasion, notes, table_label, table_id, table_ids, duration_mins_override, status, source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 const insertParams = (tenantId: string, r: Reservation) => [

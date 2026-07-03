@@ -171,6 +171,28 @@ describe("ReservationRow", () => {
     expect(screen.queryByRole("button", { name: "Seated" })).not.toBeInTheDocument();
   });
 
+  it("renders DISH reservations as external bookings with only table assignment available", () => {
+    render(
+      <ReservationRow
+        r={row({
+          source: "dish",
+          status: "confirmed",
+          external: { provider: "dish", label: "DISH", externalId: "dish-res-1", externalStatus: "CONFIRMED" },
+        })}
+        onChanged={() => {}}
+        tables={[{ id: "t1", offering: null, label: "1", capacity: 4, minParty: 1, sortOrder: 0, joinable: false, active: true, createdAt: "" }]}
+      />,
+    );
+
+    expect(screen.getByText("External - DISH")).toBeInTheDocument();
+    expect(screen.getByAltText("DISH")).toHaveAttribute("src", "/integrations/dish_co.png");
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete reservation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send review email" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Seated" })).not.toBeInTheDocument();
+  });
+
   it("toggles details open and closed", async () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row()} onChanged={() => {}} />);

@@ -34,7 +34,7 @@ export interface AdminReservation {
   emails?: Partial<Record<EmailType, EmailStatus>>;
   /** External booking source, when imported from a third-party reservation platform. */
   external?: {
-    provider: "thefork";
+    provider: "thefork" | "dish";
     label: string;
     externalId: string;
     externalStatus?: string;

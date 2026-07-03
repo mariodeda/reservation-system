@@ -85,11 +85,21 @@ Gli invii recensione sono idempotenti. Il sistema deve evitare duplicati per la
 stessa prenotazione, anche quando processo automatico e azione manuale avvengono
 vicini.
 
+Le richieste recensione automatiche vengono elaborate dall'endpoint cron
+piattaforma `POST /api/platform/cron/feedback-requests`. Schedularlo ogni 30
+minuti con `Authorization: Bearer <CRON_SECRET>`. Il caricamento delle pagine
+staff non deve avviare questo sweep; legge solo lo stato prenotazioni. Il
+percorso immediato su cambio stato prova ancora l'invio quando una prenotazione
+viene marcata completata e il ritardo tenant e gia trascorso.
+
 ## Salute SMTP
 
 I controlli salute SMTP verificano che l'app possa connettersi al server SMTP
 tenant. Possono girare da cron o essere avviati manualmente da un operatore. I
 controlli manuali non sostituiscono ne disabilitano quelli schedulati.
+
+Schedulare l'endpoint cron SMTP `POST /api/platform/cron/smtp-health` ogni 6
+ore con `Authorization: Bearer <CRON_SECRET>`.
 
 Le card ristorante mostrano stato SMTP color-coded per identificare rapidamente
 tenant che richiedono attenzione.

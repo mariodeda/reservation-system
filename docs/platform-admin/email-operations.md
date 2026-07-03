@@ -84,11 +84,21 @@ Review request sends are idempotent. The system should avoid sending duplicate
 review emails for the same eligible reservation, including when automatic
 processing and manual staff actions happen close together.
 
+Automatic review requests are processed by the platform cron endpoint
+`POST /api/platform/cron/feedback-requests`. Schedule it every 30 minutes with
+`Authorization: Bearer <CRON_SECRET>`. Staff page loads must not trigger this
+sweep; they only read reservation state. The immediate status-change path still
+attempts a send when a reservation is marked completed and the tenant delay has
+already elapsed.
+
 ## SMTP Health
 
 SMTP health checks verify that the app can connect to a tenant's SMTP server.
 They can run from cron or be triggered manually by a platform operator. Manual
 checks do not replace or disable the scheduled checks.
+
+Schedule the SMTP health cron endpoint `POST /api/platform/cron/smtp-health`
+every 6 hours with `Authorization: Bearer <CRON_SECRET>`.
 
 Restaurant cards show SMTP state with color-coded status so an operator can
 quickly identify tenants that need attention.

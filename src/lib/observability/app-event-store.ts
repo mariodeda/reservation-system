@@ -214,9 +214,9 @@ export async function listAppEvents(filter: AppEventFilter = {}): Promise<AppEve
     params.push(to);
   }
   if (q) {
-    where.push("(event LIKE ? OR reason LIKE ? OR reference LIKE ? OR request_id LIKE ? OR reservation_id LIKE ?)");
+    where.push("(event LIKE ? OR reason LIKE ? OR reference LIKE ? OR request_id LIKE ? OR reservation_id LIKE ? OR metadata LIKE ?)");
     const like = `%${q}%`;
-    params.push(like, like, like, like, like);
+    params.push(like, like, like, like, like, like);
   }
   const limit = Math.min(500, Math.max(1, Math.trunc(Number(filter.limit ?? 100)) || 100));
   const [rows] = await getPool().query<EventRow[]>(

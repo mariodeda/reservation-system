@@ -16,7 +16,7 @@ const reservationEvents = vi.hoisted(() => ({
     partySize: number;
     name: string;
     type?: "reservation.created" | "reservation.updated";
-    source: "web" | "admin" | "thefork";
+    source: "web" | "admin" | "thefork" | "dish";
     receivedAt: number;
     read: boolean;
   }>,

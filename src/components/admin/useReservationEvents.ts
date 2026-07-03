@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReservationEvent } from "@/lib/reservations/events";
+import { isExternalReservationSource } from "@/lib/reservations/external-sources";
 
 export interface ReservationNotification extends ReservationEvent {
   notificationId: string;
@@ -56,7 +57,7 @@ export function useReservationEvents() {
       const handleUpdatedEvent = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data) as ReservationEvent;
-          if (data.type !== "reservation.updated" || data.source !== "thefork") return;
+          if (data.type !== "reservation.updated" || !isExternalReservationSource(data.source)) return;
           updateSeq.current += 1;
           const notificationId = `${data.type}:${data.id}:${Date.now()}:${updateSeq.current}`;
           pushNotification(data, notificationId);

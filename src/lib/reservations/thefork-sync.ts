@@ -11,6 +11,8 @@ import {
   type TheForkIntegration,
 } from "./thefork-store";
 import { emitReservation } from "./events";
+import { recordAppEvent } from "@/lib/observability/app-event-store";
+import { safeError } from "@/lib/observability/logger";
 
 export interface TheForkSyncResult {
   imported: number;
@@ -26,6 +28,7 @@ export interface TheForkSyncOptions {
   emitEvents?: boolean;
   skipExisting?: boolean;
   deadlineAt?: number;
+  trigger?: "manual" | "first" | "cron" | "webhook" | "system";
 }
 
 function safeText(value: unknown, max = 500): string {
@@ -222,13 +225,32 @@ export async function syncTheForkReservations(
 ): Promise<TheForkSyncResult> {
   const integration = await getTheForkIntegration(tenantId);
   if (!integration?.enabled) throw new Error("TheFork integration is not enabled.");
+  if (!integration.restaurantUuid) throw new Error("TheFork sync requires a tenant-specific restaurant UUID.");
   const result: TheForkSyncResult = { imported: 0, updated: 0, skipped: 0, errors: 0 };
+  const provider = "thefork";
+  const trigger = opts.trigger ?? "system";
   const assertWithinDeadline = () => {
     if (opts.deadlineAt && Date.now() >= opts.deadlineAt) {
       throw new Error("TheFork sync timed out before completing. Re-run it to continue; existing imports will be skipped.");
     }
   };
   try {
+    await recordAppEvent({
+      level: "info",
+      event: "external_sync.started",
+      surface: "system",
+      actorType: "system",
+      tenantId,
+      metadata: {
+        provider,
+        trigger,
+        startDate: opts.startDate,
+        endDate: opts.endDate,
+        filterBy: opts.filterBy ?? "updatedDate",
+        skipExisting: Boolean(opts.skipExisting),
+        restaurantUuid: integration.restaurantUuid,
+      },
+    });
     let page = 1;
     for (;;) {
       assertWithinDeadline();
@@ -246,6 +268,21 @@ export async function syncTheForkReservations(
           else result.skipped += 1;
         } catch (err) {
           console.error("[thefork] import failed", id, err);
+          await recordAppEvent({
+            level: "warn",
+            event: "external_sync.reservation_failed",
+            surface: "system",
+            actorType: "system",
+            tenantId,
+            reason: err instanceof Error ? err.message : "TheFork reservation import failed.",
+            metadata: {
+              provider,
+              trigger,
+              externalId: id,
+              error: safeError(err),
+              page,
+            },
+          });
           result.errors += 1;
         }
       }
@@ -253,9 +290,48 @@ export async function syncTheForkReservations(
       page += 1;
     }
     await markTheForkSyncResult(tenantId, result.errors ? `${result.errors} reservation imports failed.` : undefined);
+    await recordAppEvent({
+      level: result.errors ? "warn" : "info",
+      event: "external_sync.completed",
+      surface: "system",
+      actorType: "system",
+      tenantId,
+      reason: result.errors ? `${result.errors} reservation imports failed.` : undefined,
+      metadata: {
+        provider,
+        trigger,
+        startDate: opts.startDate,
+        endDate: opts.endDate,
+        filterBy: opts.filterBy ?? "updatedDate",
+        imported: result.imported,
+        updated: result.updated,
+        skipped: result.skipped,
+        errors: result.errors,
+      },
+    });
     return result;
   } catch (err) {
     await markTheForkSyncResult(tenantId, err instanceof Error ? err.message : "TheFork sync failed.");
+    await recordAppEvent({
+      level: "error",
+      event: "external_sync.failed",
+      surface: "system",
+      actorType: "system",
+      tenantId,
+      reason: err instanceof Error ? err.message : "TheFork sync failed.",
+      metadata: {
+        provider,
+        trigger,
+        startDate: opts.startDate,
+        endDate: opts.endDate,
+        filterBy: opts.filterBy ?? "updatedDate",
+        imported: result.imported,
+        updated: result.updated,
+        skipped: result.skipped,
+        errors: result.errors,
+        error: safeError(err),
+      },
+    });
     throw err;
   }
 }

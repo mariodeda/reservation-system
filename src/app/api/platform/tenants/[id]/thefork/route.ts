@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requirePlatform } from "@/lib/reservations/tenant-context";
 import { getTenantStore } from "@/lib/reservations/tenant-store";
 import { clearTheForkTokenCache, testTheForkCredentials } from "@/lib/reservations/thefork-client";
-import { getTheForkIntegration, isUuid, publicTheForkView, saveTheForkIntegration, type TheForkIntegration } from "@/lib/reservations/thefork-store";
+import { findTheForkTenantByRestaurantUuid, getTheForkIntegration, isUuid, publicTheForkView, saveTheForkIntegration, type TheForkIntegration } from "@/lib/reservations/thefork-store";
 import { observePlatformRoute } from "@/lib/observability/route-events";
 
 export const runtime = "nodejs";
@@ -74,8 +74,12 @@ async function patchIntegration(req: NextRequest, ctx: { params: Promise<{ id: s
     if (!candidate.clientId || !candidate.clientSecret) {
       return NextResponse.json({ error: "TheFork Client ID and Client secret are required before enabling sync." }, { status: 400 });
     }
-    if (!candidate.restaurantUuid && !candidate.groupUuid) {
-      return NextResponse.json({ error: "TheFork Restaurant UUID or Group UUID is required before enabling sync." }, { status: 400 });
+    if (!candidate.restaurantUuid) {
+      return NextResponse.json({ error: "TheFork Restaurant UUID is required before enabling sync." }, { status: 400 });
+    }
+    const conflictingTenant = await findTheForkTenantByRestaurantUuid(candidate.restaurantUuid, id);
+    if (conflictingTenant) {
+      return NextResponse.json({ error: "This TheFork restaurant UUID is already enabled for another tenant." }, { status: 409 });
     }
     if (body.clientId !== undefined || body.clientSecret) clearTheForkTokenCache();
     try {

@@ -16,6 +16,7 @@ import {
 import { am } from "@/i18n";
 import { adminFetch, adminJson, toast } from "./api";
 import Tooltip from "@/components/ui/Tooltip";
+import { externalReservationLabel, isExternalReservationSource } from "@/lib/reservations/external-sources";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
@@ -40,11 +41,11 @@ export default function ReservationRow({
   const [editing, setEditing] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(!!r.feedbackSentAt);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
-  const externalPlatform = r.external ?? (r.source === "thefork"
-    ? { provider: "thefork" as const, label: "TheFork", externalId: "" }
+  const externalPlatform = r.external ?? (isExternalReservationSource(r.source)
+    ? { provider: r.source, label: externalReservationLabel(r.source), externalId: "" }
     : undefined);
-  const externalTheFork = externalPlatform?.provider === "thefork";
-  const canEditOrDelete = !externalTheFork && r.status !== "seated" && r.status !== "completed";
+  const externalReadOnly = !!externalPlatform;
+  const canEditOrDelete = !externalReadOnly && r.status !== "seated" && r.status !== "completed";
 
   async function setStatus(status: ReservationStatus) {
     setBusy(true);
@@ -114,11 +115,11 @@ export default function ReservationRow({
           )}
           <div className="text-lg font-semibold text-primary tabular-nums">{r.time}</div>
           <div className="text-[10px] uppercase tracking-widest text-on-surface-variant">{r.service}</div>
-          {externalTheFork && (
+          {externalPlatform && (
             <Tooltip content={externalReservationHint(externalPlatform)}>
               <img
-                src="/integrations/thefork_logo.png"
-                alt="TheFork"
+                src={externalLogoSrc(externalPlatform.provider)}
+                alt={externalPlatform.label}
                 className="mx-auto mt-1 h-5 w-5 rounded-full object-contain"
                 loading="lazy"
               />
@@ -204,7 +205,7 @@ export default function ReservationRow({
                   onChanged={onChanged}
                 />
               </div>
-              {!externalTheFork && (
+              {!externalReadOnly && (
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
                 {r.status === "completed" && r.email && (
                   feedbackSent ? (
@@ -315,7 +316,7 @@ export default function ReservationRow({
         </div>
 
         {/* Quick status actions — equal width + icons */}
-        {!editing && !externalTheFork && quickActions.length > 0 && (
+        {!editing && !externalReadOnly && quickActions.length > 0 && (
           <div className="flex w-[150px] shrink-0 items-center border-l border-outline-variant/30 pl-3">
             <div className="flex w-full flex-col items-stretch gap-1.5">
               {quickActions.map((s) => (
@@ -874,6 +875,10 @@ function externalReservationHint(external: ExternalReservation): string {
   return parts.join("\n");
 }
 
+function externalLogoSrc(provider: ExternalReservation["provider"]): string {
+  return provider === "thefork" ? "/integrations/thefork_logo.png" : "/integrations/dish_co.png";
+}
+
 /** Per-reservation email send status + lazy-loaded full attempt log (debug). */
 function EmailStatusSection({ r }: { r: AdminReservation }) {
   const [showLog, setShowLog] = useState(false);
@@ -969,6 +974,13 @@ function ExternalPlatformIcon({ provider }: { provider: ExternalReservation["pro
     return (
       <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-current text-[7px] font-black leading-none">
         TF
+      </span>
+    );
+  }
+  if (provider === "dish") {
+    return (
+      <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center overflow-hidden rounded">
+        <img src="/integrations/dish_co.png" alt="" className="h-3.5 w-3.5 object-contain" loading="lazy" />
       </span>
     );
   }

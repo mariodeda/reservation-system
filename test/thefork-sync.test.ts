@@ -3,6 +3,7 @@ import { createDB } from "mysql-memory-server";
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { getDayAvailability } from "@/lib/reservations/availability";
+import { listAppEvents } from "@/lib/observability/app-event-store";
 import { getStore, resetStoreCache } from "@/lib/reservations/store";
 import { getTenantStore, resetTenantStore } from "@/lib/reservations/tenant-store";
 import { hashPassword, templateSettings } from "@/lib/reservations/tenant";
@@ -163,6 +164,12 @@ describe("TheFork one-way sync", () => {
       filterBy: "mealDate",
     });
     expect(second).toMatchObject({ imported: 0, updated: 0, skipped: 1, errors: 0 });
+    const completedEvents = await listAppEvents({ tenantId, event: "external_sync.completed", limit: 10 });
+    expect(completedEvents.some((event) =>
+      event.metadata?.provider === "thefork" &&
+      event.metadata?.imported === 1 &&
+      event.metadata?.errors === 0
+    )).toBe(true);
     reservations = await store.listReservations({ date: "2026-07-10" });
     expect(reservations).toHaveLength(1);
 
@@ -205,6 +212,9 @@ describe("TheFork one-way sync", () => {
     const reservations = await getStore().forTenant(tenantId).listReservations({ date: "2026-07-10" });
     expect(reservations).toHaveLength(1);
     expect(reservations[0]).toMatchObject({ source: "thefork", name: "Ada Lovelace" });
+    const webhookEvents = await listAppEvents({ tenantId, event: "external_sync.webhook_processed", limit: 10 });
+    expect(webhookEvents[0]).toMatchObject({ level: "info", tenantId });
+    expect(webhookEvents[0].metadata).toMatchObject({ provider: "thefork", externalId: reservationUuid, outcome: "created" });
   });
 
   it("can backfill without emitting staff notification events", async () => {

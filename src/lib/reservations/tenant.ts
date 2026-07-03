@@ -55,6 +55,8 @@ export interface TenantSettings {
   emailEvents?: TenantEmailEvents;
   /** Hours after reservation time before automatic feedback requests are sent. */
   feedbackRequestDelayHours?: number;
+  /** Tenant-owned opt-out for automatic post-visit feedback request sends. */
+  feedbackAutoSendEnabled?: boolean;
   /** Optional explicit From header. */
   emailFrom?: string;
   /** Optional booking-confirmation calendar event title template. */

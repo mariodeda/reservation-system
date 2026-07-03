@@ -5,6 +5,7 @@ import { sendFeedbackRequestEmail } from "@/lib/reservations/email";
 import { getSentEmailStatusBatch, hasSentEmail, withEmailSendLock } from "@/lib/reservations/email-log-store";
 import { hasGuestAttended, isEmailEventEnabled } from "@/lib/reservations/email-policy";
 import { observeAdminRoute } from "@/lib/observability/route-events";
+import { isExternalReservationSource } from "@/lib/reservations/external-sources";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,8 +32,8 @@ async function sendFeedback(
     const store = getStore().forTenant(ctx.tenant.id);
     const reservation = await store.getReservation(id);
     if (!reservation) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    if (reservation.source === "thefork")
-      return NextResponse.json({ error: "TheFork reservations are read-only and cannot use local email actions." }, { status: 409 });
+    if (isExternalReservationSource(reservation.source))
+      return NextResponse.json({ error: "External reservations are read-only and cannot use local email actions." }, { status: 409 });
     if (!hasGuestAttended(reservation))
       return NextResponse.json({ error: "Feedback can only be requested for completed reservations (the guest must have shown up)." }, { status: 422 });
     if (!reservation.email)
@@ -79,7 +80,7 @@ async function getFeedback(
   try {
     const reservation = await getStore().forTenant(ctx.tenant.id).getReservation(id);
     if (!reservation) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    if (reservation.source === "thefork") return NextResponse.json({ feedback: null });
+    if (isExternalReservationSource(reservation.source)) return NextResponse.json({ feedback: null });
     const sent = await getSentEmailStatusBatch([id], "feedbackRequest");
     return NextResponse.json({ feedback: sent.get(id) ?? null });
   } catch (err) {

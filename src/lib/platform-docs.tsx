@@ -217,7 +217,7 @@ function renderInline(text: string, currentDoc: PlatformDoc, lang: PlatformDocLa
     } else {
       const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
       if (link) {
-        const href = resolveDocHref(link[2], currentDoc, lang, basePath);
+        const href = resolveDocHref(link[2], currentDoc, basePath);
         parts.push(
           <Link key={parts.length} href={href} className="font-medium text-primary hover:text-primary/70">
             {link[1]}
@@ -231,12 +231,11 @@ function renderInline(text: string, currentDoc: PlatformDoc, lang: PlatformDocLa
   return parts;
 }
 
-function resolveDocHref(href: string, currentDoc: PlatformDoc, lang: PlatformDocLang, basePath: string): string {
+function resolveDocHref(href: string, currentDoc: PlatformDoc, basePath: string): string {
   if (/^https?:\/\//i.test(href)) return href;
   const withoutAnchor = href.split("#")[0];
   if (!withoutAnchor.endsWith(".md")) return href;
   const normalized = path.posix.normalize(path.posix.join(path.posix.dirname(currentDoc.path), withoutAnchor.replace(/^\.\//, "")));
   const doc = docsByPath.get(normalized);
-  const langParam = lang === "it" ? "&lang=it" : "";
-  return doc ? `${basePath}?doc=${encodeURIComponent(doc.slug)}${langParam}` : `${basePath}${lang === "it" ? "?lang=it" : ""}`;
+  return doc ? `${basePath}?doc=${encodeURIComponent(doc.slug)}` : basePath;
 }

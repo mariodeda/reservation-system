@@ -35,6 +35,10 @@ export function isFeedbackCollectionEnabled(settings: TenantSettings): boolean {
   return settings.emailEvents?.feedbackRequest ?? true;
 }
 
+export function isFeedbackAutoSendEnabled(settings: TenantSettings): boolean {
+  return settings.feedbackAutoSendEnabled !== false;
+}
+
 function dateOrdinal(date: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!m) return null;

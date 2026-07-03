@@ -7,6 +7,7 @@ import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { type NewReservationInput, type Reservation } from "@/lib/reservations/types";
 import { canBook as canBookReservation, normalizeEmail, normalizePhone } from "@/lib/reservations/availability";
 import { getTableStore } from "@/lib/reservations/table-store";
+import { isExternalReservationSource } from "@/lib/reservations/external-sources";
 import { log } from "@/lib/observability/logger";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
@@ -169,7 +170,7 @@ async function handle(req: NextRequest) {
 
     // Slim public view: no internal/admin fields exposed
     const results = reservations
-      .filter((r) => r.source !== "thefork")
+      .filter((r) => !isExternalReservationSource(r.source))
       .map((r) => publicView(r, offeringLabelById));
 
     await recordAppEvent(eventFromRequest(obs, {
@@ -262,7 +263,7 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
       }));
       return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
     }
-    if (reservation.source === "thefork") {
+    if (isExternalReservationSource(reservation.source)) {
       await recordAppEvent(eventFromRequest(obs, {
         level: "warn",
         event: `public.lookup.${action}.rejected.external_source`,
