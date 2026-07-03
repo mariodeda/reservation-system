@@ -3,6 +3,8 @@ import type { DishIntegration } from "./dish-store";
 const DISH_BASE_URL = "https://reservation.dish.co";
 const DISH_SSO_URL = "https://sso.dish.co";
 const DISH_HTTP_TIMEOUT_MS = 20_000;
+const DISH_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
 export interface DishReservationListItem {
   externalId: string;
@@ -79,7 +81,11 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Re
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DISH_HTTP_TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: init.signal ?? controller.signal, redirect: "manual" });
+    const headers = new Headers(init.headers);
+    if (!headers.has("user-agent")) headers.set("user-agent", DISH_USER_AGENT);
+    if (!headers.has("accept")) headers.set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+    if (!headers.has("accept-language")) headers.set("accept-language", "en-US,en;q=0.9,it-IT;q=0.8,it;q=0.7");
+    return await fetch(url, { ...init, headers, signal: init.signal ?? controller.signal, redirect: "manual" });
   } catch (err) {
     if (controller.signal.aborted) throw new Error("DISH request timed out.");
     throw err;
@@ -127,6 +133,19 @@ function parseFormValues(html: string): URLSearchParams {
     params.set(name, attr(input, "value") ?? "");
   }
   return params;
+}
+
+export function buildDishLoginBody(html: string, email: string, password: string): URLSearchParams {
+  const body = parseFormValues(html);
+  body.set("username", email.trim());
+  body.set("password", password);
+  body.set("login", body.get("login") || "Log In");
+
+  // DISH's SSO page disables this hidden input when the email tab is used.
+  // URLSearchParams has no disabled-input concept, so omit it explicitly.
+  body.delete("is_mobile");
+  if (!body.has("country_code")) body.set("country_code", "");
+  return body;
 }
 
 function decodeHtml(value: string): string {
@@ -252,14 +271,15 @@ export class DishClient {
     const html = await loginPage.text();
     const action = /<form[^>]+action="([^"]+)"/i.exec(html)?.[1];
     if (!action) throw new Error("Could not find DISH login form.");
-    const body = parseFormValues(html);
-    body.set("username", this.integration.email);
-    body.set("password", this.integration.password);
-    body.set("login", body.get("login") || "Log in");
+    const body = buildDishLoginBody(html, this.integration.email, this.integration.password);
     let currentUrl = resolveUrl(action, loginPage.url || DISH_SSO_URL);
     const loginRes = await request(this.jar, currentUrl, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "origin": DISH_SSO_URL,
+        "referer": loginPage.url,
+      },
       body,
     });
     if (loginRes.status >= 400) {

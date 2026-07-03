@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { listAppEvents } from "@/lib/observability/app-event-store";
 import { getDayAvailability } from "@/lib/reservations/availability";
-import { DishClient, parseDishReservationDetail, parseDishReservationList } from "@/lib/reservations/dish-client";
+import { buildDishLoginBody, DishClient, parseDishReservationDetail, parseDishReservationList } from "@/lib/reservations/dish-client";
 import { saveDishIntegration } from "@/lib/reservations/dish-store";
 import { runDishSyncCron, syncDishReservations } from "@/lib/reservations/dish-sync";
 import { createPlatformSession, PLATFORM_COOKIE } from "@/lib/reservations/platform-auth";
@@ -126,6 +126,24 @@ describe("DISH HTML sync", () => {
       phone: "+39 333 123 4567",
       email: "ada@example.com",
     });
+  });
+
+  it("builds the DISH SSO email login body like the browser form submit", () => {
+    const html = `
+      <form>
+        <input class="final-username" name="username" type="hidden" />
+        <input class="is-mobile" name="is_mobile" type="hidden" />
+        <input class="country-code" name="country_code" type="hidden" />
+        <input name="login" id="kc-login" type="submit" value="Log In" />
+      </form>
+    `;
+    const body = buildDishLoginBody(html, " manager@example.com ", "secret");
+
+    expect(body.get("username")).toBe("manager@example.com");
+    expect(body.get("password")).toBe("secret");
+    expect(body.get("login")).toBe("Log In");
+    expect(body.has("is_mobile")).toBe(false);
+    expect(body.get("country_code")).toBe("");
   });
 
   it("rejects redirected DISH reservation pages instead of treating them as empty", async () => {
