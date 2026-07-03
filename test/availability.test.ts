@@ -198,6 +198,24 @@ describe("getDayAvailability", () => {
     expect(day.full).toBe(true);
   });
 
+  it("marks an overbooked slot unavailable and exposes the overbooked cover count", () => {
+    setup();
+    const cfg = makeConfig({
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "12:00", capacity: 4 })])),
+    });
+    const day = getDayAvailability(cfg, [
+      res({ date: "2026-06-12", time: "12:00", partySize: 6, source: "thefork" }),
+    ], "2026-06-12");
+    expect(day.services[0].slots[0]).toMatchObject({
+      booked: 6,
+      capacity: 4,
+      remaining: 0,
+      overbookedBy: 2,
+      available: false,
+      unavailableReason: "capacity",
+    });
+  });
+
   it("derives slot capacity from active tables when tables exist", () => {
     setup();
     const cfg = makeConfig({

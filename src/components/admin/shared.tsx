@@ -1,4 +1,4 @@
-import type { ReservationStatus } from "@/lib/reservations/types";
+import type { ReservationSource, ReservationStatus } from "@/lib/reservations/types";
 import { am } from "@/i18n";
 
 export interface AdminReservation {
@@ -19,7 +19,7 @@ export interface AdminReservation {
   tableId?: string;
   durationMinsOverride?: number | null;
   status: ReservationStatus;
-  source: "web" | "admin";
+  source: ReservationSource;
   createdAt: string;
   updatedAt: string;
   /** Populated when loading a day list — total non-cancelled visits for this email. */
@@ -32,6 +32,15 @@ export interface AdminReservation {
   feedbackSentAt?: string | null;
   /** Latest outcome of each transactional email type (for send tracking). */
   emails?: Partial<Record<EmailType, EmailStatus>>;
+  /** External booking source, when imported from a third-party reservation platform. */
+  external?: {
+    provider: "thefork";
+    label: string;
+    externalId: string;
+    externalStatus?: string;
+    externalMealStatus?: string;
+    externalUpdatedAt?: string;
+  };
 }
 
 /** The transactional email kinds we track per reservation. */
@@ -69,8 +78,8 @@ export function StatusBadge({ status }: { status: ReservationStatus }) {
 
 /** Quick one-tap actions offered for each status (keeps staff to one click). */
 export const QUICK_ACTIONS: Record<ReservationStatus, ReservationStatus[]> = {
-  pending: ["confirmed", "cancelled"],
-  confirmed: ["seated", "no_show", "cancelled"],
+  pending: ["confirmed"],
+  confirmed: ["seated", "no_show"],
   seated: ["completed"],
   completed: [],
   cancelled: ["confirmed"],

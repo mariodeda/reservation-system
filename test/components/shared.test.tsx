@@ -37,6 +37,8 @@ describe("status metadata", () => {
   });
   it("offers sensible transitions and dead-ends", () => {
     expect(QUICK_ACTIONS.pending).toContain("confirmed");
+    expect(QUICK_ACTIONS.pending).not.toContain("cancelled");
+    expect(QUICK_ACTIONS.confirmed).not.toContain("cancelled");
     expect(QUICK_ACTIONS.seated).toEqual(["completed"]);
     expect(QUICK_ACTIONS.completed).toEqual([]); // terminal
     expect(QUICK_ACTIONS.cancelled).toContain("confirmed"); // reinstate

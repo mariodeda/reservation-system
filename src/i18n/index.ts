@@ -13,7 +13,13 @@ function readStoredLocale(): Locale {
   if (typeof window === "undefined") return "it";
   try {
     const saved = localStorage.getItem(LOCALE_KEY);
-    return saved === "en" || saved === "it" ? saved : "it";
+    if (saved === "en" || saved === "it") return saved;
+    const cookie = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(`${LOCALE_KEY}=`))
+      ?.split("=")[1];
+    return cookie === "en" || cookie === "it" ? cookie : "it";
   } catch {
     return "it";
   }
@@ -34,10 +40,13 @@ export function setLocale(locale: Locale): void {
   hydrated = true;
   try {
     localStorage.setItem(LOCALE_KEY, locale);
+    document.cookie = `${LOCALE_KEY}=${locale}; path=/; max-age=31536000; SameSite=Lax`;
   } catch {
     // ignore
   }
-  window.location.reload();
+  const url = new URL(window.location.href);
+  url.searchParams.delete("lang");
+  window.location.href = url.toString();
 }
 
 export const am = new Proxy({} as Messages, {

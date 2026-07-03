@@ -110,6 +110,8 @@ afterAll(async () => {
 beforeEach(async () => {
   // Clean this tenant's reservations, config, and rate limits between tests.
   const pool = routes.pool.getPool();
+  await pool.query("DELETE FROM external_reservation_links WHERE tenant_id = ?", [tenantId]).catch(() => {});
+  await pool.query("DELETE FROM tenant_thefork_integrations WHERE tenant_id = ?", [tenantId]).catch(() => {});
   await pool.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM tables WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM app_config WHERE tenant_id = ?", [tenantId]);
@@ -598,6 +600,80 @@ describe("public reservation self-service", () => {
       body: { email: "wrong@example.com", phone: guest().phone, reference, time: "13:30" },
     }));
     expect(res.status).toBe(404);
+  });
+
+  it("does not expose TheFork imports through guest self-service lookup", async () => {
+    await routes.store.getStore().forTenant(tenantId).createReservation({
+      date: "2026-06-12",
+      time: "12:30",
+      service: "lunch",
+      partySize: 2,
+      name: "TheFork Guest",
+      email: guest().email,
+      phone: guest().phone,
+      source: "thefork",
+      status: "confirmed",
+    });
+
+    const res = await routes.lookup.POST(req("/api/reservations/lookup", {
+      method: "POST",
+      body: { email: guest().email, phone: guest().phone, _t: Date.now() - 2_000 },
+    }));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).reservations).toEqual([]);
+  });
+
+  it("rejects admin edits to TheFork-imported reservations", async () => {
+    const imported = await routes.store.getStore().forTenant(tenantId).createReservation({
+      date: "2026-06-12",
+      time: "12:30",
+      service: "lunch",
+      partySize: 2,
+      name: "TheFork Guest",
+      email: guest().email,
+      phone: guest().phone,
+      source: "thefork",
+      status: "confirmed",
+    });
+
+    const res = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${imported.id}`, { method: "PATCH", body: { status: "seated" } }),
+      { params: Promise.resolve({ id: imported.id }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/TheFork reservations are read-only/i);
+  });
+
+  it("allows staff to assign a local table to a TheFork-imported reservation", async () => {
+    const { getTableStore } = await import("@/lib/reservations/table-store");
+    const { reservationBus } = await import("@/lib/reservations/events");
+    const table = await getTableStore(tenantId).createTable({ label: "Patio 1", capacity: 4 });
+    const imported = await routes.store.getStore().forTenant(tenantId).createReservation({
+      date: "2026-06-12",
+      time: "12:30",
+      service: "lunch",
+      partySize: 2,
+      name: "TheFork Guest",
+      email: guest().email,
+      phone: guest().phone,
+      source: "thefork",
+      status: "confirmed",
+    });
+    const event = new Promise<{ source: string }>((resolve) => {
+      reservationBus.once("reservation.updated", resolve);
+    });
+
+    const res = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${imported.id}`, { method: "PATCH", body: { tableId: table.id } }),
+      { params: Promise.resolve({ id: imported.id }) },
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.reservation).toMatchObject({ source: "thefork", tableId: table.id, tableLabel: "Patio 1" });
+    await expect(event).resolves.toMatchObject({ source: "admin" });
   });
 });
 

@@ -1,20 +1,32 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PLATFORM_DOCS, platformDocBySlug, readPlatformDoc, renderMarkdown } from "@/lib/platform-docs";
 import PlatformDocsPage from "@/app/platform/(console)/docs/page";
 import TenantDocsPage from "@/app/admin/[slug]/(panel)/docs/page";
 import PlatformShell from "@/components/platform/PlatformShell";
 
+const cookieLocale = vi.hoisted(() => ({ value: undefined as string | undefined }));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/platform/docs",
   useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => name === "admin-locale" && cookieLocale.value ? { value: cookieLocale.value } : undefined,
+  }),
+}));
+
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 
 describe("platform documentation", () => {
+  beforeEach(() => {
+    cookieLocale.value = undefined;
+  });
+
   it("renders repository markdown without raw html", async () => {
     const doc = platformDocBySlug("api-and-security");
     render(<div>{renderMarkdown("# Hello\n\nUse `code` and [docs](./system-overview.md).", doc)}</div>);
@@ -64,6 +76,18 @@ describe("platform documentation", () => {
     expect(screen.getByRole("heading", { name: "Guida staff" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Prenotazioni" })).toHaveAttribute("href", "/admin/acme/docs?doc=tenant-admin-reservations&lang=it");
     expect(screen.getByRole("heading", { name: "Prenotazioni" })).toBeInTheDocument();
+  });
+
+  it("uses the header locale cookie for tenant documentation when no lang query is present", async () => {
+    cookieLocale.value = "it";
+    const page = await TenantDocsPage({
+      params: Promise.resolve({ slug: "acme" }),
+      searchParams: Promise.resolve({ doc: "tenant-admin-reservations" }),
+    });
+    render(page);
+
+    expect(screen.getByRole("heading", { name: "Guida staff" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Prenotazioni" })).toHaveAttribute("href", "/admin/acme/docs?doc=tenant-admin-reservations&lang=it");
   });
 
   it("keeps every configured doc readable", async () => {

@@ -150,6 +150,27 @@ describe("ReservationRow", () => {
     expect(body.status).toBe("confirmed");
   });
 
+  it("renders TheFork reservations as external bookings with only table assignment available", () => {
+    render(
+      <ReservationRow
+        r={row({
+          source: "thefork",
+          status: "confirmed",
+          external: { provider: "thefork", label: "TheFork", externalId: "tf-res-1", externalStatus: "RECORDED" },
+        })}
+        onChanged={() => {}}
+        tables={[{ id: "t1", offering: null, label: "1", capacity: 4, minParty: 1, sortOrder: 0, joinable: false, active: true, createdAt: "" }]}
+      />,
+    );
+
+    expect(screen.getByText("External - TheFork")).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete reservation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send review email" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Seated" })).not.toBeInTheDocument();
+  });
+
   it("toggles details open and closed", async () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row()} onChanged={() => {}} />);
@@ -181,6 +202,29 @@ describe("ReservationRow", () => {
     );
     expect(screen.getByText("Email unreachable")).toBeInTheDocument();
     expect(screen.getByText(/Follow up with a phone call/i)).toBeInTheDocument();
+  });
+
+  it("shows a clear booking email failure warning when confirmation sending fails", () => {
+    render(
+      <ReservationRow
+        r={row({
+          emails: {
+            bookingConfirmation: {
+              status: "failed",
+              reason: "smtp_error",
+              error: "SMTP authentication failed",
+              at: "2026-07-01T10:00:00Z",
+              attempts: 2,
+            },
+          },
+        })}
+        onChanged={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Booking email failed")).toBeInTheDocument();
+    expect(screen.getByText(/guest may not have received the booking confirmation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Confirmation: SMTP authentication failed/)).toBeInTheDocument();
   });
 
   it("lets staff send a review email only from a completed reservation row", async () => {

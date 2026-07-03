@@ -57,6 +57,14 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
   );
   const existing = await store.getReservation(id);
   if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  const patchKeys = Object.keys(patch);
+  const externalLocalTablePatch = existing.source === "thefork" && (
+    (assigningTable && patchKeys.length === 0) ||
+    (!assigningTable && patchKeys.length === 1 && Object.prototype.hasOwnProperty.call(patch, "tableLabel"))
+  );
+  if (existing.source === "thefork" && !externalLocalTablePatch) {
+    return NextResponse.json({ error: "TheFork reservations are read-only in this system." }, { status: 409 });
+  }
 
   const locked = existing.status === "seated" || existing.status === "completed";
   const onlyCompletingSeated =
@@ -65,7 +73,7 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
     Object.keys(patch).length === 1 &&
     !assigningTable;
 
-  if (locked && !onlyCompletingSeated) {
+  if (locked && !onlyCompletingSeated && !externalLocalTablePatch) {
     return NextResponse.json({ error: "Seated or completed reservations cannot be modified." }, { status: 409 });
   }
 
@@ -134,7 +142,7 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
     time: reservation.time,
     service: reservation.service,
     offering: reservation.offering ?? "main",
-    source: reservation.source,
+    source: externalLocalTablePatch ? "admin" : reservation.source,
   });
 
   await recordAppEvent(eventFromRequest(obs, {
@@ -166,6 +174,9 @@ async function deleteReservation(req: NextRequest, ctx: { params: Promise<{ id: 
   const obs = requestContext(req, { surface: "admin", actorType: "staff", tenant: admin.tenant, session: admin.session, route: "/api/admin/reservations/[id]" });
   const store = getStore().forTenant(admin.tenant.id);
   const existing = await store.getReservation(id);
+  if (existing?.source === "thefork") {
+    return NextResponse.json({ error: "TheFork reservations are read-only in this system." }, { status: 409 });
+  }
   if (existing && (existing.status === "seated" || existing.status === "completed")) {
     return NextResponse.json({ error: "Seated or completed reservations cannot be deleted." }, { status: 409 });
   }

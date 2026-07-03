@@ -85,7 +85,7 @@ describe("useReservationEvents", () => {
     window.removeEventListener("reservation:new", dispatched);
   });
 
-  it("does not create new-booking notifications for reservation update events", () => {
+  it("does not create notifications for local reservation update events", () => {
     const dispatched = vi.fn();
     window.addEventListener("reservation:new", dispatched);
     const { result } = renderHook(() => useReservationEvents());
@@ -96,6 +96,29 @@ describe("useReservationEvents", () => {
     });
 
     expect(result.current.notifications).toEqual([]);
+    expect(dispatched).not.toHaveBeenCalled();
+
+    window.removeEventListener("reservation:new", dispatched);
+  });
+
+  it("creates notifications for external TheFork reservation update events", () => {
+    const dispatched = vi.fn();
+    window.addEventListener("reservation:new", dispatched);
+    const { result } = renderHook(() => useReservationEvents());
+    const source = FakeEventSource.instances[0];
+
+    act(() => {
+      source.emit("reservation.updated", event({ type: "reservation.updated", source: "thefork" }));
+    });
+
+    expect(result.current.notifications).toHaveLength(1);
+    expect(result.current.notifications[0]).toMatchObject({
+      id: "res-1",
+      source: "thefork",
+      type: "reservation.updated",
+      read: false,
+    });
+    expect(result.current.notifications[0].notificationId).toMatch(/^reservation\.updated:res-1:/);
     expect(dispatched).not.toHaveBeenCalled();
 
     window.removeEventListener("reservation:new", dispatched);

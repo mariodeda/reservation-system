@@ -55,6 +55,24 @@ describe("managed table assignment", () => {
     expect(body.tableId).toBe("t2");
   });
 
+  it("allows table assignment for external TheFork reservations", async () => {
+    const user = userEvent.setup();
+    render(
+      <ReservationRow
+        r={row({ source: "thefork", external: { provider: "thefork", label: "TheFork", externalId: "tf-res-1" } })}
+        onChanged={() => {}}
+        tables={[table({ id: "t1", label: "5" }), table({ id: "t2", label: "9", capacity: 6 })]}
+      />,
+    );
+
+    await user.selectOptions(screen.getByRole("combobox"), "t2");
+
+    const body = JSON.parse(adminFetch.mock.calls[0][1].body);
+    expect(body).toEqual({ tableId: "t2" });
+    expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete reservation" })).not.toBeInTheDocument();
+  });
+
   it("only offers tables for the reservation's offering (binding respected)", () => {
     render(
       <ReservationRow

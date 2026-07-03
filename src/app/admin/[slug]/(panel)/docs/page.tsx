@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { renderMarkdown } from "@/lib/platform-docs";
 import {
   readTenantDoc,
@@ -24,7 +25,8 @@ export default async function TenantDocsPage({
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const activeDoc = tenantDocBySlug(query?.doc);
-  const lang = tenantDocLang(query?.lang);
+  const cookieLang = (await cookies()).get("admin-locale")?.value;
+  const lang = tenantDocLang(query?.lang ?? cookieLang);
   const basePath = `/admin/${encodeURIComponent(slug)}/docs`;
   const markdown = await readTenantDoc(activeDoc, lang);
   const copy = lang === "it"

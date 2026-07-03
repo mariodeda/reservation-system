@@ -118,6 +118,30 @@ describe("DayOccupancy", () => {
     expect(screen.getByRole("button", { name: /14:00.*96\/100 covers booked.*4 left.*critical availability/i })).toBeInTheDocument();
   });
 
+  it("shows a clear overbooking warning when booked covers exceed capacity", async () => {
+    const user = userEvent.setup();
+    adminJson.mockResolvedValue(day({
+      services: [
+        {
+          id: "dinner",
+          label: "Dinner",
+          turnMinutes: 120,
+          slots: [{ time: "20:00", capacity: 10, booked: 13, remaining: 0, overbookedBy: 3, available: false, unavailableReason: "capacity" }],
+        },
+      ],
+    }));
+    render(<DayOccupancy date="2099-06-12" onPickSlot={() => {}} />);
+
+    const slot = await screen.findByRole("button", { name: /20:00.*13\/10 covers booked.*3 over capacity.*overbooked by 3 covers/i });
+    expect(slot).toBeInTheDocument();
+    expect(screen.getByText("Over by 3")).toBeInTheDocument();
+
+    await user.click(slot);
+    expect(screen.getAllByText("Overbooked by 3 covers").length).toBeGreaterThan(0);
+    expect(screen.getByText("Closed - over capacity")).toBeInTheDocument();
+    expect(screen.getByText(/Public availability is closed for this slot/i)).toBeInTheDocument();
+  });
+
   it("shows covers per slot instead of a peak service recap", async () => {
     adminJson.mockResolvedValue(day({
       services: [

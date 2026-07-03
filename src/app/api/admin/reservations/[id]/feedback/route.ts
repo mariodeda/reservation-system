@@ -31,6 +31,8 @@ async function sendFeedback(
     const store = getStore().forTenant(ctx.tenant.id);
     const reservation = await store.getReservation(id);
     if (!reservation) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (reservation.source === "thefork")
+      return NextResponse.json({ error: "TheFork reservations are read-only and cannot use local email actions." }, { status: 409 });
     if (!hasGuestAttended(reservation))
       return NextResponse.json({ error: "Feedback can only be requested for completed reservations (the guest must have shown up)." }, { status: 422 });
     if (!reservation.email)
@@ -77,6 +79,7 @@ async function getFeedback(
   try {
     const reservation = await getStore().forTenant(ctx.tenant.id).getReservation(id);
     if (!reservation) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (reservation.source === "thefork") return NextResponse.json({ feedback: null });
     const sent = await getSentEmailStatusBatch([id], "feedbackRequest");
     return NextResponse.json({ feedback: sent.get(id) ?? null });
   } catch (err) {

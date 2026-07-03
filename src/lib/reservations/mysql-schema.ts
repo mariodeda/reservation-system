@@ -44,11 +44,76 @@ async function ensureColumn(
   }
 }
 
+async function dropIndexIfExists(pool: Pool, table: string, indexName: string): Promise<void> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 FROM information_schema.statistics
+     WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?`,
+    [table, indexName],
+  );
+  if (rows.length > 0) {
+    await pool.query(`ALTER TABLE \`${table}\` DROP INDEX \`${indexName}\``);
+  }
+}
+
 /* ---------------------------------------------------------------- migrations */
 
 type Migration = { version: number; run: (pool: Pool) => Promise<void> };
 
 const MIGRATIONS: Migration[] = [
+  {
+    // One-way external reservation sync from TheFork. Credentials are managed
+    // by platform operators per tenant; imported reservation rows stay in the
+    // canonical reservations table so public availability counts them.
+    version: 19,
+    run: async (pool) => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tenant_thefork_integrations (
+          tenant_id CHAR(36) NOT NULL PRIMARY KEY,
+          enabled TINYINT(1) NOT NULL DEFAULT 0,
+          client_id VARCHAR(255) NULL,
+          client_secret_encrypted TEXT NULL,
+          restaurant_uuid CHAR(36) NULL,
+          group_uuid CHAR(36) NULL,
+          webhook_token_hash VARCHAR(64) NULL,
+          last_sync_at VARCHAR(32) NULL,
+          last_webhook_at VARCHAR(32) NULL,
+          last_error TEXT NULL,
+          created_at VARCHAR(32) NOT NULL,
+          updated_at VARCHAR(32) NOT NULL,
+          INDEX idx_tfi_restaurant (restaurant_uuid),
+          INDEX idx_tfi_enabled (enabled)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS external_reservation_links (
+          tenant_id CHAR(36) NOT NULL,
+          provider VARCHAR(24) NOT NULL,
+          external_id VARCHAR(80) NOT NULL,
+          reservation_id CHAR(36) NOT NULL,
+          external_restaurant_id VARCHAR(80) NULL,
+          external_customer_id VARCHAR(80) NULL,
+          external_status VARCHAR(40) NULL,
+          external_meal_status VARCHAR(40) NULL,
+          external_updated_at VARCHAR(32) NULL,
+          raw_json JSON NULL,
+          created_at VARCHAR(32) NOT NULL,
+          updated_at VARCHAR(32) NOT NULL,
+          PRIMARY KEY (tenant_id, provider, external_id),
+          INDEX idx_erl_reservation (reservation_id),
+          INDEX idx_erl_tenant_provider (tenant_id, provider)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    },
+  },
+  {
+    // The external reference identity is tenant-scoped. A global provider/id
+    // unique key can couple tenants if a provider ever reuses identifiers
+    // across environments, groups, or restaurants.
+    version: 20,
+    run: async (pool) => {
+      await dropIndexIfExists(pool, "external_reservation_links", "uq_external_reservation");
+    },
+  },
   {
     // Latest SMTP connectivity result per tenant, refreshed by the platform
     // cron endpoint and shown in the operator restaurant summary.

@@ -168,7 +168,9 @@ async function handle(req: NextRequest) {
         : null;
 
     // Slim public view: no internal/admin fields exposed
-    const results = reservations.map((r) => publicView(r, offeringLabelById));
+    const results = reservations
+      .filter((r) => r.source !== "thefork")
+      .map((r) => publicView(r, offeringLabelById));
 
     await recordAppEvent(eventFromRequest(obs, {
       level: "info",
@@ -259,6 +261,17 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
         status: 404,
       }));
       return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
+    }
+    if (reservation.source === "thefork") {
+      await recordAppEvent(eventFromRequest(obs, {
+        level: "warn",
+        event: `public.lookup.${action}.rejected.external_source`,
+        status: 409,
+        reservationId: reservation.id,
+        reference: referenceOf(reservation.id),
+        reason: reservation.source,
+      }));
+      return NextResponse.json({ error: "This reservation can only be managed in the booking channel where it was made." }, { status: 409 });
     }
     if (reservation.status !== "pending" && reservation.status !== "confirmed") {
       await recordAppEvent(eventFromRequest(obs, {

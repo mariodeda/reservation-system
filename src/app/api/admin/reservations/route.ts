@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getCustomerStore } from "@/lib/reservations/customer-store";
 import { getEmailStatusBatch, getSentEmailStatusBatch } from "@/lib/reservations/email-log-store";
 import { processDueFeedbackRequests } from "@/lib/reservations/feedback-automation";
+import { listExternalReservationViews } from "@/lib/reservations/thefork-store";
 import type {
   NewReservationInput,
   ReservationStatus,
@@ -36,7 +37,10 @@ async function listReservations(req: NextRequest) {
     // Global search across all dates (name / email / phone / reference)
     if (q) {
       const matched = await store.searchReservations(q, { status: validStatus, limit: 200 });
-      return NextResponse.json({ reservations: matched.map((r) => ({ ...r, reference: referenceOf(r.id) })) });
+      const externalMap = await listExternalReservationViews(ctx.tenant.id, matched.map((r) => r.id)).catch(() => new Map());
+      return NextResponse.json({
+        reservations: matched.map((r) => ({ ...r, reference: referenceOf(r.id), external: externalMap.get(r.id) })),
+      });
     }
 
     const reservations = await store.listReservations({
@@ -53,10 +57,11 @@ async function listReservations(req: NextRequest) {
     const completedIds = reservations.filter((r) => r.status === "completed").map((r) => r.id);
     const allIds = reservations.map((r) => r.id);
 
-    const [enrichments, feedbackMap, emailMap] = await Promise.all([
+    const [enrichments, feedbackMap, emailMap, externalMap] = await Promise.all([
       getCustomerStore(ctx.tenant.id).getReservationEnrichments(emails).catch(() => new Map()),
       completedIds.length ? getSentEmailStatusBatch(completedIds, "feedbackRequest").catch(() => new Map()) : Promise.resolve(new Map()),
       allIds.length ? getEmailStatusBatch(allIds).catch(() => new Map()) : Promise.resolve(new Map()),
+      listExternalReservationViews(ctx.tenant.id, allIds).catch(() => new Map()),
     ]);
 
     return NextResponse.json({
@@ -72,6 +77,7 @@ async function listReservations(req: NextRequest) {
           dietaryNotes: enr?.dietaryNotes,
           feedbackSentAt: fb?.sentAt ?? null,
           emails: em ?? undefined,
+          external: externalMap.get(r.id),
         };
       }),
     });

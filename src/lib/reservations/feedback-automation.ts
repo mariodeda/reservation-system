@@ -10,6 +10,7 @@ export async function sendFeedbackRequestForReservation(
   tenant: Tenant,
 ): Promise<{ sent: boolean; skipped?: boolean }> {
   if (
+    reservation.source === "thefork" ||
     !hasGuestAttended(reservation) ||
     !reservation.email ||
     !tenant.settings.reviewUrl ||

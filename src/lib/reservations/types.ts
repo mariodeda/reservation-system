@@ -124,6 +124,8 @@ export const ACTIVE_STATUSES: ReservationStatus[] = [
   "completed",
 ];
 
+export type ReservationSource = "web" | "admin" | "thefork";
+
 export interface Reservation {
   id: string;
   date: string; // YYYY-MM-DD
@@ -146,7 +148,7 @@ export interface Reservation {
   /** Per-reservation turn duration override in minutes. Null clears the override (use config default). */
   durationMinsOverride?: number | null;
   status: ReservationStatus;
-  source: "web" | "admin";
+  source: ReservationSource;
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
@@ -166,7 +168,7 @@ export interface NewReservationInput {
   tableLabel?: string;
   tableId?: string;
   tableIds?: string[];
-  source?: "web" | "admin";
+  source?: ReservationSource;
   status?: ReservationStatus;
 }
 
@@ -177,6 +179,8 @@ export interface SlotAvailability {
   capacity: number;
   booked: number;
   remaining: number;
+  /** Positive when imported/external or staff bookings exceed configured table capacity for this slot. */
+  overbookedBy?: number;
   available: boolean;
   unavailableReason?: SlotUnavailableReason;
 }

@@ -10,7 +10,7 @@ export interface ReservationEvent {
   time: string;
   service: string;
   offering: string;
-  source: "web" | "admin";
+  source: "web" | "admin" | "thefork";
 }
 
 class ReservationBus extends EventEmitter {}

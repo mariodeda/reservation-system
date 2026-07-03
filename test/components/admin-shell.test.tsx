@@ -15,7 +15,8 @@ const reservationEvents = vi.hoisted(() => ({
     service: string;
     partySize: number;
     name: string;
-    source: "web" | "admin";
+    type?: "reservation.created" | "reservation.updated";
+    source: "web" | "admin" | "thefork";
     receivedAt: number;
     read: boolean;
   }>,
@@ -251,5 +252,27 @@ describe("AdminShell", () => {
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(screen.queryByText("Jane")).not.toBeInTheDocument();
     expect(screen.getByText("No unread notifications")).toBeInTheDocument();
+  });
+
+  it("labels TheFork update notifications as external updates", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.updated:res-1:1:0",
+      type: "reservation.updated",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "thefork",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    expect(screen.getAllByText("External update").length).toBeGreaterThan(0);
   });
 });

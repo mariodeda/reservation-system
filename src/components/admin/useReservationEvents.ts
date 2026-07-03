@@ -15,6 +15,7 @@ export function useReservationEvents() {
   const [notifications, setNotifications] = useState<ReservationNotification[]>([]);
   const [connected, setConnected] = useState(false);
   const seenCreatedIds = useRef<Set<string>>(new Set());
+  const updateSeq = useRef(0);
 
   useEffect(() => {
     let es: EventSource;
@@ -27,27 +28,43 @@ export function useReservationEvents() {
 
       es.addEventListener("connected", () => setConnected(true));
 
-      const handleReservationEvent = (e: MessageEvent) => {
+      const pushNotification = (data: ReservationEvent, notificationId: string) => {
+        const n: ReservationNotification = {
+          ...data,
+          notificationId,
+          receivedAt: Date.now(),
+          read: false,
+        };
+        setNotifications((prev) => (
+          prev.some((item) => item.notificationId === notificationId) ? prev : [n, ...prev].slice(0, MAX)
+        ));
+        return n;
+      };
+
+      const handleCreatedEvent = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data) as ReservationEvent;
           if (data.type !== "reservation.created") return;
           const notificationId = `${data.type}:${data.id}`;
           if (seenCreatedIds.current.has(data.id)) return;
           seenCreatedIds.current.add(data.id);
-          const n: ReservationNotification = {
-            ...data,
-            notificationId,
-            receivedAt: Date.now(),
-            read: false,
-          };
-          setNotifications((prev) => (
-            prev.some((item) => item.id === data.id) ? prev : [n, ...prev].slice(0, MAX)
-          ));
+          const n = pushNotification(data, notificationId);
           window.dispatchEvent(new CustomEvent("reservation:new", { detail: n }));
         } catch { /* malformed */ }
       };
 
-      es.addEventListener("reservation.created", handleReservationEvent);
+      const handleUpdatedEvent = (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data) as ReservationEvent;
+          if (data.type !== "reservation.updated" || data.source !== "thefork") return;
+          updateSeq.current += 1;
+          const notificationId = `${data.type}:${data.id}:${Date.now()}:${updateSeq.current}`;
+          pushNotification(data, notificationId);
+        } catch { /* malformed */ }
+      };
+
+      es.addEventListener("reservation.created", handleCreatedEvent);
+      es.addEventListener("reservation.updated", handleUpdatedEvent);
 
       es.onerror = () => {
         setConnected(false);

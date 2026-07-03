@@ -218,6 +218,7 @@ export function getDayAvailability(
         const capacity = serviceSlotCapacity(w, resolvedId, tables);
         const booked = bookedCoversForSlot(config, reservations, dateStr, time, resolvedId, w.id, turnMinutes);
         const remaining = Math.max(0, capacity - booked);
+        const overbookedBy = Math.max(0, booked - capacity);
         const tooSoon = dateStr === now.dateStr && toMinutes(time) < now.minutes + config.leadMinutes;
         const disabled = isServiceDisabled(config, dateStr, resolvedId, w.id);
         const blockedSlot = blocked.has(time);
@@ -230,7 +231,7 @@ export function getDayAvailability(
               : remaining < config.minPartySize
                 ? "capacity"
                 : undefined;
-        return { time, capacity, booked, remaining, available: !unavailableReason, unavailableReason };
+        return { time, capacity, booked, remaining, overbookedBy: overbookedBy || undefined, available: !unavailableReason, unavailableReason };
       }),
     };
   });

@@ -202,8 +202,9 @@ export default function ReservationsPage() {
         <div className="flex shrink-0 gap-2">
           <button
             onClick={() => { setShowWalkIn(true); setShowForm(false); }}
-            className="border border-outline-variant/40 text-on-surface-variant hover:text-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition"
+            className="inline-flex items-center gap-2 border border-outline-variant/40 text-on-surface-variant hover:text-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition"
           >
+            <WalkInIcon />
             {am.walkIn.button}
           </button>
           <button
@@ -570,56 +571,68 @@ function WalkInForm({
         <span className="ml-auto text-xs text-primary font-semibold tabular-nums">{nowTime}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={am.walkIn.name}
-          className={`${field} col-span-2`}
-          autoFocus
-        />
-        <input
-          type="number"
-          min={1}
-          value={partySize}
-          onChange={(e) => setPartySize(Number(e.target.value))}
-          placeholder={am.walkIn.partySize}
-          className={field}
-        />
-        {hasManagedTables ? (
-          <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} className={field}>
-            <option value="">{am.row.tableUnassigned}</option>
-            {offeringTables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label} ({am.row.tableSeats(t.capacity)})
-              </option>
-            ))}
-          </select>
-        ) : (
+        <ReservationField label={am.walkIn.name} className="col-span-2">
           <input
-            value={tableLabel}
-            onChange={(e) => setTableLabel(e.target.value)}
-            placeholder={am.walkIn.table}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={am.walkIn.name}
+            className={field}
+            autoFocus
+          />
+        </ReservationField>
+        <ReservationField label={am.walkIn.partySize}>
+          <input
+            type="number"
+            min={1}
+            value={partySize}
+            onChange={(e) => setPartySize(Number(e.target.value))}
+            placeholder={am.walkIn.partySize}
             className={field}
           />
+        </ReservationField>
+        {hasManagedTables ? (
+          <ReservationField label={am.row.table}>
+            <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} className={field}>
+              <option value="">{am.row.tableUnassigned}</option>
+              {offeringTables.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label} ({am.row.tableSeats(t.capacity)})
+                </option>
+              ))}
+            </select>
+          </ReservationField>
+        ) : (
+          <ReservationField label={am.walkIn.table}>
+            <input
+              value={tableLabel}
+              onChange={(e) => setTableLabel(e.target.value)}
+              placeholder={am.walkIn.table}
+              className={field}
+            />
+          </ReservationField>
         )}
         {multiOffering && (
-          <select
-            value={offering}
-            onChange={(e) => {
-              const id = e.target.value;
-              setOffering(id);
-              const svcs = offerings.find((o) => o.id === id)?.services ?? [];
-              if (!svcs.some((s) => s.id === service)) setService(svcs[0]?.id ?? "dinner");
-            }}
-            className={`${field} col-span-2 sm:col-span-1`}
-          >
-            {offerings.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
+          <ReservationField label={am.reservations.offeringLabel} className="col-span-2 sm:col-span-1">
+            <select
+              value={offering}
+              onChange={(e) => {
+                const id = e.target.value;
+                setOffering(id);
+                const svcs = offerings.find((o) => o.id === id)?.services ?? [];
+                if (!svcs.some((s) => s.id === service)) setService(svcs[0]?.id ?? "dinner");
+              }}
+              className={field}
+            >
+              {offerings.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </ReservationField>
         )}
         {services.length > 1 && (
-          <select value={service} onChange={(e) => setService(e.target.value)} className={`${field} col-span-2 sm:col-span-1`}>
-            {services.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
+          <ReservationField label={am.availability.serviceName} className="col-span-2 sm:col-span-1">
+            <select value={service} onChange={(e) => setService(e.target.value)} className={field}>
+              {services.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </ReservationField>
         )}
         <button
           type="submit"
@@ -646,6 +659,16 @@ function ChevronRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+function WalkInIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 17H4.8A1.8 1.8 0 0 1 3 15.2V4.8A1.8 1.8 0 0 1 4.8 3H7" />
+      <path d="M11 5.5 15.5 10 11 14.5" />
+      <path d="M15.5 10H7" />
     </svg>
   );
 }

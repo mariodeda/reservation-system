@@ -28,6 +28,29 @@ type Form = {
   feedbackSubject: string; feedbackText: string; feedbackHtml: string;
 };
 
+type TheForkView = {
+  enabled: boolean;
+  clientId?: string;
+  clientSecretSet: boolean;
+  restaurantUuid?: string;
+  groupUuid?: string;
+  webhookTokenSet: boolean;
+  webhookUrl?: string;
+  lastSyncAt?: string;
+  lastWebhookAt?: string;
+  lastError?: string;
+};
+
+type TheForkForm = {
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  restaurantUuid: string;
+  groupUuid: string;
+};
+
+const THEFORK_SYNC_CLIENT_TIMEOUT_MS = 115_000;
+
 function encodeBase64Utf8(value: string): string {
   const bytes = new TextEncoder().encode(value);
   let binary = "";
@@ -36,6 +59,19 @@ function encodeBase64Utf8(value: string): string {
     binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
   }
   return btoa(binary);
+}
+
+async function platformJsonWithTimeout<T>(input: string, init: RequestInit, timeoutMs: number): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await platformJson<T>(input, { ...init, signal: init.signal ?? controller.signal });
+  } catch (err) {
+    if (controller.signal.aborted) throw new Error("TheFork sync timed out in the browser. Re-run it to continue; already imported reservations will be skipped.");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function toForm(t: TenantView): Form {
@@ -71,6 +107,17 @@ export default function TenantDetail() {
   const [newPass, setNewPass] = useState("");
   const [mockBusy, setMockBusy] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [theFork, setTheFork] = useState<TheForkView | null>(null);
+  const [tfForm, setTfForm] = useState<TheForkForm>({
+    enabled: false,
+    clientId: "",
+    clientSecret: "",
+    restaurantUuid: "",
+    groupUuid: "",
+  });
+  const [tfBusy, setTfBusy] = useState<string | null>(null);
+  const [webhookToken, setWebhookToken] = useState<string | null>(null);
+  const [tfSyncStatus, setTfSyncStatus] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -82,6 +129,23 @@ export default function TenantDetail() {
     }
   }, [id]);
   useEffect(() => { load(); }, [load]);
+
+  const loadTheFork = useCallback(async () => {
+    try {
+      const d = await platformJson<{ integration: TheForkView | null }>(`/api/platform/tenants/${id}/thefork`);
+      setTheFork(d.integration);
+      setTfForm({
+        enabled: d.integration?.enabled ?? false,
+        clientId: d.integration?.clientId ?? "",
+        clientSecret: "",
+        restaurantUuid: d.integration?.restaurantUuid ?? "",
+        groupUuid: d.integration?.groupUuid ?? "",
+      });
+    } catch {
+      /* keep page usable if integration is not configured yet */
+    }
+  }, [id]);
+  useEffect(() => { loadTheFork(); }, [loadTheFork]);
 
   if (!view || !f) return <p className="text-on-surface-variant">{am.platform.loading}</p>;
   const set = (k: keyof Form, v: string | boolean) => setF((p) => (p ? { ...p, [k]: v } : p));
@@ -240,6 +304,97 @@ export default function TenantDetail() {
     }
   }
 
+  async function saveTheFork(rotateWebhookToken = false) {
+    setTfBusy("save");
+    setTfSyncStatus("Testing TheFork API connection before saving...");
+    try {
+      const res = await platformFetch(`/api/platform/tenants/${id}/thefork`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...tfForm, rotateWebhookToken }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not save TheFork integration.");
+      setTheFork(data.integration);
+      setWebhookToken(data.webhookToken ?? null);
+      setTfForm((p) => ({ ...p, clientSecret: "" }));
+      setTfSyncStatus("TheFork API connection validated and credentials saved.");
+      toast("TheFork integration saved.");
+    } catch (err) {
+      setTfSyncStatus(err instanceof Error ? err.message : "Could not save TheFork integration.");
+      toast(err instanceof Error ? err.message : "Could not save TheFork integration.", "error");
+    } finally {
+      setTfBusy(null);
+    }
+  }
+
+  async function testTheFork() {
+    setTfBusy("test");
+    try {
+      await platformJson(`/api/platform/tenants/${id}/thefork/test`, { method: "POST" });
+      toast("TheFork credentials are valid.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "TheFork credential test failed.", "error");
+    } finally {
+      setTfBusy(null);
+    }
+  }
+
+  async function syncTheFork() {
+    setTfBusy("sync");
+    setTfSyncStatus("Manual sync running for today's TheFork updates...");
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const d = await platformJsonWithTimeout<{ result: { imported: number; updated: number; skipped: number; errors: number } }>(
+        `/api/platform/tenants/${id}/thefork/sync`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ startDate: today, endDate: today, filterBy: "updatedDate" }),
+        },
+        THEFORK_SYNC_CLIENT_TIMEOUT_MS,
+      );
+      const message = `TheFork sync complete: ${d.result.imported} imported, ${d.result.updated} updated, ${d.result.skipped} skipped, ${d.result.errors} errors.`;
+      setTfSyncStatus(message);
+      toast(message);
+      await loadTheFork();
+    } catch (err) {
+      setTfSyncStatus(err instanceof Error ? err.message : "TheFork sync failed.");
+      toast(err instanceof Error ? err.message : "TheFork sync failed.", "error");
+    } finally {
+      setTfBusy(null);
+    }
+  }
+
+  async function firstSyncTheFork() {
+    if (!confirm("Run the first TheFork sync now? This imports upcoming TheFork reservations through the tenant booking window without sending tenant popup notifications.")) return;
+    setTfBusy("firstSync");
+    setTfSyncStatus("First sync running. Importing upcoming TheFork reservations; existing imports will be skipped.");
+    try {
+      const d = await platformJsonWithTimeout<{
+        result: { imported: number; updated: number; skipped: number; errors: number };
+        range: { startDate: string; endDate: string };
+      }>(
+        `/api/platform/tenants/${id}/thefork/sync`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "first" }),
+        },
+        THEFORK_SYNC_CLIENT_TIMEOUT_MS,
+      );
+      const message = `First sync complete (${d.range.startDate} to ${d.range.endDate}): ${d.result.imported} imported, ${d.result.skipped} already present/skipped, ${d.result.errors} errors.`;
+      setTfSyncStatus(message);
+      toast(message);
+      await loadTheFork();
+    } catch (err) {
+      setTfSyncStatus(err instanceof Error ? err.message : "TheFork first sync failed.");
+      toast(err instanceof Error ? err.message : "TheFork first sync failed.", "error");
+    } finally {
+      setTfBusy(null);
+    }
+  }
+
   return (
     <div className="space-y-6 pb-24">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -310,6 +465,100 @@ export default function TenantDetail() {
           on={(v) => set("allowedOrigins", v)}
           placeholder={"https://www.osteria-example.com\nhttps://osteria-example.com"}
         />
+      </section>
+
+      {/* TheFork one-way sync */}
+      <section className={card}>
+        <div>
+          <h2 className="font-semibold">TheFork one-way sync</h2>
+          <p className="text-xs text-on-surface-variant">
+            Import TheFork reservations into this tenant so staff can see them and public availability counts their covers. Imported reservations are read-only and do not send local emails.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Check
+            label="Enable TheFork sync"
+            v={tfForm.enabled}
+            on={(v) => setTfForm((p) => ({ ...p, enabled: v }))}
+          />
+          <div className="text-xs text-on-surface-variant self-center">
+            Secret saved: {theFork?.clientSecretSet ? "yes" : "no"} · Webhook token: {theFork?.webhookTokenSet ? "set" : "missing"}
+          </div>
+          <Field label="Client ID" v={tfForm.clientId} on={(v) => setTfForm((p) => ({ ...p, clientId: v }))} />
+          <Field
+            label={`Client secret${theFork?.clientSecretSet ? " (leave blank to keep current)" : ""}`}
+            v={tfForm.clientSecret}
+            on={(v) => setTfForm((p) => ({ ...p, clientSecret: v }))}
+            placeholder={theFork?.clientSecretSet ? "••••••••" : ""}
+          />
+          <Field label="Restaurant UUID" v={tfForm.restaurantUuid} on={(v) => setTfForm((p) => ({ ...p, restaurantUuid: v }))} />
+          <Field label="Group UUID" v={tfForm.groupUuid} on={(v) => setTfForm((p) => ({ ...p, groupUuid: v }))} />
+        </div>
+        <label className="block">
+          <span className="text-xs text-on-surface-variant">Webhook URL</span>
+          <input className={`${field} font-mono`} readOnly value={theFork?.webhookUrl ?? ""} onFocus={(e) => e.currentTarget.select()} />
+        </label>
+        {webhookToken && (
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+            Copy this token now. It is shown only once:
+            <input className={`${field} mt-1 font-mono`} readOnly value={webhookToken} onFocus={(e) => e.currentTarget.select()} />
+            Configure TheFork webhook with this URL and header:
+            <div className="mt-1 font-mono text-amber-50">Authorization: Bearer {webhookToken}</div>
+            <div className="mt-1 text-amber-100/80">Query token fallback is supported only if TheFork cannot send custom headers.</div>
+          </div>
+        )}
+        <div className="grid sm:grid-cols-3 gap-2 text-xs text-on-surface-variant">
+          <div>Last webhook: {theFork?.lastWebhookAt ?? "never"}</div>
+          <div>Last sync: {theFork?.lastSyncAt ?? "never"}</div>
+          <div className={theFork?.lastError ? "text-rose-300" : ""}>Last error: {theFork?.lastError ?? "none"}</div>
+        </div>
+        {tfSyncStatus && (
+          <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high px-3 py-2 text-xs text-on-surface-variant">
+            {tfSyncStatus}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => saveTheFork(false)}
+            disabled={!!tfBusy}
+            className="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60"
+          >
+            {tfBusy === "save" ? "Testing..." : "Save TheFork"}
+          </button>
+          <button
+            type="button"
+            onClick={() => saveTheFork(true)}
+            disabled={!!tfBusy}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            Rotate webhook token
+          </button>
+          <button
+            type="button"
+            onClick={testTheFork}
+            disabled={!!tfBusy || !theFork?.clientSecretSet}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            {tfBusy === "test" ? "Testing..." : "Test credentials"}
+          </button>
+          <button
+            type="button"
+            onClick={syncTheFork}
+            disabled={!!tfBusy || !theFork?.enabled}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            {tfBusy === "sync" ? "Syncing..." : "Sync now"}
+          </button>
+          <button
+            type="button"
+            onClick={firstSyncTheFork}
+            disabled={!!tfBusy || !theFork?.enabled}
+            className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary disabled:opacity-60"
+          >
+            {tfBusy === "firstSync" ? "Importing..." : "First sync"}
+          </button>
+        </div>
       </section>
 
       {/* Email flow */}

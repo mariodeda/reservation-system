@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDB } from "mysql-memory-server";
 import { NextRequest } from "next/server";
 
@@ -16,6 +16,7 @@ let tenantIdRoute: typeof import("@/app/api/platform/tenants/[id]/route");
 let domainsRoute: typeof import("@/app/api/platform/tenants/[id]/domains/route");
 let passwordRoute: typeof import("@/app/api/platform/tenants/[id]/password/route");
 let impersonationRoute: typeof import("@/app/api/platform/tenants/[id]/impersonation/route");
+let theForkRoute: typeof import("@/app/api/platform/tenants/[id]/thefork/route");
 let analyticsRoute: typeof import("@/app/api/platform/analytics/route");
 let logsRoute: typeof import("@/app/api/platform/logs/route");
 let emailLogsRoute: typeof import("@/app/api/platform/email-logs/route");
@@ -48,6 +49,7 @@ beforeAll(async () => {
   domainsRoute = await import("@/app/api/platform/tenants/[id]/domains/route");
   passwordRoute = await import("@/app/api/platform/tenants/[id]/password/route");
   impersonationRoute = await import("@/app/api/platform/tenants/[id]/impersonation/route");
+  theForkRoute = await import("@/app/api/platform/tenants/[id]/thefork/route");
   analyticsRoute = await import("@/app/api/platform/analytics/route");
   logsRoute = await import("@/app/api/platform/logs/route");
   emailLogsRoute = await import("@/app/api/platform/email-logs/route");
@@ -84,6 +86,10 @@ function req(url: string, opts: { method?: string; body?: unknown; cookie?: stri
   return new NextRequest(`http://platform.local${url}`, { method: opts.method ?? "GET", headers, body });
 }
 const authed = (url: string, opts: Parameters<typeof req>[1] = {}) => req(url, { ...opts, cookie });
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
+}
 
 describe("platform-store admins", () => {
   it("bootstrap seeds the 'ops' admin with the documented password, idempotently", () => {
@@ -197,6 +203,67 @@ describe("platform tenant CRUD via routes", () => {
     const stored = await tenantStoreMod.getTenantStore().getById(id);
     expect(stored?.settings.smtp?.pass).toBe("secret-pw");
     expect(stored?.settings.smtp?.port).toBe(2525);
+  });
+
+  it("saves TheFork credentials per tenant and returns only redacted integration state", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://auth.thefork.io/oauth/token") {
+        return json({ access_token: "thefork-access-token", expires_in: 8600 });
+      }
+      if (url.startsWith("https://api.thefork.io/manager/v1/reservations?")) {
+        return json({ data: [], totalCount: 0, page: 1, limit: 1 });
+      }
+      return json({ error: "not found" }, 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const ctx = { params: Promise.resolve({ id }) };
+    try {
+      const res = await theForkRoute.PATCH(authed(`/api/platform/tenants/${id}/thefork`, {
+        method: "PATCH",
+        body: {
+          enabled: true,
+          clientId: "thefork-client",
+          clientSecret: "thefork-secret",
+          restaurantUuid: "11111111-1111-4111-8111-111111111111",
+          rotateWebhookToken: true,
+        },
+      }), ctx);
+      expect(res.status).toBe(200);
+      const saved = await res.json();
+      expect(saved.integration).toMatchObject({
+        enabled: true,
+        clientId: "thefork-client",
+        clientSecretSet: true,
+        restaurantUuid: "11111111-1111-4111-8111-111111111111",
+        webhookTokenSet: true,
+      });
+      expect(saved.webhookToken).toEqual(expect.any(String));
+      expect(JSON.stringify(saved)).not.toContain("thefork-secret");
+      expect(fetchMock).toHaveBeenCalledWith("https://auth.thefork.io/oauth/token", expect.any(Object));
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("https://api.thefork.io/manager/v1/reservations?"), expect.any(Object));
+
+      fetchMock.mockImplementationOnce(async () => json({ error: "invalid_client" }, 401));
+      const rejected = await theForkRoute.PATCH(authed(`/api/platform/tenants/${id}/thefork`, {
+        method: "PATCH",
+        body: {
+          enabled: true,
+          clientId: "bad-client",
+          clientSecret: "bad-secret",
+          restaurantUuid: "11111111-1111-4111-8111-111111111111",
+        },
+      }), ctx);
+      expect(rejected.status).toBe(400);
+
+      const read = await (await theForkRoute.GET(authed(`/api/platform/tenants/${id}/thefork`), ctx)).json();
+      expect(read.integration.clientId).toBe("thefork-client");
+      expect(read.integration.clientSecretSet).toBe(true);
+      expect(read.integration.webhookTokenSet).toBe(true);
+      expect(read.webhookToken).toBeUndefined();
+      expect(JSON.stringify(read)).not.toContain("thefork-secret");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("PATCH settings preserves fields omitted by partial clients", async () => {
@@ -516,6 +583,19 @@ describe("platform tenant CRUD via routes", () => {
        VALUES ('email-cascade', ?, ?, 'bookingConfirmation', 'failed', 'g@x.io', ?)`,
       [id, reservation.id, new Date().toISOString()],
     );
+    await pool.query(
+      `INSERT INTO tenant_thefork_integrations
+       (tenant_id, enabled, client_id, restaurant_uuid, created_at, updated_at)
+       VALUES (?, 1, 'tf-client', '11111111-1111-4111-8111-111111111111', ?, ?)
+       ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), client_id = VALUES(client_id), restaurant_uuid = VALUES(restaurant_uuid), updated_at = VALUES(updated_at)`,
+      [id, new Date().toISOString(), new Date().toISOString()],
+    );
+    await pool.query(
+      `INSERT INTO external_reservation_links
+       (tenant_id, provider, external_id, reservation_id, external_restaurant_id, raw_json, created_at, updated_at)
+       VALUES (?, 'thefork', 'tf-cascade', ?, '11111111-1111-4111-8111-111111111111', ?, ?, ?)`,
+      [id, reservation.id, JSON.stringify({}), new Date().toISOString(), new Date().toISOString()],
+    );
 
     const rejected = await tenantIdRoute.DELETE(authed(`/api/platform/tenants/${id}`, { method: "DELETE", body: { operatorPassword: "wrong" } }), ctx);
     expect(rejected.status).toBe(401);
@@ -523,7 +603,7 @@ describe("platform tenant CRUD via routes", () => {
     expect(del.status).toBe(200);
     expect(await tenantStoreMod.getTenantStore().getById(id)).toBeNull();
     expect(await new MySqlStore(id).listReservations()).toHaveLength(0);
-    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_emails"]) {
+    for (const table of ["tables", "waitlist", "customer_profiles", "reservation_emails", "tenant_thefork_integrations", "external_reservation_links"]) {
       const [rows] = await pool.query(`SELECT COUNT(*) AS count FROM ${table} WHERE tenant_id = ?`, [id]);
       expect(Number((rows as { count: number }[])[0].count)).toBe(0);
     }

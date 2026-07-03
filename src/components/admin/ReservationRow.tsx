@@ -40,7 +40,11 @@ export default function ReservationRow({
   const [editing, setEditing] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(!!r.feedbackSentAt);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
-  const canEditOrDelete = r.status !== "seated" && r.status !== "completed";
+  const externalPlatform = r.external ?? (r.source === "thefork"
+    ? { provider: "thefork" as const, label: "TheFork", externalId: "" }
+    : undefined);
+  const externalTheFork = externalPlatform?.provider === "thefork";
+  const canEditOrDelete = !externalTheFork && r.status !== "seated" && r.status !== "completed";
 
   async function setStatus(status: ReservationStatus) {
     setBusy(true);
@@ -100,7 +104,7 @@ export default function ReservationRow({
 
   return (
     <div className={`rounded-xl border p-3 sm:p-4 ${completed ? "border-emerald-400/30 bg-emerald-400/10" : "border-outline-variant/30 bg-surface-container"} ${dimmed ? "opacity-60" : ""}`}>
-      <div className="flex items-start gap-3">
+      <div className="flex items-stretch gap-3">
         {/* Time / service col */}
         <div className={`text-center shrink-0 ${showDate ? "w-20" : "w-14"}`}>
           {showDate && (
@@ -110,6 +114,16 @@ export default function ReservationRow({
           )}
           <div className="text-lg font-semibold text-primary tabular-nums">{r.time}</div>
           <div className="text-[10px] uppercase tracking-widest text-on-surface-variant">{r.service}</div>
+          {externalTheFork && (
+            <Tooltip content={externalReservationHint(externalPlatform)}>
+              <img
+                src="/integrations/thefork_logo.png"
+                alt="TheFork"
+                className="mx-auto mt-1 h-5 w-5 rounded-full object-contain"
+                loading="lazy"
+              />
+            </Tooltip>
+          )}
         </div>
 
         {/* Main info */}
@@ -139,11 +153,26 @@ export default function ReservationRow({
             {r.source === "admin" && (
               <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.row.manual}</span>
             )}
+            {externalPlatform && (
+              <Tooltip content={externalReservationHint(externalPlatform)}>
+                <span className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-400/15 text-amber-300 border border-amber-400/30 uppercase tracking-widest">
+                  <ExternalPlatformIcon provider={externalPlatform.provider} />
+                  {am.row.externalPlatform(externalPlatform.label)}
+                </span>
+              </Tooltip>
+            )}
             {hasUnreachableEmail(r.emails) ? (
               <Tooltip content={unreachableEmailTitle(r.emails)}>
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-200 border border-rose-500/40">
                   <AlertIcon />
                   {am.email.unreachableBadge}
+                </span>
+              </Tooltip>
+            ) : hasBookingConfirmationFailure(r.emails) ? (
+              <Tooltip content={bookingFailureTitle(r.emails)}>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-200 border border-rose-500/40">
+                  <AlertIcon />
+                  {am.email.bookingFailedBadge}
                 </span>
               </Tooltip>
             ) : hasEmailFailure(r.emails) && (
@@ -175,7 +204,8 @@ export default function ReservationRow({
                   onChanged={onChanged}
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
+              {!externalTheFork && (
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
                 {r.status === "completed" && r.email && (
                   feedbackSent ? (
                     <button
@@ -208,7 +238,8 @@ export default function ReservationRow({
                 >
                   {am.row.delete}
                 </button>
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -284,19 +315,21 @@ export default function ReservationRow({
         </div>
 
         {/* Quick status actions — equal width + icons */}
-        {!editing && quickActions.length > 0 && (
-          <div className="flex w-[150px] shrink-0 flex-col items-stretch gap-1.5 border-l border-outline-variant/30 pl-3">
-            {quickActions.map((s) => (
-              <button
-                key={s}
-                disabled={busy}
-                onClick={() => setStatus(s)}
-                className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition disabled:opacity-50 ${STATUS_META[s].badge} hover:brightness-125`}
-              >
-                <ActionIcon from={r.status} to={s} />
-                {actionLabel(r.status, s)}
-              </button>
-            ))}
+        {!editing && !externalTheFork && quickActions.length > 0 && (
+          <div className="flex w-[150px] shrink-0 items-center border-l border-outline-variant/30 pl-3">
+            <div className="flex w-full flex-col items-stretch gap-1.5">
+              {quickActions.map((s) => (
+                <button
+                  key={s}
+                  disabled={busy}
+                  onClick={() => setStatus(s)}
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition disabled:opacity-50 ${STATUS_META[s].badge} hover:brightness-125`}
+                >
+                  <ActionIcon from={r.status} to={s} />
+                  {actionLabel(r.status, s)}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -796,6 +829,10 @@ function hasEmailFailure(emails?: Partial<Record<EmailType, EmailStatus>>): bool
   return EMAIL_TYPES.some((t) => emails[t]?.status === "failed");
 }
 
+function hasBookingConfirmationFailure(emails?: Partial<Record<EmailType, EmailStatus>>): boolean {
+  return emails?.bookingConfirmation?.status === "failed";
+}
+
 function isUnreachableEmailStatus(s?: EmailStatus): boolean {
   return s?.status === "failed" && (s.reason === "recipient_rejected" || s.reason === "bounced");
 }
@@ -819,6 +856,22 @@ function emailFailureTitle(emails?: Partial<Record<EmailType, EmailStatus>>): st
     .filter((t) => emails[t]?.status === "failed")
     .map((t) => `${emailTypeLabel(t)}: ${emails[t]?.error ?? am.email.failed}`)
     .join("\n");
+}
+
+function bookingFailureTitle(emails?: Partial<Record<EmailType, EmailStatus>>): string {
+  const s = emails?.bookingConfirmation;
+  const detail = s?.error ?? reasonLabel(s?.reason) ?? am.email.failed;
+  return `${am.email.bookingFailedAction}\n${emailTypeLabel("bookingConfirmation")}: ${detail}`;
+}
+
+type ExternalReservation = NonNullable<AdminReservation["external"]>;
+
+function externalReservationHint(external: ExternalReservation): string {
+  const parts = [am.row.externalReadOnlyHint(external.label)];
+  if (external.externalStatus) parts.push(am.row.externalStatus(external.externalStatus));
+  if (external.externalMealStatus) parts.push(am.row.externalMealStatus(external.externalMealStatus));
+  if (external.externalUpdatedAt) parts.push(am.row.externalUpdatedAt(fmtTime(external.externalUpdatedAt)));
+  return parts.join("\n");
 }
 
 /** Per-reservation email send status + lazy-loaded full attempt log (debug). */
@@ -907,6 +960,23 @@ function AlertIcon() {
       <path d="M8 2.8 1.9 13a1 1 0 0 0 .9 1.5h10.4a1 1 0 0 0 .9-1.5L8 2.8Z" />
       <path d="M8 6.5v3" />
       <path d="M8 12h.01" />
+    </svg>
+  );
+}
+
+function ExternalPlatformIcon({ provider }: { provider: ExternalReservation["provider"] }) {
+  if (provider === "thefork") {
+    return (
+      <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-current text-[7px] font-black leading-none">
+        TF
+      </span>
+    );
+  }
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6.5 3.5H4A2.5 2.5 0 0 0 1.5 6v6A2.5 2.5 0 0 0 4 14.5h6A2.5 2.5 0 0 0 12.5 12V9.5" />
+      <path d="M9 1.5h5.5V7" />
+      <path d="m8 8 6-6" />
     </svg>
   );
 }

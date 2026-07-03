@@ -23,6 +23,29 @@ function formatTime(t: string) {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+function sourceBadgeClass(source: ReservationNotification["source"]) {
+  if (source === "web") return "bg-emerald-400/15 text-emerald-400";
+  if (source === "thefork") return "bg-amber-400/15 text-amber-500";
+  return "bg-sky-400/15 text-sky-400";
+}
+
+function sourceAccentClass(source: ReservationNotification["source"]) {
+  if (source === "web") return "bg-emerald-400";
+  if (source === "thefork") return "bg-amber-400";
+  return "bg-sky-400";
+}
+
+function sourceLabel(source: ReservationNotification["source"]) {
+  if (source === "web") return am.notifications.online;
+  if (source === "thefork") return am.notifications.theFork;
+  return am.notifications.staff;
+}
+
+function eventLabel(n: ReservationNotification) {
+  if (n.source === "thefork" && n.type === "reservation.updated") return am.notifications.externalUpdated;
+  return sourceLabel(n.source);
+}
+
 // ── rich toast ────────────────────────────────────────────────────────────────
 
 interface ToastProps {
@@ -66,7 +89,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
     >
       <div className="relative overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl w-80">
         {/* colour accent strip */}
-        <div className={`absolute left-0 top-0 bottom-0 w-1 ${n.source === "web" ? "bg-emerald-400" : "bg-sky-400"}`} />
+        <div className={`absolute left-0 top-0 bottom-0 w-1 ${sourceAccentClass(n.source)}`} />
 
         <div className="pl-4 pr-3 pt-3 pb-2">
           <div className="flex items-start justify-between gap-2">
@@ -82,12 +105,8 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                n.source === "web"
-                  ? "bg-emerald-400/15 text-emerald-400"
-                  : "bg-sky-400/15 text-sky-400"
-              }`}>
-                {n.source === "web" ? am.notifications.online : am.notifications.staff}
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
+                {eventLabel(n)}
               </span>
               <button
                 onClick={() => { setVisible(false); setTimeout(onDismiss, 350); }}
@@ -284,12 +303,8 @@ export function NotificationBell({
                         {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
                       </p>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                          n.source === "web"
-                            ? "bg-emerald-400/15 text-emerald-400"
-                            : "bg-sky-400/15 text-sky-400"
-                        }`}>
-                          {n.source === "web" ? am.notifications.online : am.notifications.staff}
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
+                          {eventLabel(n)}
                         </span>
                         <span className="text-[10px] text-on-surface-variant/40">{n.date}</span>
                       </div>

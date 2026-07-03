@@ -13,6 +13,7 @@ type SelectedSlot = {
   booked: number;
   capacity: number;
   remaining: number;
+  overbookedBy: number;
   statusLabel: string;
   blocked: boolean;
   ended: boolean;
@@ -128,7 +129,7 @@ export default function DayOccupancy({
             <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2">
               {svc.slots.map((s) => {
                 const status = slotCoverStatus(s, ended);
-                const title = `${s.time}: ${am.availability.slotStatus(s.booked, s.capacity, s.remaining)}. ${status.label}`;
+                const title = `${s.time}: ${slotStatusLabel(s)}. ${status.label}`;
                 const blocked = s.unavailableReason === "blocked";
                 const canToggleStop = allowSlotStops && !ended && s.unavailableReason !== "service_disabled";
                 const hasActions = Boolean(onPickSlot || canToggleStop);
@@ -144,6 +145,7 @@ export default function DayOccupancy({
                         booked: s.booked,
                         capacity: s.capacity,
                         remaining: s.remaining,
+                        overbookedBy: s.overbookedBy ?? 0,
                         statusLabel: status.label,
                         blocked,
                         ended,
@@ -159,6 +161,12 @@ export default function DayOccupancy({
                       <span className="mt-2 block text-xs font-semibold leading-tight">
                         {am.availability.covers(s.booked, s.capacity)}
                       </span>
+                      {(s.overbookedBy ?? 0) > 0 && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded border border-rose-300/40 bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-100">
+                          <WarningIcon />
+                          {am.availability.overbookedShort(s.overbookedBy ?? 0)}
+                        </span>
+                      )}
                       <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide leading-tight opacity-80">
                         {status.shortLabel}
                       </span>
@@ -171,33 +179,77 @@ export default function DayOccupancy({
         );
       })}
       {selectedSlot && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="slot-actions-title">
-          <div className="w-full max-w-md rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-outline-variant/20 px-4 py-3">
-              <div>
-                <h2 id="slot-actions-title" className="text-base font-semibold text-on-surface">
-                  {am.availability.slotActionsTitle}
-                </h2>
-                <p className="mt-1 text-sm text-on-surface-variant">
-                  {selectedSlot.serviceLabel} · {selectedSlot.time}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedSlot(null)}
-                aria-label={am.reservations.close}
-                className="rounded-lg px-2 py-1 text-xl leading-none text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-y-3 px-4 py-4">
-              <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high px-3 py-2">
-                <div className="text-sm font-semibold text-on-surface">
-                  {am.availability.slotStatus(selectedSlot.booked, selectedSlot.capacity, selectedSlot.remaining)}
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={am.availability.slotActionsTitle}>
+          <div className="w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
+            <div className="border-b border-outline-variant/20 bg-surface-container px-4 py-4 sm:px-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                    {am.availability.slotActionsTitle}
+                  </div>
+                  <h2 id="slot-actions-title" className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-on-surface">
+                    <span className="text-3xl font-semibold tabular-nums">{selectedSlot.time}</span>
+                    <span className="text-sm font-medium text-on-surface-variant">{selectedSlot.serviceLabel}</span>
+                  </h2>
                 </div>
-                <div className="mt-1 text-xs text-on-surface-variant">{selectedSlot.statusLabel}</div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSlot(null)}
+                  aria-label={am.reservations.close}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+                >
+                  <CloseIcon />
+                </button>
               </div>
+            </div>
+
+            <div className="space-y-4 px-4 py-4 sm:px-5">
+              {selectedSlot.overbookedBy > 0 && (
+                <div className="rounded-lg border border-rose-400/40 bg-rose-500/15 px-3 py-3 text-sm text-rose-100">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-rose-200"><WarningIcon /></span>
+                    <div>
+                      <div className="font-semibold">{am.availability.overbookedTitle(selectedSlot.overbookedBy)}</div>
+                      <div className="mt-1 text-xs text-rose-100/80">{am.availability.overbookedHint}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                    {am.availability.slotCoversLabel}
+                  </div>
+                  <div className="mt-1 text-lg font-semibold text-on-surface tabular-nums">
+                    {selectedSlot.booked}/{selectedSlot.capacity}
+                  </div>
+                  <div className="mt-1 text-xs text-on-surface-variant">
+                    {selectedSlot.overbookedBy > 0
+                      ? am.availability.overbookedByLabel(selectedSlot.overbookedBy)
+                      : am.availability.slotRemainingLabel(selectedSlot.remaining)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                    {am.availability.slotOnlineLabel}
+                  </div>
+                  <div className={`mt-1 text-sm font-semibold ${selectedSlot.overbookedBy > 0 ? "text-rose-300" : selectedSlot.blocked ? "text-amber-300" : selectedSlot.ended ? "text-on-surface-variant" : "text-emerald-300"}`}>
+                    {selectedSlot.overbookedBy > 0
+                      ? am.availability.slotOnlineClosedCapacity
+                      : selectedSlot.blocked
+                      ? am.availability.slotOnlineStopped
+                      : selectedSlot.ended
+                        ? am.availability.serviceEnded
+                        : am.availability.slotOnlineOpen}
+                  </div>
+                  <div className="mt-1 text-xs text-on-surface-variant">{selectedSlot.statusLabel}</div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                  {am.availability.slotStaffActions}
+                </div>
               {onPickSlot && (
                 <button
                   type="button"
@@ -205,26 +257,37 @@ export default function DayOccupancy({
                     onPickSlot(selectedSlot.service, selectedSlot.time);
                     setSelectedSlot(null);
                   }}
-                  className="flex w-full items-center justify-between rounded-lg bg-primary px-3 py-2.5 text-left text-sm font-semibold text-on-primary transition hover:brightness-105"
+                  className="flex w-full items-center justify-between rounded-lg bg-primary px-3 py-3 text-left text-sm font-semibold text-on-primary transition hover:brightness-105"
                 >
                   <span>{am.availability.slotAddReservationAction(selectedSlot.time)}</span>
                   <span aria-hidden="true">+</span>
                 </button>
               )}
+              </div>
+
               {selectedSlot.canToggleStop && (
-                <button
-                  type="button"
-                  disabled={savingSlot === `${selectedSlot.service}:${selectedSlot.time}`}
-                  onClick={() => void toggleSlotStop(selectedSlot.service, selectedSlot.time, !selectedSlot.blocked)}
-                  className="w-full rounded-lg border border-outline-variant/40 px-3 py-2.5 text-left text-sm font-semibold text-on-surface transition hover:bg-surface-container-high disabled:opacity-60"
-                >
-                  {selectedSlot.blocked
-                    ? am.availability.slotResumeAction(selectedSlot.time)
-                    : am.availability.slotStopAction(selectedSlot.time)}
-                  <span className="mt-1 block text-xs font-normal text-on-surface-variant">
-                    {selectedSlot.blocked ? am.availability.slotResumeHint : am.availability.slotStopHint}
-                  </span>
-                </button>
+                <div className="space-y-2 rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                    {am.availability.slotPublicBookingActions}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingSlot === `${selectedSlot.service}:${selectedSlot.time}`}
+                    onClick={() => void toggleSlotStop(selectedSlot.service, selectedSlot.time, !selectedSlot.blocked)}
+                    className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-semibold transition disabled:opacity-60 ${
+                      selectedSlot.blocked
+                        ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/15"
+                        : "border-amber-400/35 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15"
+                    }`}
+                  >
+                    {selectedSlot.blocked
+                      ? am.availability.slotResumeAction(selectedSlot.time)
+                      : am.availability.slotStopAction(selectedSlot.time)}
+                    <span className="mt-1 block text-xs font-normal text-on-surface-variant">
+                      {selectedSlot.blocked ? am.availability.slotResumeHint : am.availability.slotStopHint}
+                    </span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -271,6 +334,15 @@ function slotCoverStatus(
       shortLabel: am.availability.serviceEnded,
       className: "bg-surface-container-high/60 text-on-surface-variant/70 border-outline-variant/25",
       dotClass: "",
+    };
+  }
+  if (slot.booked > slot.capacity) {
+    const overbookedBy = slot.booked - slot.capacity;
+    return {
+      label: am.availability.overbookedTitle(overbookedBy),
+      shortLabel: am.availability.overbookedStateShort,
+      className: "bg-rose-600/25 text-rose-100 border-rose-300/50 ring-1 ring-rose-300/30",
+      dotClass: "bg-rose-100",
     };
   }
   if (slot.remaining <= 0) {
@@ -330,4 +402,29 @@ function slotUnavailableLabel(reason: SlotUnavailableReason | undefined): string
     default:
       return am.availability.slotUnavailable;
   }
+}
+
+function slotStatusLabel(slot: { booked: number; capacity: number; remaining: number; overbookedBy?: number }): string {
+  return (slot.overbookedBy ?? 0) > 0
+    ? am.availability.slotOverbookedStatus(slot.booked, slot.capacity, slot.overbookedBy ?? 0)
+    : am.availability.slotStatus(slot.booked, slot.capacity, slot.remaining);
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M4 4l8 8" />
+      <path d="M12 4l-8 8" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 2.5 1.75 13.25h12.5L8 2.5Z" />
+      <path d="M8 6v3.25" />
+      <path d="M8 11.75h.01" />
+    </svg>
+  );
 }
