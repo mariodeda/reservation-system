@@ -170,12 +170,16 @@ Campi richiesti:
 
 - Email DISH.
 - Password DISH.
+- Establishment id DISH, dal valore query `est` nell'URL del tool DISH
+  Reservation.
 - Toggle enabled.
 
 Quando salvi credenziali DISH, la piattaforma testa il login prima di abilitare
-l'integrazione. La password viene salvata cifrata e non torna mai al browser. La
-piattaforma impedisce di abilitare la stessa email login DISH su piu tenant,
-perche il flusso HTML non offre un identificativo ristorante stabile piu forte.
+l'integrazione. La password viene salvata cifrata e non torna mai al browser.
+L'establishment id contestualizza le richieste alle pagine prenotazioni del
+ristorante esatto mostrato da DISH. La piattaforma impedisce di abilitare la
+stessa email login DISH su piu tenant, perche il flusso HTML non offre un
+identificativo ristorante stabile piu forte.
 
 Azioni manuali:
 
@@ -183,7 +187,8 @@ Azioni manuali:
 - **First sync** importa prenotazioni future fino alla booking window tenant e
   salta import gia presenti.
 - **Backfill last 60 days** importa gli ultimi 60 giorni calendario, incluso
-  oggi, e salta import gia presenti.
+  oggi, e salta import gia presenti. La piattaforma lo esegue in batch da 7
+  giorni per mantenere reattive le pagine manager DISH e la UI piattaforma.
 
 Il sync DISH schedulato gira tramite `POST /api/platform/cron/dish-sync` ogni
 15 minuti. Sincronizza oggi e domani per tutti i tenant attivi con integrazione

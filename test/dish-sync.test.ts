@@ -102,6 +102,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   await getPool().end().catch(() => {});
   resetPool();
 });
@@ -127,12 +128,53 @@ describe("DISH HTML sync", () => {
     });
   });
 
+  it("rejects redirected DISH reservation pages instead of treating them as empty", async () => {
+    vi.restoreAllMocks();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", {
+      status: 302,
+      headers: { location: "https://sso.dish.co/auth/realms/HD-SSO/login" },
+    })));
+
+    const client = new DishClient({
+      tenantId,
+      enabled: true,
+      email: "manager@example.com",
+      password: "secret",
+      passwordSet: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await expect(client.fetchReservationsHtml("2026-07-10")).rejects.toThrow(/DISH reservations request redirected.*login\/session is not valid/i);
+  });
+
+  it("scopes DISH reservation requests with the configured establishment id", async () => {
+    vi.restoreAllMocks();
+    const fetchMock = vi.fn(async () => new Response(listHtml(), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new DishClient({
+      tenantId,
+      enabled: true,
+      email: "manager@example.com",
+      password: "secret",
+      passwordSet: true,
+      establishmentId: "cfa9d0f8-5c36-4f0f-b5f5-481267693e49",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await client.fetchReservationsHtml("2026-07-10");
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit?]>;
+    expect(String(calls[0][0])).toContain("est=cfa9d0f8-5c36-4f0f-b5f5-481267693e49");
+  });
+
   it("imports DISH reservations idempotently and counts their covers in availability", async () => {
     const first = await syncDishReservations(tenantId, {
       startDate: "2026-07-10",
       endDate: "2026-07-10",
     });
-    expect(first).toMatchObject({ imported: 1, updated: 0, skipped: 0, errors: 0 });
+    expect(first).toMatchObject({ imported: 1, updated: 0, skipped: 0, errors: 0, daysFetched: 1, parsedItems: 1, emptyDays: 0 });
 
     const store = getStore().forTenant(tenantId);
     let reservations = await store.listReservations({ date: "2026-07-10" });
@@ -188,11 +230,11 @@ describe("DISH HTML sync", () => {
     expect(reservations[0].partySize).toBe(5);
   });
 
-  it("platform history60 mode backfills the last 60 calendar days without tenant notifications", async () => {
+  it("platform history60 mode backfills in bounded batches without tenant notifications", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-10T09:00:00Z"));
     const fetchList = vi.mocked(DishClient.prototype.fetchReservationsHtml);
-    fetchList.mockImplementation(async (date) => (date === "2026-07-10" ? listHtml() : "<html><body></body></html>"));
+      fetchList.mockImplementation(async (date) => (date === "2026-05-12" ? listHtml() : "<html><body></body></html>"));
 
     try {
       const req = new NextRequest(`http://platform.local/api/platform/tenants/${tenantId}/dish/sync`, {
@@ -201,16 +243,24 @@ describe("DISH HTML sync", () => {
           "content-type": "application/json",
           cookie: `${PLATFORM_COOKIE}=${await createPlatformSession("ops")}`,
         },
-        body: JSON.stringify({ mode: "history60" }),
+        body: JSON.stringify({ mode: "history60", batchDays: 7 }),
       });
       const res = await dishSyncRoute.POST(req, { params: Promise.resolve({ id: tenantId }) });
       expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.range).toEqual({ startDate: "2026-05-12", endDate: "2026-07-10", mode: "history60" });
-      expect(json.result).toMatchObject({ imported: 1, updated: 0, skipped: 0, errors: 0 });
-      expect(fetchList).toHaveBeenCalledTimes(60);
+      expect(json.range).toMatchObject({
+        startDate: "2026-05-12",
+        endDate: "2026-05-18",
+        mode: "history60",
+        totalStartDate: "2026-05-12",
+        totalEndDate: "2026-07-10",
+        nextStartDate: "2026-05-19",
+        complete: false,
+      });
+      expect(json.result).toMatchObject({ imported: 1, updated: 0, skipped: 0, errors: 0, daysFetched: 7, parsedItems: 1, emptyDays: 6 });
+      expect(fetchList).toHaveBeenCalledTimes(7);
       expect(fetchList).toHaveBeenNthCalledWith(1, "2026-05-12");
-      expect(fetchList).toHaveBeenLastCalledWith("2026-07-10");
+      expect(fetchList).toHaveBeenLastCalledWith("2026-05-18");
     } finally {
       vi.useRealTimers();
     }

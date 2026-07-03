@@ -280,6 +280,7 @@ describe("platform tenant CRUD via routes", () => {
           enabled: true,
           email: "manager@example.com",
           password: "dish-secret",
+          establishmentId: "cfa9d0f8-5c36-4f0f-b5f5-481267693e49",
         },
       }), ctx);
       expect(res.status).toBe(200);
@@ -287,6 +288,7 @@ describe("platform tenant CRUD via routes", () => {
       expect(saved.integration).toMatchObject({
         enabled: true,
         email: "manager@example.com",
+        establishmentId: "cfa9d0f8-5c36-4f0f-b5f5-481267693e49",
         passwordSet: true,
       });
       expect(JSON.stringify(saved)).not.toContain("dish-secret");
@@ -299,12 +301,14 @@ describe("platform tenant CRUD via routes", () => {
           enabled: true,
           email: "manager@example.com",
           password: "wrong",
+          establishmentId: "cfa9d0f8-5c36-4f0f-b5f5-481267693e49",
         },
       }), ctx);
       expect(rejected.status).toBe(400);
 
       const read = await (await dishRoute.GET(authed(`/api/platform/tenants/${id}/dish`), ctx)).json();
       expect(read.integration.email).toBe("manager@example.com");
+      expect(read.integration.establishmentId).toBe("cfa9d0f8-5c36-4f0f-b5f5-481267693e49");
       expect(read.integration.passwordSet).toBe(true);
       expect(JSON.stringify(read)).not.toContain("dish-secret");
     } finally {
@@ -350,6 +354,7 @@ describe("platform tenant CRUD via routes", () => {
         enabled: true,
         email: "manager@example.com",
         password: "secret",
+        establishmentId: "cfa9d0f8-5c36-4f0f-b5f5-481267693e49",
       },
     }), { params: Promise.resolve({ id: secondId }) });
     expect(duplicateDish.status).toBe(409);

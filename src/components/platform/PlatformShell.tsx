@@ -17,6 +17,7 @@ export default function PlatformShell({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const currentPath = normalizePath(pathname);
   const fullWidth = pathname?.startsWith("/platform/logs") || pathname?.startsWith("/platform/email-logs") || pathname?.startsWith("/platform/docs") || false;
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
@@ -51,10 +52,10 @@ export default function PlatformShell({
               </span>
             </Link>
             <nav className="hidden md:flex items-center gap-1 text-sm" aria-label="Platform">
-              <NavLink href="/platform" active={pathname === "/platform"}>Restaurants</NavLink>
-              <NavLink href="/platform/logs" active={pathname?.startsWith("/platform/logs") ?? false}>Logs</NavLink>
-              <NavLink href="/platform/email-logs" active={pathname?.startsWith("/platform/email-logs") ?? false}>Email logs</NavLink>
-              <NavLink href="/platform/docs" active={pathname?.startsWith("/platform/docs") ?? false}>Docs</NavLink>
+              <NavLink href="/platform" active={isPlatformRestaurantsActive(currentPath)}>Restaurants</NavLink>
+              <NavLink href="/platform/logs" active={isActivePath(currentPath, "/platform/logs")}>Logs</NavLink>
+              <NavLink href="/platform/email-logs" active={isActivePath(currentPath, "/platform/email-logs")}>Email logs</NavLink>
+              <NavLink href="/platform/docs" active={isActivePath(currentPath, "/platform/docs")}>Docs</NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-2">
@@ -103,15 +104,31 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
   return (
     <Link
       href={href}
-      className={`rounded-lg px-3 py-1.5 transition ${
+      aria-current={active ? "page" : undefined}
+      className={`rounded-lg px-3 py-1.5 font-medium transition ${
         active
-          ? "bg-primary/15 text-primary"
+          ? "bg-primary text-on-primary shadow-sm"
           : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
       }`}
     >
       {children}
     </Link>
   );
+}
+
+function normalizePath(pathname: string | null): string {
+  if (!pathname || pathname === "/") return "/";
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
+function isActivePath(pathname: string, href: string): boolean {
+  const normalizedHref = normalizePath(href);
+  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
+}
+
+function isPlatformRestaurantsActive(pathname: string): boolean {
+  if (pathname === "/platform") return true;
+  return isActivePath(pathname, "/platform/tenants");
 }
 
 function SunIcon() {

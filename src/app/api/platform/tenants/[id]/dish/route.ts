@@ -29,7 +29,7 @@ async function patchIntegration(req: NextRequest, ctx: { params: Promise<{ id: s
   if (!platform.ok) return platform.res;
   const { id } = await ctx.params;
   if (!(await getTenantStore().getById(id))) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  let body: { enabled?: unknown; email?: unknown; password?: unknown };
+  let body: { enabled?: unknown; email?: unknown; password?: unknown; establishmentId?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -41,6 +41,7 @@ async function patchIntegration(req: NextRequest, ctx: { params: Promise<{ id: s
     enabled: body.enabled === undefined ? Boolean(existing?.enabled) : Boolean(body.enabled),
     email: body.email === undefined ? existing?.email : String(body.email).trim(),
     password: body.password ? String(body.password) : existing?.password,
+    establishmentId: body.establishmentId === undefined ? existing?.establishmentId : String(body.establishmentId).trim(),
     passwordSet: Boolean(body.password || existing?.passwordSet),
     lastSyncAt: existing?.lastSyncAt,
     lastError: existing?.lastError,
@@ -50,6 +51,9 @@ async function patchIntegration(req: NextRequest, ctx: { params: Promise<{ id: s
   if (candidate.enabled) {
     if (!candidate.email || !candidate.password) {
       return NextResponse.json({ error: "DISH email and password are required before enabling sync." }, { status: 400 });
+    }
+    if (!candidate.establishmentId) {
+      return NextResponse.json({ error: "DISH establishment id is required before enabling sync." }, { status: 400 });
     }
     const conflictingTenant = await findDishTenantByEmail(candidate.email, id);
     if (conflictingTenant) {
@@ -67,6 +71,7 @@ async function patchIntegration(req: NextRequest, ctx: { params: Promise<{ id: s
     enabled: body.enabled === undefined ? undefined : Boolean(body.enabled),
     email: body.email === undefined ? undefined : String(body.email).trim(),
     password: body.password ? String(body.password) : undefined,
+    establishmentId: body.establishmentId === undefined ? undefined : String(body.establishmentId).trim(),
   });
   return NextResponse.json({ ok: true, integration: publicDishView(saved) });
 }

@@ -18,6 +18,9 @@ export interface DishSyncResult {
   updated: number;
   skipped: number;
   errors: number;
+  daysFetched?: number;
+  parsedItems?: number;
+  emptyDays?: number;
 }
 
 export interface DishSyncOptions {
@@ -209,9 +212,10 @@ export async function syncDishReservations(
   const integration = await getDishIntegration(tenantId);
   if (!integration?.enabled) throw new Error("DISH integration is not enabled.");
   if (opts.endDate < opts.startDate) throw new Error("DISH sync end date must be on or after the start date.");
-  const result: DishSyncResult = { imported: 0, updated: 0, skipped: 0, errors: 0 };
+  const result: DishSyncResult = { imported: 0, updated: 0, skipped: 0, errors: 0, daysFetched: 0, parsedItems: 0, emptyDays: 0 };
   const provider = "dish";
   const trigger = opts.trigger ?? "system";
+  const emptyDates: string[] = [];
   const assertWithinDeadline = () => {
     if (opts.deadlineAt && Date.now() >= opts.deadlineAt) {
       throw new Error("DISH sync timed out before completing. Re-run it to continue; existing imports will be skipped.");
@@ -243,6 +247,12 @@ export async function syncDishReservations(
       assertWithinDeadline();
       const html = await client.fetchReservationsHtml(date);
       const items = parseDishReservationList(html);
+      result.daysFetched = (result.daysFetched ?? 0) + 1;
+      result.parsedItems = (result.parsedItems ?? 0) + items.length;
+      if (items.length === 0) {
+        result.emptyDays = (result.emptyDays ?? 0) + 1;
+        if (emptyDates.length < 10) emptyDates.push(date);
+      }
       for (const item of items) {
         try {
           assertWithinDeadline();
@@ -289,6 +299,10 @@ export async function syncDishReservations(
         updated: result.updated,
         skipped: result.skipped,
         errors: result.errors,
+        daysFetched: result.daysFetched,
+        parsedItems: result.parsedItems,
+        emptyDays: result.emptyDays,
+        emptyDatesSample: emptyDates,
       },
     });
     return result;
@@ -310,6 +324,10 @@ export async function syncDishReservations(
         updated: result.updated,
         skipped: result.skipped,
         errors: result.errors,
+        daysFetched: result.daysFetched,
+        parsedItems: result.parsedItems,
+        emptyDays: result.emptyDays,
+        emptyDatesSample: emptyDates,
         error: safeError(err),
       },
     });

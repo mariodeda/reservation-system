@@ -169,12 +169,16 @@ Required fields:
 
 - DISH email.
 - DISH password.
+- DISH establishment id, from the `est` query value in the DISH Reservation
+  tool URL.
 - Enabled toggle.
 
 When saving DISH credentials, the platform tests the login before enabling the
 integration. The password is stored encrypted and is never returned to the
-browser. The platform prevents enabling the same DISH login email on multiple
-tenants, because the HTML flow has no stronger stable restaurant identifier.
+browser. The establishment id scopes reservation-page requests to the exact
+restaurant context shown by DISH. The platform prevents enabling the same DISH
+login email on multiple tenants, because the HTML flow has no stronger stable
+restaurant identifier.
 
 Manual actions:
 
@@ -182,7 +186,8 @@ Manual actions:
 - **First sync** imports upcoming reservations through the tenant booking
   window and skips existing imports.
 - **Backfill last 60 days** imports the last 60 calendar days, including today,
-  and skips existing imports.
+  and skips existing imports. The platform runs this in 7-day batches so the
+  DISH manager pages and platform UI remain responsive.
 
 Scheduled DISH sync runs through `POST /api/platform/cron/dish-sync` every 15
 minutes. It syncs today and tomorrow for all active tenants with enabled DISH

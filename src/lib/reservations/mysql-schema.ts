@@ -126,6 +126,7 @@ const MIGRATIONS: Migration[] = [
           enabled TINYINT(1) NOT NULL DEFAULT 0,
           email VARCHAR(255) NULL,
           password_encrypted TEXT NULL,
+          establishment_id VARCHAR(80) NULL,
           last_sync_at VARCHAR(32) NULL,
           last_error TEXT NULL,
           created_at VARCHAR(32) NOT NULL,
@@ -133,6 +134,19 @@ const MIGRATIONS: Migration[] = [
           INDEX idx_tdi_enabled (enabled)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
       `);
+    },
+  },
+  {
+    // DISH Reservation URLs are scoped with `est=<establishment id>`. Store it
+    // per tenant so the sync always fetches the correct restaurant context.
+    version: 22,
+    run: async (pool) => {
+      await ensureColumn(
+        pool,
+        "tenant_dish_integrations",
+        "establishment_id",
+        "ADD COLUMN establishment_id VARCHAR(80) NULL AFTER password_encrypted",
+      );
     },
   },
   {

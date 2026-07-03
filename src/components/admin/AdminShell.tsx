@@ -27,6 +27,7 @@ export default function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const base = `/admin/${slug}`;
+  const currentPath = normalizePath(pathname);
   const navBeforeClientStats = [
     { seg: "/reservations", label: am.nav.reservations },
     { seg: "/tables", label: am.nav.tables },
@@ -36,12 +37,12 @@ export default function AdminShell({
     { href: `${base}/customers`, label: am.nav.customers },
     { href: `${base}/analytics`, label: am.nav.analytics },
   ];
-  const clientStatsActive = clientStatsSections.some((s) => pathname.startsWith(s.href));
-  const clientStatsValue = clientStatsActive ? clientStatsSections.find((s) => pathname.startsWith(s.href))?.href : "";
+  const clientStatsActive = clientStatsSections.some((s) => isActivePath(currentPath, s.href));
+  const clientStatsValue = clientStatsActive ? clientStatsSections.find((s) => isActivePath(currentPath, s.href))?.href : "";
   const settingsHref = `${base}/settings`;
-  const settingsActive = pathname.startsWith(settingsHref);
+  const settingsActive = isActivePath(currentPath, settingsHref);
   const docsHref = `${base}/docs`;
-  const docsActive = pathname.startsWith(docsHref);
+  const docsActive = isActivePath(currentPath, docsHref);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
   const [clientStatsOpen, setClientStatsOpen] = useState(false);
@@ -145,14 +146,15 @@ export default function AdminShell({
             </Tooltip>
             <nav className="hidden sm:flex items-center gap-1">
               {navBeforeClientStats.map((n) => {
-                const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
+                const active = n.isHome ? currentPath === normalizePath(n.href) : isActivePath(currentPath, n.href);
                 return (
                   <Link
                     key={n.href}
                     href={n.href}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition ${
+                    aria-current={active ? "page" : undefined}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                       active
-                        ? "bg-primary/15 text-primary"
+                        ? "bg-primary text-on-primary shadow-sm"
                         : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                     }`}
                   >
@@ -168,24 +170,26 @@ export default function AdminShell({
                   }}
                   className={`list-none cursor-pointer select-none px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5 [&::-webkit-details-marker]:hidden ${
                     clientStatsActive
-                      ? "bg-primary/15 text-primary"
+                      ? "bg-primary text-on-primary shadow-sm"
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                   }`}
+                  aria-current={clientStatsActive ? "page" : undefined}
                 >
                   {am.nav.clientsAndStatistics}
                   <ChevronDownIcon />
                 </summary>
                 <div className="absolute left-0 top-full mt-2 min-w-48 rounded-lg border border-outline-variant/40 bg-surface-container shadow-xl p-1 z-50">
                   {clientStatsSections.map((section) => {
-                    const active = pathname.startsWith(section.href);
+                    const active = isActivePath(currentPath, section.href);
                     return (
                       <Link
                         key={section.href}
                         href={section.href}
                         onClick={() => setClientStatsOpen(false)}
-                        className={`block px-3 py-2 rounded-md text-sm transition ${
+                        aria-current={active ? "page" : undefined}
+                        className={`block px-3 py-2 rounded-md text-sm font-medium transition ${
                           active
-                            ? "bg-primary/15 text-primary"
+                            ? "bg-primary text-on-primary shadow-sm"
                             : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                         }`}
                       >
@@ -225,7 +229,7 @@ export default function AdminShell({
                   aria-expanded={tenantMenuOpen}
                   className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
                     settingsActive || tenantMenuOpen
-                      ? "bg-primary/15 text-primary"
+                      ? "bg-primary text-on-primary shadow-sm"
                       : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
                   }`}
                 >
@@ -248,9 +252,10 @@ export default function AdminShell({
                     <Link
                       href={settingsHref}
                       onClick={() => setTenantMenuOpen(false)}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                      aria-current={settingsActive ? "page" : undefined}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                         settingsActive
-                          ? "bg-primary/15 text-primary"
+                          ? "bg-primary text-on-primary shadow-sm"
                           : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
                       }`}
                     >
@@ -276,9 +281,10 @@ export default function AdminShell({
               <Link
                 href={docsHref}
                 aria-label={am.nav.docs}
+                aria-current={docsActive ? "page" : undefined}
                 className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
                   docsActive
-                    ? "bg-primary/15 text-primary"
+                    ? "bg-primary text-on-primary shadow-sm"
                     : "text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
                 }`}
               >
@@ -325,13 +331,14 @@ export default function AdminShell({
         <div className="sm:hidden relative">
           <nav className="flex items-center gap-1 px-4 pb-2 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
             {navBeforeClientStats.map((n) => {
-              const active = n.isHome ? pathname === n.href : pathname.startsWith(n.href);
+              const active = n.isHome ? currentPath === normalizePath(n.href) : isActivePath(currentPath, n.href);
               return (
                 <Link
                   key={n.href}
                   href={n.href}
-                  className={`shrink-0 px-3 py-2 rounded-lg text-sm transition min-h-[36px] flex items-center ${
-                    active ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:text-on-surface"
+                  aria-current={active ? "page" : undefined}
+                  className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition min-h-[36px] flex items-center ${
+                    active ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
                   }`}
                 >
                   {n.label}
@@ -339,7 +346,7 @@ export default function AdminShell({
               );
             })}
             <label className={`shrink-0 min-h-[36px] flex items-center rounded-lg text-sm transition ${
-              clientStatsActive ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:text-on-surface"
+              clientStatsActive ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
             }`}>
               <span className="sr-only">{am.nav.clientsAndStatistics}</span>
               <select
@@ -430,4 +437,14 @@ function SignOutIcon() {
       <path d="M15.5 10H7" />
     </svg>
   );
+}
+
+function normalizePath(pathname: string | null): string {
+  if (!pathname || pathname === "/") return "/";
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
+function isActivePath(pathname: string, href: string): boolean {
+  const normalizedHref = normalizePath(href);
+  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
 }

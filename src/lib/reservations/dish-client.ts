@@ -64,6 +64,13 @@ function absoluteUrl(pathOrUrl: string): string {
   return pathOrUrl.startsWith("http") ? pathOrUrl : `${DISH_BASE_URL}${pathOrUrl.startsWith("/") ? "" : "/"}${pathOrUrl}`;
 }
 
+function withEstablishment(url: string, establishmentId?: string): string {
+  if (!establishmentId) return url;
+  const next = new URL(url);
+  if (!next.searchParams.has("est")) next.searchParams.set("est", establishmentId);
+  return next.toString();
+}
+
 function resolveUrl(pathOrUrl: string, baseUrl: string): string {
   return new URL(decodeHtml(pathOrUrl), baseUrl).toString();
 }
@@ -88,6 +95,19 @@ async function request(jar: CookieJar, url: string, init: RequestInit = {}): Pro
   const res = await fetchWithTimeout(url, { ...init, headers });
   jar.store(url, res.headers);
   return res;
+}
+
+function redirectLocation(res: Response): string | null {
+  return res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+}
+
+function assertNotRedirected(res: Response, context: string): void {
+  const location = redirectLocation(res);
+  if (location) {
+    const target = location.startsWith("http") ? new URL(location) : null;
+    const host = target?.host ? ` to ${target.host}` : "";
+    throw new Error(`${context} redirected${host}; DISH login/session is not valid.`);
+  }
 }
 
 function attr(html: string, name: string): string | undefined {
@@ -242,11 +262,17 @@ export class DishClient {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body,
     });
+    if (loginRes.status >= 400) {
+      const text = stripTags(await loginRes.text());
+      const invalidCredentials = /invalid\s+(email|username|login).*password|invalid.*password/i.test(text);
+      throw new Error(invalidCredentials ? "DISH login failed: invalid email or password." : `DISH login failed (${loginRes.status}).`);
+    }
     let next = loginRes.headers.get("location");
     let guard = 0;
     while (next && guard < 8) {
       currentUrl = resolveUrl(next, currentUrl);
       const res = await request(this.jar, currentUrl);
+      if (res.status >= 400) throw new Error(`DISH login redirect failed (${res.status}).`);
       next = res.headers.get("location");
       guard += 1;
       if (!next && res.url.includes("/reservations")) return;
@@ -258,13 +284,19 @@ export class DishClient {
   }
 
   async fetchReservationsHtml(date: string): Promise<string> {
-    const res = await request(this.jar, `${DISH_BASE_URL}/reservations?date=${encodeURIComponent(date)}&endDate=${encodeURIComponent(date)}`);
+    const url = withEstablishment(
+      `${DISH_BASE_URL}/reservations?date=${encodeURIComponent(date)}&endDate=${encodeURIComponent(date)}`,
+      this.integration.establishmentId,
+    );
+    const res = await request(this.jar, url);
+    assertNotRedirected(res, "DISH reservations request");
     if (res.status >= 400) throw new Error(`DISH reservations request failed (${res.status}).`);
     return res.text();
   }
 
   async fetchReservationDetailHtml(editUrl: string): Promise<string> {
-    const res = await request(this.jar, absoluteUrl(editUrl));
+    const res = await request(this.jar, withEstablishment(absoluteUrl(editUrl), this.integration.establishmentId));
+    assertNotRedirected(res, "DISH reservation detail request");
     if (res.status >= 400) throw new Error(`DISH reservation detail request failed (${res.status}).`);
     return res.text();
   }

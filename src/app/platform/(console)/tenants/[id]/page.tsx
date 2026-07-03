@@ -52,6 +52,7 @@ type TheForkForm = {
 type DishView = {
   enabled: boolean;
   email?: string;
+  establishmentId?: string;
   passwordSet: boolean;
   lastSyncAt?: string;
   lastError?: string;
@@ -61,9 +62,11 @@ type DishForm = {
   enabled: boolean;
   email: string;
   password: string;
+  establishmentId: string;
 };
 
 const EXTERNAL_SYNC_CLIENT_TIMEOUT_MS = 115_000;
+const DISH_HISTORY_BATCH_DAYS = 7;
 
 function encodeBase64Utf8(value: string): string {
   const bytes = new TextEncoder().encode(value);
@@ -137,6 +140,7 @@ export default function TenantDetail() {
     enabled: false,
     email: "",
     password: "",
+    establishmentId: "",
   });
   const [dishBusy, setDishBusy] = useState<string | null>(null);
   const [dishSyncStatus, setDishSyncStatus] = useState<string | null>(null);
@@ -177,6 +181,7 @@ export default function TenantDetail() {
         enabled: d.integration?.enabled ?? false,
         email: d.integration?.email ?? "",
         password: "",
+        establishmentId: d.integration?.establishmentId ?? "",
       });
     } catch {
       /* keep page usable if integration is not configured yet */
@@ -525,21 +530,49 @@ export default function TenantDetail() {
   async function backfillDishHistory() {
     if (!confirm("Backfill DISH reservations from the last 60 days? Existing imports will be skipped and tenant popup notifications will not be sent.")) return;
     setDishBusy("history60");
-    setDishSyncStatus("DISH history backfill running for the last 60 days. Existing imports will be skipped.");
+    setDishSyncStatus("DISH history backfill starting in 7-day batches. Existing imports will be skipped.");
     try {
-      const d = await platformJsonWithTimeout<{
+      type DishHistoryBatchResponse = {
         result: { imported: number; updated: number; skipped: number; errors: number };
-        range: { startDate: string; endDate: string };
-      }>(
-        `/api/platform/tenants/${id}/dish/sync`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "history60" }),
-        },
-        EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
-      );
-      const message = `DISH history backfill complete (${d.range.startDate} to ${d.range.endDate}): ${d.result.imported} imported, ${d.result.skipped} already present/skipped, ${d.result.errors} errors.`;
+        range: {
+          startDate: string;
+          endDate: string;
+          totalStartDate?: string;
+          totalEndDate?: string;
+          nextStartDate?: string;
+          complete?: boolean;
+        };
+      };
+      const totals = { imported: 0, updated: 0, skipped: 0, errors: 0 };
+      let batchStartDate: string | undefined;
+      let complete = false;
+      let totalStartDate = "";
+      let totalEndDate = "";
+      let batches = 0;
+      while (!complete) {
+        batches += 1;
+        const d = await platformJsonWithTimeout<DishHistoryBatchResponse>(
+          `/api/platform/tenants/${id}/dish/sync`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode: "history60", batchStartDate, batchDays: DISH_HISTORY_BATCH_DAYS }),
+          },
+          EXTERNAL_SYNC_CLIENT_TIMEOUT_MS,
+        );
+        totals.imported += d.result.imported;
+        totals.updated += d.result.updated;
+        totals.skipped += d.result.skipped;
+        totals.errors += d.result.errors;
+        totalStartDate = d.range.totalStartDate ?? (totalStartDate || d.range.startDate);
+        totalEndDate = d.range.totalEndDate ?? (totalEndDate || d.range.endDate);
+        complete = d.range.complete !== false || !d.range.nextStartDate;
+        batchStartDate = d.range.nextStartDate;
+        setDishSyncStatus(
+          `DISH history batch ${batches} complete (${d.range.startDate} to ${d.range.endDate}). Totals: ${totals.imported} imported, ${totals.skipped} skipped, ${totals.errors} errors.`,
+        );
+      }
+      const message = `DISH history backfill complete (${totalStartDate} to ${totalEndDate}) in ${batches} batches: ${totals.imported} imported, ${totals.skipped} already present/skipped, ${totals.errors} errors.`;
       setDishSyncStatus(message);
       toast(message);
       await loadDish();
@@ -725,23 +758,31 @@ export default function TenantDetail() {
             Read reservations from DISH using the restaurant manager login. Imported reservations are labeled as external, count against public availability, and stay read-only except local table assignment.
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 gap-3">
+        <div className="space-y-3">
           <Check
             label="Enable DISH sync"
             v={dishForm.enabled}
             on={(v) => setDishForm((p) => ({ ...p, enabled: v }))}
           />
-          <Field label="DISH email" v={dishForm.email} on={(v) => setDishForm((p) => ({ ...p, email: v }))} />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="DISH email" v={dishForm.email} on={(v) => setDishForm((p) => ({ ...p, email: v }))} />
+            <Field
+              label={`DISH password${dish?.passwordSet ? " (leave blank to keep current)" : ""}`}
+              v={dishForm.password}
+              on={(v) => setDishForm((p) => ({ ...p, password: v }))}
+              placeholder={dish?.passwordSet ? "********" : ""}
+              type="password"
+            />
+          </div>
           <Field
-            label={`DISH password${dish?.passwordSet ? " (leave blank to keep current)" : ""}`}
-            v={dishForm.password}
-            on={(v) => setDishForm((p) => ({ ...p, password: v }))}
-            placeholder={dish?.passwordSet ? "********" : ""}
-            type="password"
+            label="DISH establishment id"
+            v={dishForm.establishmentId}
+            on={(v) => setDishForm((p) => ({ ...p, establishmentId: v }))}
+            placeholder="cfa9d0f8-5c36-4f0f-b5f5-481267693e49"
           />
         </div>
         <div className="rounded-lg border border-outline-variant/40 bg-surface-container-high p-3 text-xs text-on-surface-variant">
-          DISH does not provide a public reservation API for this account. This integration is read-only and depends on the manager HTML pages staying compatible; saving credentials always tests the login before enabling sync.
+          DISH does not provide a public reservation API for this account. This integration is read-only and depends on the manager HTML pages staying compatible; saving credentials always tests the login before enabling sync. The establishment id is the `est` value from the DISH Reservation tool URL.
         </div>
         <div className="grid sm:grid-cols-2 gap-2 text-xs text-on-surface-variant">
           <div>Last sync: {dish?.lastSyncAt ?? "never"}</div>

@@ -9,6 +9,7 @@ export interface DishIntegration {
   email?: string;
   password?: string;
   passwordSet: boolean;
+  establishmentId?: string;
   lastSyncAt?: string;
   lastError?: string;
   createdAt: string;
@@ -22,6 +23,7 @@ interface DishIntegrationRow extends RowDataPacket {
   enabled: number;
   email: string | null;
   password_encrypted: string | null;
+  establishment_id: string | null;
   last_sync_at: string | null;
   last_error: string | null;
   created_at: string;
@@ -35,6 +37,7 @@ function toIntegration(row: DishIntegrationRow): DishIntegration {
     email: row.email ?? undefined,
     password: decryptSecret(row.password_encrypted),
     passwordSet: Boolean(row.password_encrypted),
+    establishmentId: row.establishment_id ?? undefined,
     lastSyncAt: row.last_sync_at ?? undefined,
     lastError: row.last_error ?? undefined,
     createdAt: row.created_at,
@@ -83,6 +86,7 @@ export interface SaveDishIntegrationInput {
   enabled?: boolean;
   email?: string;
   password?: string;
+  establishmentId?: string;
 }
 
 export async function saveDishIntegration(
@@ -94,18 +98,20 @@ export async function saveDishIntegration(
   const now = new Date().toISOString();
   const email = input.email !== undefined ? input.email.trim().slice(0, 255) : existing?.email;
   const passwordEncrypted = input.password ? encryptSecret(input.password.slice(0, 1000)) : null;
+  const establishmentId = input.establishmentId !== undefined ? input.establishmentId.trim().slice(0, 80) : existing?.establishmentId;
   const enabled = input.enabled !== undefined ? Boolean(input.enabled) : Boolean(existing?.enabled);
 
   await getPool().query(
     `INSERT INTO tenant_dish_integrations
-      (tenant_id, enabled, email, password_encrypted, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+      (tenant_id, enabled, email, password_encrypted, establishment_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
       enabled = VALUES(enabled),
       email = VALUES(email),
       password_encrypted = COALESCE(VALUES(password_encrypted), password_encrypted),
+      establishment_id = VALUES(establishment_id),
       updated_at = VALUES(updated_at)`,
-    [tenantId, enabled ? 1 : 0, email || null, passwordEncrypted, existing?.createdAt ?? now, now],
+    [tenantId, enabled ? 1 : 0, email || null, passwordEncrypted, establishmentId || null, existing?.createdAt ?? now, now],
   );
   return (await getDishIntegration(tenantId))!;
 }
