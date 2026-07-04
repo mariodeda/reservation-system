@@ -101,8 +101,8 @@ async function seed(overrides: {
     if (o.status && o.status !== "pending") {
       await s.updateReservation(r.id, { status: o.status as never });
     }
-    if (o.source === "admin") {
-      await poolMod.getPool().query("UPDATE reservations SET source='admin' WHERE id=?", [r.id]);
+    if (o.source && o.source !== "web") {
+      await poolMod.getPool().query("UPDATE reservations SET source=? WHERE id=?", [o.source, r.id]);
     }
     results.push(r);
   }
@@ -125,6 +125,18 @@ describe("GET /api/admin/analytics", () => {
     expect(json.byStatus).toEqual({});
     expect(json.avgPartySize).toBe(0);
     expect(json.newVsReturning).toEqual({ new: 0, returning: 0 });
+    expect(json.bySource).toEqual({ web: 0, admin: 0, thefork: 0, dish: 0 });
+    expect(json.sourceBreakdown).toEqual([]);
+    expect(json.externalSummary).toEqual({
+      reservations: 0,
+      activeReservations: 0,
+      covers: 0,
+      cancelled: 0,
+      noShow: 0,
+      reservationShare: 0,
+      coverShare: 0,
+      providers: [],
+    });
   });
 
   it("groups reservations by day (excludes cancelled/no_show)", async () => {
@@ -172,6 +184,54 @@ describe("GET /api/admin/analytics", () => {
     const { bySource } = await res.json();
     expect(bySource.web).toBe(2);
     expect(bySource.admin).toBe(1);
+  });
+
+  it("returns external booking source analytics for imported providers", async () => {
+    await seed([
+      { source: "web", partySize: 2, status: "confirmed" },
+      { source: "admin", partySize: 4, status: "confirmed" },
+      { source: "thefork", partySize: 3, status: "confirmed" },
+      { source: "thefork", partySize: 2, status: "cancelled" },
+      { source: "dish", partySize: 5, status: "completed" },
+      { source: "dish", partySize: 2, status: "no_show" },
+    ]);
+    const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=30d"));
+    const json = await res.json();
+
+    expect(json.bySource.web).toBe(1);
+    expect(json.bySource.admin).toBe(1);
+    expect(json.bySource.thefork).toBe(2);
+    expect(json.bySource.dish).toBe(2);
+
+    expect(json.externalSummary.reservations).toBe(4);
+    expect(json.externalSummary.activeReservations).toBe(2);
+    expect(json.externalSummary.covers).toBe(8);
+    expect(json.externalSummary.cancelled).toBe(1);
+    expect(json.externalSummary.noShow).toBe(1);
+    expect(json.externalSummary.reservationShare).toBeCloseTo(66.7, 1);
+
+    const theFork = json.sourceBreakdown.find((row: { source: string }) => row.source === "thefork");
+    const dish = json.sourceBreakdown.find((row: { source: string }) => row.source === "dish");
+    expect(theFork).toMatchObject({
+      label: "TheFork",
+      external: true,
+      reservations: 2,
+      activeReservations: 1,
+      covers: 3,
+      cancelled: 1,
+      noShow: 0,
+      cancellationRate: 50,
+    });
+    expect(dish).toMatchObject({
+      label: "DISH",
+      external: true,
+      reservations: 2,
+      activeReservations: 1,
+      covers: 5,
+      cancelled: 0,
+      noShow: 1,
+      noShowRate: 50,
+    });
   });
 
   it("groups by service", async () => {

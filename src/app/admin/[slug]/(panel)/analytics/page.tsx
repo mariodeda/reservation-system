@@ -8,13 +8,40 @@ import type { AvailabilityConfig } from "@/lib/reservations/types";
 
 type Period = "7d" | "30d" | "90d" | "365d";
 
+interface SourceAnalytics {
+  source: string;
+  label: string;
+  external: boolean;
+  reservations: number;
+  activeReservations: number;
+  covers: number;
+  cancelled: number;
+  noShow: number;
+  completed: number;
+  reservationShare: number;
+  coverShare: number;
+  cancellationRate: number;
+  noShowRate: number;
+}
+
 interface AnalyticsData {
   period: string;
   from: string;
   to: string;
   byDay: { date: string; reservations: number; covers: number }[];
   byStatus: Record<string, number>;
-  bySource: { web: number; admin: number };
+  bySource: Record<string, number>;
+  sourceBreakdown?: SourceAnalytics[];
+  externalSummary?: {
+    reservations: number;
+    activeReservations: number;
+    covers: number;
+    cancelled: number;
+    noShow: number;
+    reservationShare: number;
+    coverShare: number;
+    providers: SourceAnalytics[];
+  };
   byService: { offering?: string; service: string; reservations: number; covers: number }[];
   avgPartySize: number;
   avgLeadDays: number;
@@ -39,6 +66,21 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "#f87171",
   no_show: "#f43f5e",
 };
+
+const SOURCE_COLORS: Record<string, string> = {
+  web: "#818cf8",
+  admin: "#f2ca50",
+  thefork: "#007064",
+  dish: "#fb6a3a",
+};
+
+function sourceDisplayName(source: string, fallback?: string) {
+  if (source === "web") return am.analytics.web;
+  if (source === "admin") return am.analytics.admin;
+  if (source === "thefork") return am.analytics.theFork;
+  if (source === "dish") return am.analytics.dish;
+  return fallback || source;
+}
 
 // ── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -598,11 +640,52 @@ export default function AnalyticsPage() {
     color: STATUS_COLORS[k] ?? "#6b7280",
   }));
 
-  const sourceTotal = (data?.bySource.web ?? 0) + (data?.bySource.admin ?? 0);
-  const sourceSlices = [
-    { label: am.analytics.web, value: data?.bySource.web ?? 0, color: "#818cf8" },
-    { label: am.analytics.admin, value: data?.bySource.admin ?? 0, color: "#f2ca50" },
-  ];
+  const sourceBreakdown =
+    data?.sourceBreakdown ??
+    Object.entries(data?.bySource ?? {})
+      .filter(([, value]) => value > 0)
+      .map(([source, reservations]) => ({
+        source,
+        label: sourceDisplayName(source),
+        external: source === "thefork" || source === "dish",
+        reservations,
+        activeReservations: reservations,
+        covers: 0,
+        cancelled: 0,
+        noShow: 0,
+        completed: 0,
+        reservationShare: 0,
+        coverShare: 0,
+        cancellationRate: 0,
+        noShowRate: 0,
+      }));
+  const sourceTotal = sourceBreakdown.reduce((sum, row) => sum + row.reservations, 0);
+  const sourceSlices = sourceBreakdown.map((row) => ({
+    label: sourceDisplayName(row.source, row.label),
+    value: row.reservations,
+    color: SOURCE_COLORS[row.source] ?? "#94a3b8",
+  }));
+  const externalSummary =
+    data?.externalSummary ??
+    (() => {
+      const providers = sourceBreakdown.filter((row) => row.external);
+      const reservations = providers.reduce((sum, row) => sum + row.reservations, 0);
+      const covers = providers.reduce((sum, row) => sum + row.covers, 0);
+      return {
+        reservations,
+        activeReservations: providers.reduce((sum, row) => sum + row.activeReservations, 0),
+        covers,
+        cancelled: providers.reduce((sum, row) => sum + row.cancelled, 0),
+        noShow: providers.reduce((sum, row) => sum + row.noShow, 0),
+        reservationShare: sourceTotal ? Math.round((reservations / sourceTotal) * 1000) / 10 : 0,
+        coverShare: totalCovers ? Math.round((covers / totalCovers) * 1000) / 10 : 0,
+        providers,
+      };
+    })();
+  const maxExternalProviderReservations = Math.max(
+    ...externalSummary.providers.map((row) => row.reservations),
+    1,
+  );
 
   const nvr = data?.newVsReturning;
   const nvrTotal = (nvr?.new ?? 0) + (nvr?.returning ?? 0);
@@ -792,6 +875,105 @@ export default function AnalyticsPage() {
                 <p className="text-on-surface-variant text-sm">{am.analytics.noData}</p>
               )}
             </div>
+          </div>
+
+          {/* External booking sources */}
+          <div className={section}>
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant">
+                {am.analytics.externalSources}
+              </h2>
+              <span className="text-xs text-on-surface-variant/60">
+                {am.analytics.externalSourcesHint}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3 border-y border-outline-variant/20 py-3">
+              <div>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {externalSummary.reservations}
+                </div>
+                <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-1">
+                  {am.analytics.externalBookings}
+                </div>
+                <div className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                  {externalSummary.reservationShare}% {am.analytics.ofReservations}
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {externalSummary.covers}
+                </div>
+                <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-1">
+                  {am.analytics.externalCovers}
+                </div>
+                <div className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                  {externalSummary.coverShare}% {am.analytics.ofCovers}
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {externalSummary.cancelled}
+                </div>
+                <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-1">
+                  {am.analytics.cancelled}
+                </div>
+                <div className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                  {am.analytics.fromExternalSources}
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {externalSummary.noShow}
+                </div>
+                <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-1">
+                  {am.analytics.noShow}
+                </div>
+                <div className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                  {am.analytics.fromExternalSources}
+                </div>
+              </div>
+            </div>
+            {externalSummary.providers.length > 0 ? (
+              <div className="space-y-2" onMouseLeave={inlineBarLeave}>
+                {externalSummary.providers.map((provider) => {
+                  const pct = Math.round((provider.reservations / maxExternalProviderReservations) * 100);
+                  const key = `source-${provider.source}`;
+                  const label = sourceDisplayName(provider.source, provider.label);
+                  return (
+                    <HoverableBarRow
+                      key={provider.source}
+                      label={label}
+                      pct={pct}
+                      detail={`${provider.reservations} res · ${provider.covers} cov`}
+                      tipTitle={label}
+                      tipLines={[
+                        `${provider.reservations} ${am.analytics.reservations.toLowerCase()}`,
+                        `${provider.covers} ${am.analytics.covers.toLowerCase()}`,
+                        `${provider.cancelled} ${am.analytics.cancelled.toLowerCase()} · ${provider.cancellationRate}%`,
+                        `${provider.noShow} ${am.analytics.noShow.toLowerCase()} · ${provider.noShowRate}%`,
+                      ]}
+                      dimmed={pageHovered !== null && pageHovered !== key}
+                      onEnter={(e) =>
+                        inlineBarEnter(e, key, label, [
+                          `${provider.reservations} ${am.analytics.reservations.toLowerCase()}`,
+                          `${provider.covers} ${am.analytics.covers.toLowerCase()}`,
+                          `${provider.reservationShare}% ${am.analytics.ofReservations}`,
+                          `${provider.coverShare}% ${am.analytics.ofCovers}`,
+                          `${provider.cancelled} ${am.analytics.cancelled.toLowerCase()} · ${provider.cancellationRate}%`,
+                          `${provider.noShow} ${am.analytics.noShow.toLowerCase()} · ${provider.noShowRate}%`,
+                        ])
+                      }
+                      onMove={inlineBarMove}
+                      onLeave={inlineBarLeave}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-on-surface-variant/60">
+                {am.analytics.noExternalSources}
+              </p>
+            )}
           </div>
 
           {/* Review requests */}

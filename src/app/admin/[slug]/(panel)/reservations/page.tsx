@@ -60,6 +60,9 @@ export default function ReservationsPage() {
 
   const tz = config?.timezone ?? "Europe/Rome";
   const searching = query.trim().length >= 2;
+  const today = todayInTz(tz);
+  const dateShortcutTarget = date === today ? shiftDate(today, 1) : today;
+  const dateShortcutLabel = date === today ? am.reservations.goToTomorrow : am.reservations.goToToday;
 
   const initialLoad = useRef(true);
 
@@ -242,8 +245,8 @@ export default function ReservationsPage() {
                 <ChevronRightIcon className="h-4 w-4" />
               </button>
             </div>
-            <button onClick={() => setDate(todayInTz(tz))} className={`${NAVBTN} px-3 text-sm font-medium`}>
-              {am.reservations.goToToday}
+            <button onClick={() => setDate(dateShortcutTarget)} className={`${NAVBTN} px-3 text-sm font-medium`}>
+              {dateShortcutLabel}
             </button>
             <div className="col-span-3 flex min-w-0 flex-wrap items-center gap-2 sm:ml-1">
               <span className="min-w-0 truncate text-sm font-medium text-on-surface-variant">

@@ -5,6 +5,12 @@ import { getPool } from "@/lib/reservations/mysql-pool";
 import { ensureSchema } from "@/lib/reservations/mysql-schema";
 import { nowInTz } from "@/lib/reservations/availability";
 import { observeAdminRoute } from "@/lib/observability/route-events";
+import {
+  externalReservationLabel,
+  isExternalReservationSource,
+  type ExternalReservationSource,
+} from "@/lib/reservations/external-sources";
+import type { ReservationSource } from "@/lib/reservations/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +28,19 @@ function periodDates(period: string, timezone: string): { from: string; to: stri
 
 export async function GET(req: NextRequest) {
   return observeAdminRoute(req, "/api/admin/analytics", getAnalytics, req);
+}
+
+function sourceLabel(source: string): string {
+  if (source === "web") return "Online";
+  if (source === "admin") return "Staff";
+  if (isExternalReservationSource(source as ReservationSource)) {
+    return externalReservationLabel(source as ExternalReservationSource);
+  }
+  return source || "Unknown";
+}
+
+function rate(part: number, total: number): number {
+  return total ? Math.round((part / total) * 1000) / 10 : 0;
 }
 
 async function getAnalytics(req: NextRequest) {
@@ -55,15 +74,67 @@ async function getAnalytics(req: NextRequest) {
     const byStatus: Record<string, number> = {};
     for (const r of statusRows) byStatus[r.status as string] = Number(r.cnt);
 
-    // Source split
+    // Source split. Keep the legacy bySource object for old clients, and expose
+    // richer source analytics for external booking providers.
     const [srcRows] = await pool.query<RowDataPacket[]>(
-      `SELECT source, COUNT(*) AS cnt FROM reservations
+      `SELECT source,
+              COUNT(*) AS reservations,
+              SUM(CASE WHEN status NOT IN ('cancelled','no_show') THEN 1 ELSE 0 END) AS activeReservations,
+              SUM(CASE WHEN status NOT IN ('cancelled','no_show') THEN party_size ELSE 0 END) AS covers,
+              SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
+              SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) AS noShow,
+              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+       FROM reservations
        WHERE tenant_id = ? AND \`date\` >= ? AND \`date\` <= ?
        GROUP BY source`,
       [tid, from, to],
     );
-    const bySource: Record<string, number> = { web: 0, admin: 0 };
-    for (const r of srcRows) bySource[r.source as string] = Number(r.cnt);
+    const bySource: Record<string, number> = { web: 0, admin: 0, thefork: 0, dish: 0 };
+    const rawSourceBreakdown = srcRows.map((r) => {
+      const source = String(r.source || "web");
+      const reservations = Number(r.reservations ?? 0);
+      const activeReservations = Number(r.activeReservations ?? 0);
+      const covers = Number(r.covers ?? 0);
+      const cancelledCount = Number(r.cancelled ?? 0);
+      const noShowCount = Number(r.noShow ?? 0);
+      const completed = Number(r.completed ?? 0);
+      bySource[source] = reservations;
+      return {
+        source,
+        label: sourceLabel(source),
+        external: isExternalReservationSource(source as ReservationSource),
+        reservations,
+        activeReservations,
+        covers,
+        cancelled: cancelledCount,
+        noShow: noShowCount,
+        completed,
+      };
+    });
+    const sourceReservationTotal = rawSourceBreakdown.reduce((sum, row) => sum + row.reservations, 0);
+    const sourceCoverTotal = rawSourceBreakdown.reduce((sum, row) => sum + row.covers, 0);
+    const sourceBreakdown = rawSourceBreakdown
+      .map((row) => ({
+        ...row,
+        reservationShare: rate(row.reservations, sourceReservationTotal),
+        coverShare: rate(row.covers, sourceCoverTotal),
+        cancellationRate: rate(row.cancelled, row.reservations),
+        noShowRate: rate(row.noShow, row.reservations),
+      }))
+      .sort((a, b) => b.reservations - a.reservations);
+    const externalProviders = sourceBreakdown.filter((row) => row.external);
+    const externalReservations = externalProviders.reduce((sum, row) => sum + row.reservations, 0);
+    const externalCovers = externalProviders.reduce((sum, row) => sum + row.covers, 0);
+    const externalSummary = {
+      reservations: externalReservations,
+      activeReservations: externalProviders.reduce((sum, row) => sum + row.activeReservations, 0),
+      covers: externalCovers,
+      cancelled: externalProviders.reduce((sum, row) => sum + row.cancelled, 0),
+      noShow: externalProviders.reduce((sum, row) => sum + row.noShow, 0),
+      reservationShare: rate(externalReservations, sourceReservationTotal),
+      coverShare: rate(externalCovers, sourceCoverTotal),
+      providers: externalProviders,
+    };
 
     // By offering + service (service ids are only unique within an offering).
     // COALESCE so any pre-migration NULL/'' rows fold into 'main' rather than
@@ -212,6 +283,8 @@ async function getAnalytics(req: NextRequest) {
       })),
       byStatus,
       bySource,
+      sourceBreakdown,
+      externalSummary,
       byService: svcRows.map((r) => ({
         offering: (r.offering as string) || "main",
         service: r.service as string,
