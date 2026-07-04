@@ -108,10 +108,10 @@ export default function CustomersPage() {
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder={am.customers.searchPlaceholder}
-          className="bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm w-72 max-w-full"
+          className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm sm:w-72 sm:max-w-full"
         />
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-on-surface-variant">{am.customers.sortLabel}:</span>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+          <span className="w-full text-xs text-on-surface-variant sm:w-auto">{am.customers.sortLabel}:</span>
           {(["lastVisit", "name", "visits"] as SortBy[]).map((s) => (
             <button
               key={s}

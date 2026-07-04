@@ -77,7 +77,7 @@ describe("DashboardPage table assignment", () => {
   it("loads managed tables and renders the shared assignment dropdown", async () => {
     render(<DashboardPage />);
 
-    expect(await screen.findByText("Jane")).toBeInTheDocument();
+    expect((await screen.findAllByText("Jane")).length).toBeGreaterThan(0);
     expect(await screen.findByRole("combobox")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /5/ })).toBeInTheDocument();
   });
@@ -124,11 +124,11 @@ describe("DashboardPage table assignment", () => {
     });
 
     const { unmount } = render(<DashboardPage />);
-    expect(await screen.findByText("Jane")).toBeInTheDocument();
+    expect((await screen.findAllByText("Jane")).length).toBeGreaterThan(0);
 
     act(() => { intervalCallback?.(); });
 
-    expect(screen.getByText("Jane")).toBeInTheDocument();
+    expect(screen.getAllByText("Jane").length).toBeGreaterThan(0);
     expect(document.querySelectorAll(".animate-pulse")).toHaveLength(0);
     unmount();
     setIntervalSpy.mockRestore();

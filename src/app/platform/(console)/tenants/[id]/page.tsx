@@ -611,7 +611,7 @@ export default function TenantDetail() {
           <h1 className="text-2xl font-semibold">{view.name}</h1>
           <p className="text-xs text-on-surface-variant">/{view.slug} · {view.status === "active" ? am.platform.statusActive : am.platform.statusDisabled}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:w-auto sm:flex">
           <button
             type="button"
             onClick={impersonateTenant}
@@ -623,7 +623,7 @@ export default function TenantDetail() {
           <button onClick={toggleStatus} className="text-sm border border-outline-variant/40 rounded-lg px-3 py-1.5 hover:text-primary">
             {view.status === "active" ? am.platform.tenant.disable : am.platform.tenant.enable}
           </button>
-          <button onClick={remove} className="text-sm border border-rose-500/40 text-rose-300 rounded-lg px-3 py-1.5 hover:bg-rose-500/10">
+          <button onClick={remove} className="text-sm border border-rose-500/40 text-on-surface rounded-lg px-3 py-1.5 hover:bg-rose-500/10">
             {am.platform.tenant.delete}
           </button>
         </div>
@@ -657,12 +657,12 @@ export default function TenantDetail() {
         </p>
         <label className="block">
           <span className="text-xs text-on-surface-variant">{am.platform.tenant.publicKey}</span>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input className={`${field} font-mono`} readOnly value={view.publicKey} onFocus={(e) => e.currentTarget.select()} />
             <button
               type="button"
               onClick={() => { navigator.clipboard?.writeText(view.publicKey); toast(am.platform.tenant.keyCopied); }}
-              className="shrink-0 text-sm border border-outline-variant/40 rounded-lg px-3 hover:text-primary"
+              className="min-h-9 shrink-0 text-sm border border-outline-variant/40 rounded-lg px-3 hover:text-primary"
             >
               {am.platform.tenant.copy}
             </button>
@@ -726,7 +726,7 @@ export default function TenantDetail() {
         <div className="grid sm:grid-cols-3 gap-2 text-xs text-on-surface-variant">
           <div>Last webhook: {formatPlatformDateTime(theFork?.lastWebhookAt)}</div>
           <div>Last sync: {formatPlatformDateTime(theFork?.lastSyncAt)}</div>
-          <div className={theFork?.lastError ? "text-rose-300" : ""}>Last error: {theFork?.lastError ?? "none"}</div>
+          <div className={theFork?.lastError ? "text-error" : ""}>Last error: {theFork?.lastError ?? "none"}</div>
         </div>
         {tfSyncStatus && (
           <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high px-3 py-2 text-xs text-on-surface-variant">
@@ -820,7 +820,7 @@ export default function TenantDetail() {
         </div>
         <div className="grid sm:grid-cols-2 gap-2 text-xs text-on-surface-variant">
           <div>Last sync: {formatPlatformDateTime(dish?.lastSyncAt)}</div>
-          <div className={dish?.lastError ? "text-rose-300" : ""}>Last error: {dish?.lastError ?? "none"}</div>
+          <div className={dish?.lastError ? "text-error" : ""}>Last error: {dish?.lastError ?? "none"}</div>
         </div>
         {dishSyncStatus && (
           <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high px-3 py-2 text-xs text-on-surface-variant">
@@ -1053,9 +1053,9 @@ export default function TenantDetail() {
             </span>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input className={field} value={newHost} onChange={(e) => setNewHost(e.target.value)} placeholder="acme.example.com" />
-          <button onClick={addHost} className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary whitespace-nowrap">{am.platform.tenant.addHost}</button>
+          <button onClick={addHost} className="min-h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary whitespace-nowrap">{am.platform.tenant.addHost}</button>
         </div>
       </section>
 
@@ -1063,9 +1063,9 @@ export default function TenantDetail() {
       <section className={card}>
         <h2 className="font-semibold">{am.platform.tenant.staffLogin}</h2>
         <p className="text-xs text-on-surface-variant">{am.platform.tenant.staffLoginHint(view.slug)}</p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input className={field} type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder={am.platform.tenant.newPassword} />
-          <button onClick={setPassword} className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary whitespace-nowrap">{am.platform.tenant.setPassword}</button>
+          <button onClick={setPassword} className="min-h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary whitespace-nowrap">{am.platform.tenant.setPassword}</button>
         </div>
       </section>
 
@@ -1100,7 +1100,7 @@ export default function TenantDetail() {
             disabled={!!mockBusy}
             onClick={() => mockRun("clear", am.platform.tenant.clearData,
               am.platform.tenant.clearConfirm(view.name))}
-            className="text-sm border border-rose-500/40 text-rose-300 rounded-lg px-3 py-1.5 hover:bg-rose-500/10 disabled:opacity-50"
+            className="text-sm border border-rose-500/40 text-on-surface rounded-lg px-3 py-1.5 hover:bg-rose-500/10 disabled:opacity-50"
           >
             {mockBusy === "clear" ? am.platform.tenant.clearing : am.platform.tenant.clearData}
           </button>
@@ -1198,17 +1198,17 @@ function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => voi
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (!ref.current?.contains(e.target as Node)) onClose(); }}
     >
-      <div ref={ref} className="relative w-full max-w-2xl mx-4 rounded-xl overflow-hidden shadow-2xl" style={{ background: "#1a1916" }}>
-        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+      <div ref={ref} className="relative mx-3 w-full max-w-2xl overflow-hidden rounded-xl bg-surface-container shadow-2xl sm:mx-4">
+        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-3">
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#c9a44a", letterSpacing: "1px", textTransform: "uppercase" }}>
+            <span className="text-xs font-semibold uppercase tracking-widest text-primary">
               {am.platform.tenant.previewTitle}
             </span>
-            <span style={{ fontSize: 11, color: "#666", marginLeft: 4 }}>— {am.platform.tenant.previewSample}</span>
+            <span className="ml-1 text-[11px] text-on-surface-variant">- {am.platform.tenant.previewSample}</span>
           </div>
           <button
             onClick={onClose}
-            style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", color: "#aaa", border: "none", cursor: "pointer" }}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
             aria-label={am.platform.tenant.closePreview}
           >
             <XIcon className="h-3.5 w-3.5" />

@@ -25,10 +25,13 @@ let routes: {
   todayControls: typeof import("@/app/api/admin/today-booking-controls/route");
   adminRes: typeof import("@/app/api/admin/reservations/route");
   adminResId: typeof import("@/app/api/admin/reservations/[id]/route");
+  adminNotifications: typeof import("@/app/api/admin/notifications/route");
+  adminNotificationId: typeof import("@/app/api/admin/notifications/[id]/route");
   proxy: typeof import("@/proxy");
   store: typeof import("@/lib/reservations/store");
   auth: typeof import("@/lib/reservations/auth");
   pool: typeof import("@/lib/reservations/mysql-pool");
+  notificationStore: typeof import("@/lib/reservations/notification-store");
 };
 
 let ipCounter = 0;
@@ -78,10 +81,13 @@ beforeAll(async () => {
     todayControls: await import("@/app/api/admin/today-booking-controls/route"),
     adminRes: await import("@/app/api/admin/reservations/route"),
     adminResId: await import("@/app/api/admin/reservations/[id]/route"),
+    adminNotifications: await import("@/app/api/admin/notifications/route"),
+    adminNotificationId: await import("@/app/api/admin/notifications/[id]/route"),
     proxy: await import("@/proxy"),
     store: await import("@/lib/reservations/store"),
     auth: await import("@/lib/reservations/auth"),
     pool: await import("@/lib/reservations/mysql-pool"),
+    notificationStore: await import("@/lib/reservations/notification-store"),
   };
 
   // Create a tenant mapped to "localhost" with known credentials.
@@ -113,6 +119,7 @@ beforeEach(async () => {
   await pool.query("DELETE FROM external_reservation_links WHERE tenant_id = ?", [tenantId]).catch(() => {});
   await pool.query("DELETE FROM tenant_thefork_integrations WHERE tenant_id = ?", [tenantId]).catch(() => {});
   await pool.query("DELETE FROM tenant_dish_integrations WHERE tenant_id = ?", [tenantId]).catch(() => {});
+  await pool.query("DELETE FROM tenant_notifications WHERE tenant_id = ?", [tenantId]).catch(() => {});
   await pool.query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM tables WHERE tenant_id = ?", [tenantId]);
   await pool.query("DELETE FROM app_config WHERE tenant_id = ?", [tenantId]);
@@ -991,6 +998,79 @@ describe("admin reservations routes", () => {
     expect(del.status).toBe(200);
     const delAgain = await routes.adminResId.DELETE(adminReq(`/api/admin/reservations/${deletable.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: deletable.id }) });
     expect(delAgain.status).toBe(404);
+  });
+
+  it("lists and marks tenant notifications as read through the admin API", async () => {
+    const created = await routes.notificationStore.createTenantNotification({
+      tenantId,
+      type: "reservation.created",
+      title: "New online reservation",
+      source: "web",
+      reservationId: "res-1",
+      dedupeKey: "reservation.created:res-1",
+      metadata: {
+        reservation: {
+          id: "res-1",
+          name: "Jane",
+          partySize: 2,
+          date: "2026-06-12",
+          time: "20:00",
+          service: "dinner",
+          offering: "main",
+          source: "web",
+        },
+      },
+    });
+
+    const listed = await routes.adminNotifications.GET(adminReq("/api/admin/notifications?unread=1"));
+    expect(listed.status).toBe(200);
+    const listedJson = await listed.json();
+    expect(listedJson.unreadCount).toBe(1);
+    expect(listedJson.notifications).toHaveLength(1);
+    expect(listedJson.notifications[0]).toMatchObject({
+      id: created.notification.id,
+      tenantId,
+    });
+
+    const read = await routes.adminNotificationId.PATCH(
+      adminReq(`/api/admin/notifications/${created.notification.id}`, { method: "PATCH", body: { read: true } }),
+      { params: Promise.resolve({ id: created.notification.id }) },
+    );
+    expect(read.status).toBe(200);
+    expect((await read.json()).notification.readAt).toBeTruthy();
+
+    const after = await routes.adminNotifications.GET(adminReq("/api/admin/notifications?unread=1"));
+    expect((await after.json()).unreadCount).toBe(0);
+  });
+
+  it("marks all notifications read and dismisses individual notifications", async () => {
+    const first = await routes.notificationStore.createTenantNotification({
+      tenantId,
+      type: "reservation.created",
+      title: "First",
+      source: "web",
+      reservationId: "res-1",
+      dedupeKey: "res-1",
+    });
+    await routes.notificationStore.createTenantNotification({
+      tenantId,
+      type: "reservation.created",
+      title: "Second",
+      source: "web",
+      reservationId: "res-2",
+      dedupeKey: "res-2",
+    });
+
+    const all = await routes.adminNotifications.POST(adminReq("/api/admin/notifications", { method: "POST" }));
+    expect(all.status).toBe(200);
+    expect(await routes.notificationStore.countUnreadTenantNotifications(tenantId)).toBe(0);
+
+    const dismissed = await routes.adminNotificationId.PATCH(
+      adminReq(`/api/admin/notifications/${first.notification.id}`, { method: "PATCH", body: { dismissed: true } }),
+      { params: Promise.resolve({ id: first.notification.id }) },
+    );
+    expect(dismissed.status).toBe(200);
+    expect((await dismissed.json()).notification.dismissedAt).toBeTruthy();
   });
 });
 

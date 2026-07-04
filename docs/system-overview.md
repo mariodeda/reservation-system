@@ -153,6 +153,24 @@ Review request sends use idempotency checks and a send lock to avoid duplicate
 delivery. Staff can manually send a review request only after a reservation is
 completed.
 
+## Tenant Notifications
+
+Tenant notifications are durable MySQL records scoped by `tenant_id`. They are
+used for operational booking alerts that staff must see even if nobody had the
+admin page open when the event happened.
+
+The tenant header loads unread notifications from `/api/admin/notifications`
+after login and then listens to `/api/admin/events` for live
+`notification.created` events. Mark-read, mark-all-read, and dismiss actions
+write back through admin notification routes, so read state follows the tenant
+session across refreshes, tabs, and devices.
+
+Notifications use a per-tenant duplicate key. Reservation creation events are
+deduped by reservation id. External reservation updates from providers such as
+TheFork and DISH use a broader key that includes the relevant operational slot
+details, so retries do not spam staff but meaningful external changes can still
+surface.
+
 ## Observability
 
 Route handlers use observability wrappers:

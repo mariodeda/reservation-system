@@ -87,7 +87,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label={am.dashboard.stats.reservations} value={active.length} />
         <Stat label={am.dashboard.stats.covers} value={covers} />
         <Stat label={am.dashboard.stats.pending} value={pending} highlight={pending > 0} />

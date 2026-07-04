@@ -132,7 +132,11 @@ function BarChart({
 
   function fmtShort(d: string) {
     const dt = new Date(`${d}T00:00:00Z`);
-    return `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`;
+    return dt.toLocaleDateString("en-US", {
+      timeZone: "UTC",
+      month: "long",
+      day: "numeric",
+    });
   }
   function fmtFull(d: string) {
     const dt = new Date(`${d}T00:00:00Z`);
@@ -149,7 +153,7 @@ function BarChart({
   return (
     <div className="relative">
       <svg
-        viewBox={`0 0 ${W} ${H + (showLabels ? 20 : 4)}`}
+        viewBox={`0 0 ${W} ${H + (showLabels ? 28 : 4)}`}
         className="w-full cursor-crosshair"
         aria-label={`${metric} bar chart`}
         onMouseLeave={() => {
@@ -216,12 +220,12 @@ function BarChart({
                   opacity={0.5}
                 />
               )}
-              {showLabels && i % Math.ceil(data.length / 14) === 0 && (
+              {showLabels && i % Math.ceil(data.length / 10) === 0 && (
                 <text
                   x={x + barW / 2}
-                  y={H + 14}
+                  y={H + 18}
                   textAnchor="middle"
-                  fontSize="9"
+                  fontSize="10"
                   className="fill-on-surface-variant opacity-70"
                 >
                   {fmtShort(d.date)}
@@ -371,69 +375,121 @@ function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: nu
   const max = Math.max(...cells.map((c) => c.covers), 1);
   const lookup = new Map<string, number>();
   for (const c of cells) lookup.set(`${c.weekday}:${c.hour}`, c.covers);
+  const busiest = [...cells]
+    .filter((c) => c.covers > 0)
+    .sort((a, b) => b.covers - a.covers)
+    .slice(0, 5);
+  const weekdayTotals = DISPLAY_ORDER.map((wd, i) => ({
+    weekday: wd,
+    label: WEEKDAY_LABELS[i],
+    covers: cells.filter((c) => c.weekday === wd).reduce((sum, c) => sum + c.covers, 0),
+  })).sort((a, b) => b.covers - a.covers);
+  const busiestDay = weekdayTotals[0];
 
   return (
-    <div className="overflow-x-auto" onMouseLeave={() => setTip(null)}>
-      <table className="border-separate border-spacing-1">
-        <thead>
-          <tr>
-            <th />
-            {hourRange.map((h) => (
-              <th
-                key={h}
-                className="text-[9px] font-normal text-on-surface-variant/70 tabular-nums w-6 text-center"
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {DISPLAY_ORDER.map((wd, i) => (
-            <tr key={wd}>
-              <td className="text-[10px] text-on-surface-variant pr-1 whitespace-nowrap">
-                {WEEKDAY_LABELS[i]}
-              </td>
-              {hourRange.map((h) => {
-                const v = lookup.get(`${wd}:${h}`) ?? 0;
-                const intensity = v / max;
-                return (
-                  <td key={h}>
-                    <div
-                      className={`w-6 h-6 rounded-sm transition-opacity ${v ? "cursor-pointer" : ""}`}
-                      style={{
-                        backgroundColor: v
-                          ? `color-mix(in srgb, var(--brand-primary, #f2ca50) ${Math.round(20 + intensity * 80)}%, transparent)`
-                          : "var(--md-surface-container-high, rgba(255,255,255,0.04))",
-                      }}
-                      onMouseEnter={
-                        v
-                          ? (e) =>
-                              setTip({
-                                x: e.clientX,
-                                y: e.clientY,
-                                title: `${WEEKDAY_LABELS[i]} ${h}:00`,
-                                lines: [`${v} ${am.analytics.covers.toLowerCase()}`],
-                              })
-                          : undefined
-                      }
-                      onMouseMove={
-                        v
-                          ? (e) =>
-                              setTip((t) =>
-                                t ? { ...t, x: e.clientX, y: e.clientY } : null,
-                              )
-                          : undefined
-                      }
-                      onMouseLeave={() => setTip(null)}
-                    />
-                  </td>
-                );
-              })}
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-5 items-start" onMouseLeave={() => setTip(null)}>
+      <div className="overflow-x-auto">
+        <table className="border-separate border-spacing-1 w-full table-fixed min-w-[620px]">
+          <thead>
+            <tr>
+              <th className="w-12" />
+              {hourRange.map((h) => (
+                <th
+                  key={h}
+                  className="text-[10px] font-normal text-on-surface-variant/70 tabular-nums text-center"
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {DISPLAY_ORDER.map((wd, i) => (
+              <tr key={wd}>
+                <td className="text-[10px] text-on-surface-variant pr-1 whitespace-nowrap">
+                  {WEEKDAY_LABELS[i]}
+                </td>
+                {hourRange.map((h) => {
+                  const v = lookup.get(`${wd}:${h}`) ?? 0;
+                  const intensity = v / max;
+                  return (
+                    <td key={h}>
+                      <div
+                        className={`h-8 w-full rounded transition-opacity ${v ? "cursor-pointer" : ""}`}
+                        style={{
+                          backgroundColor: v
+                            ? `color-mix(in srgb, var(--brand-primary, #f2ca50) ${Math.round(20 + intensity * 80)}%, transparent)`
+                            : "var(--md-surface-container-high, rgba(255,255,255,0.04))",
+                        }}
+                        onMouseEnter={
+                          v
+                            ? (e) =>
+                                setTip({
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                  title: `${WEEKDAY_LABELS[i]} ${h}:00`,
+                                  lines: [`${v} ${am.analytics.covers.toLowerCase()}`],
+                                })
+                            : undefined
+                        }
+                        onMouseMove={
+                          v
+                            ? (e) =>
+                                setTip((t) =>
+                                  t ? { ...t, x: e.clientX, y: e.clientY } : null,
+                                )
+                            : undefined
+                        }
+                        onMouseLeave={() => setTip(null)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-3">
+        <div className="rounded-lg border border-outline-variant/25 bg-surface-container-high p-3">
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant">
+            {am.analytics.busiestWindow}
+          </div>
+          <div className="mt-1 text-xl font-semibold tabular-nums">
+            {busiest[0] ? `${WEEKDAY_LABELS[DISPLAY_ORDER.indexOf(busiest[0].weekday)]} ${busiest[0].hour}:00` : "-"}
+          </div>
+          <div className="text-xs text-on-surface-variant mt-1">
+            {busiest[0] ? `${busiest[0].covers} ${am.analytics.covers.toLowerCase()}` : am.analytics.noData}
+          </div>
+        </div>
+        {busiestDay && (
+          <div className="rounded-lg border border-outline-variant/25 bg-surface-container-high p-3">
+            <div className="text-[11px] uppercase tracking-widest text-on-surface-variant">
+              {am.analytics.busiestDay}
+            </div>
+            <div className="mt-1 text-xl font-semibold">{busiestDay.label}</div>
+            <div className="text-xs text-on-surface-variant mt-1">
+              {busiestDay.covers} {am.analytics.covers.toLowerCase()}
+            </div>
+          </div>
+        )}
+        <div className="rounded-lg border border-outline-variant/25 bg-surface-container-high p-3">
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">
+            {am.analytics.topSlots}
+          </div>
+          <div className="space-y-1.5">
+            {busiest.map((cell) => {
+              const label = `${WEEKDAY_LABELS[DISPLAY_ORDER.indexOf(cell.weekday)]} ${cell.hour}:00`;
+              return (
+                <div key={`${cell.weekday}-${cell.hour}`} className="flex items-center justify-between gap-3 text-xs">
+                  <span className="text-on-surface">{label}</span>
+                  <span className="text-on-surface-variant tabular-nums">{cell.covers}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
       {tip && <Tip tip={tip} />}
     </div>
   );
@@ -583,6 +639,99 @@ function HoverableBarRow({
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+
+function WaitlistFunnel({
+  waitlist,
+}: {
+  waitlist: NonNullable<AnalyticsData["waitlist"]>;
+}) {
+  const waitingPct = waitlist.total ? Math.round((waitlist.waiting / waitlist.total) * 100) : 0;
+  const seatedPct = waitlist.total ? Math.round((waitlist.seated / waitlist.total) * 100) : 0;
+  const leftPct = waitlist.total ? Math.round((waitlist.left / waitlist.total) * 100) : 0;
+  const expiredPct = waitlist.total ? Math.round((waitlist.expired / waitlist.total) * 100) : 0;
+  const unresolved = waitlist.waiting + waitlist.expired;
+  const segments = [
+    { key: "seated", label: am.analytics.wlSeated, value: waitlist.seated, pct: seatedPct, color: "#34d399" },
+    { key: "waiting", label: am.analytics.wlWaiting, value: waitlist.waiting, pct: waitingPct, color: "#f2ca50" },
+    { key: "left", label: am.analytics.wlLeft, value: waitlist.left, pct: leftPct, color: "#fb7185" },
+    { key: "expired", label: am.analytics.wlExpired, value: waitlist.expired, pct: expiredPct, color: "#94a3b8" },
+  ];
+
+  return (
+    <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-5 items-stretch">
+      <div className="rounded-lg border border-outline-variant/25 bg-surface-container-high p-4 flex flex-col justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant">
+            {am.analytics.wlConversion}
+          </div>
+          <div className="mt-2 flex items-end gap-2">
+            <span className="text-4xl font-semibold tabular-nums leading-none">
+              {waitlist.conversionRate}%
+            </span>
+            <span className="text-xs text-on-surface-variant pb-1">
+              {waitlist.seated}/{waitlist.total}
+            </span>
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="h-3 rounded-full overflow-hidden bg-surface-container border border-outline-variant/20 flex">
+            {segments.map((segment) => (
+              <div
+                key={segment.key}
+                style={{ width: `${segment.pct}%`, backgroundColor: segment.color }}
+                className="h-full"
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            {segments.map((segment) => (
+              <div key={segment.key} className="flex items-center gap-2 text-xs">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
+                <span className="text-on-surface-variant">{segment.label}</span>
+                <span className="ml-auto font-semibold tabular-nums">{segment.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-3 gap-3">
+        <div className="rounded-lg border border-outline-variant/25 bg-surface-container-high p-4">
+          <div className="text-2xl font-semibold tabular-nums">{waitlist.total}</div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-2">
+            {am.analytics.wlTotal}
+          </div>
+          <div className="text-xs text-on-surface-variant/70 mt-1">
+            {am.analytics.waitlistHint}
+          </div>
+        </div>
+        <div className="rounded-lg border border-outline-variant/25 bg-surface-container-high p-4">
+          <div className="text-2xl font-semibold tabular-nums">
+            {waitlist.avgQuotedWait ? waitlist.avgQuotedWait : "-"}
+          </div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-2">
+            {am.analytics.wlAvgWait}
+          </div>
+          <div className="text-xs text-on-surface-variant/70 mt-1">
+            {waitlist.avgQuotedWait ? am.analytics.minUnit : am.analytics.noData}
+          </div>
+        </div>
+        <div className={`rounded-lg border p-4 ${
+          unresolved
+            ? "border-amber-400/40 bg-amber-400/10"
+            : "border-outline-variant/25 bg-surface-container-high"
+        }`}>
+          <div className="text-2xl font-semibold tabular-nums">{unresolved}</div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-2">
+            {am.analytics.wlNeedsAttention}
+          </div>
+          <div className="text-xs text-on-surface-variant/70 mt-1">
+            {waitlist.waiting} {am.analytics.wlWaiting.toLowerCase()} / {waitlist.expired} {am.analytics.wlExpired.toLowerCase()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const section =
   "rounded-xl border border-outline-variant/30 bg-surface-container p-5 space-y-3";
@@ -1130,7 +1279,8 @@ export default function AnalyticsPage() {
                   {am.analytics.waitlistHint}
                 </span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+              <WaitlistFunnel waitlist={data.waitlist} />
+              <div className="hidden">
                 <StatCard
                   label={am.analytics.wlTotal}
                   value={String(data.waitlist.total)}

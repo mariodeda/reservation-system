@@ -43,8 +43,8 @@ export default function PlatformShell({
   return (
     <div data-admin data-theme={theme} className="min-h-screen bg-background text-on-surface">
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
-        <div className={`${fullWidth ? "w-full px-4 sm:px-6 lg:px-8" : "max-w-5xl mx-auto px-4"} h-14 flex items-center justify-between gap-4`}>
-          <div className="flex items-center gap-6 min-w-0">
+        <div className={`${fullWidth ? "w-full px-3 sm:px-6 lg:px-8" : "max-w-5xl mx-auto px-3 sm:px-4"} h-14 flex items-center justify-between gap-2 sm:gap-4`}>
+          <div className="flex items-center gap-4 md:gap-6 min-w-0">
             <Link href="/platform" className="flex items-center gap-2 text-primary">
               <SystemLogo className="h-7 w-7" />
               <span className="font-display-lg text-[16px] uppercase tracking-tighter truncate hidden sm:inline">
@@ -58,7 +58,7 @@ export default function PlatformShell({
               <NavLink href="/platform/docs" active={isActivePath(currentPath, "/platform/docs")}>Docs</NavLink>
             </nav>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <span className="text-sm text-on-surface-variant hidden sm:inline mr-1">{username}</span>
             <Tooltip content={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}>
               <button
@@ -88,14 +88,23 @@ export default function PlatformShell({
             </div>
             <button
               onClick={logout}
-              className="text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-3 py-1.5 transition"
+              className="text-xs sm:text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-2 sm:px-3 py-1.5 transition"
             >
               {am.nav.signOut}
             </button>
           </div>
         </div>
+        <div className="md:hidden relative">
+          <nav className={`${fullWidth ? "px-3" : "px-3 sm:px-4"} flex items-center gap-1 pb-2 overflow-x-auto scrollbar-none`} aria-label="Platform" style={{ WebkitOverflowScrolling: "touch" }}>
+            <MobileNavLink href="/platform" active={isPlatformRestaurantsActive(currentPath)}>Restaurants</MobileNavLink>
+            <MobileNavLink href="/platform/logs" active={isActivePath(currentPath, "/platform/logs")}>Logs</MobileNavLink>
+            <MobileNavLink href="/platform/email-logs" active={isActivePath(currentPath, "/platform/email-logs")}>Email logs</MobileNavLink>
+            <MobileNavLink href="/platform/docs" active={isActivePath(currentPath, "/platform/docs")}>Docs</MobileNavLink>
+          </nav>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface-container/95 to-transparent" aria-hidden="true" />
+        </div>
       </header>
-      <main className={fullWidth ? "w-full px-4 py-6 sm:px-6 lg:px-8" : "max-w-5xl mx-auto px-4 py-6"}>{children}</main>
+      <main className={fullWidth ? "w-full px-3 py-4 sm:px-6 sm:py-6 lg:px-8" : "max-w-5xl mx-auto px-3 py-4 sm:px-4 sm:py-6"}>{children}</main>
     </div>
   );
 }
@@ -106,6 +115,22 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
       href={href}
       aria-current={active ? "page" : undefined}
       className={`rounded-lg px-3 py-1.5 font-medium transition ${
+        active
+          ? "bg-primary text-on-primary shadow-sm"
+          : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MobileNavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition min-h-[36px] flex items-center ${
         active
           ? "bg-primary text-on-primary shadow-sm"
           : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"

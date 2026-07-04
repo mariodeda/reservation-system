@@ -19,8 +19,10 @@ const reservationEvents = vi.hoisted(() => ({
     source: "web" | "admin" | "thefork" | "dish";
     receivedAt: number;
     read: boolean;
+    live?: boolean;
   }>,
   markRead: vi.fn(),
+  dismiss: vi.fn(),
   markAllRead: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
@@ -35,6 +37,7 @@ vi.mock("@/components/admin/useReservationEvents", () => ({
     unreadCount: reservationEvents.notifications.filter((n) => !n.read).length,
     connected: true,
     markRead: reservationEvents.markRead,
+    dismiss: reservationEvents.dismiss,
     markAllRead: reservationEvents.markAllRead,
   }),
 }));
@@ -50,6 +53,7 @@ beforeEach(() => {
   refresh.mockReset();
   reservationEvents.notifications = [];
   reservationEvents.markRead.mockReset();
+  reservationEvents.dismiss.mockReset();
   reservationEvents.markAllRead.mockReset();
   pathname.value = "/admin/acme/reservations";
 });
@@ -83,7 +87,7 @@ describe("AdminShell", () => {
     const italian = screen.getByRole("button", { name: "Italiano" });
     expect(screen.getByTestId("language-flag-it")).toBeInTheDocument();
     expect(screen.getByTestId("language-flag-en")).toBeInTheDocument();
-    expect(settingsButton.className).toContain("text-primary");
+    expect(settingsButton.className).toContain("bg-primary");
     expect(helpLink).toHaveAttribute("href", "/admin/acme/docs");
     expect(settingsButton.compareDocumentPosition(italian) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(settingsButton.compareDocumentPosition(helpLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -121,7 +125,7 @@ describe("AdminShell", () => {
 
     const combined = screen.getAllByText("Clients & Statistics").find((el) => el.tagName.toLowerCase() === "summary");
     expect(combined).toBeTruthy();
-    expect(combined?.className).toContain("text-primary");
+    expect(combined?.className).toContain("bg-primary");
     expect(screen.getByRole("link", { name: "Clients" }).getAttribute("href")).toBe("/admin/acme/customers");
     expect(screen.getByRole("link", { name: "Statistics" }).getAttribute("href")).toBe("/admin/acme/analytics");
   });
@@ -161,7 +165,7 @@ describe("AdminShell", () => {
     pathname.value = "/admin/acme/reservations";
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
     const reservations = screen.getAllByRole("link", { name: "Reservations" })[0];
-    expect(reservations.className).toContain("text-primary");
+    expect(reservations.className).toContain("bg-primary");
   });
 
   it("logs out: POSTs then redirects to the tenant's login", async () => {
@@ -190,13 +194,14 @@ describe("AdminShell", () => {
       source: "web",
       receivedAt: Date.now(),
       read: false,
+      live: true,
     }];
 
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     act(() => { vi.advanceTimersByTime(400); });
 
-    expect(reservationEvents.markRead).toHaveBeenCalledWith("reservation.created:res-1:1:0");
+    expect(reservationEvents.dismiss).toHaveBeenCalledWith("reservation.created:res-1:1:0");
   });
 
   it("clears visible reservation toasts when marking all notifications read", async () => {
@@ -212,6 +217,7 @@ describe("AdminShell", () => {
       source: "web",
       receivedAt: Date.now(),
       read: false,
+      live: true,
     }];
 
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
@@ -274,5 +280,29 @@ describe("AdminShell", () => {
 
     await user.click(screen.getByRole("button", { name: /notifications/i }));
     expect(screen.getAllByText("External update").length).toBeGreaterThan(0);
+  });
+
+  it("caps the notification popup width for small viewports", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    const popup = screen.getByText("Mark all read").closest(".absolute");
+
+    expect(popup).toHaveClass("w-[calc(100vw-1.5rem)]");
+    expect(popup).toHaveClass("max-w-sm");
   });
 });

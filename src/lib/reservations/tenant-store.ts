@@ -201,6 +201,7 @@ class MySqlTenantStore implements TenantStore {
     await pool.query("DELETE FROM external_reservation_links WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM tenant_dish_integrations WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM tenant_thefork_integrations WHERE tenant_id = ?", [tenantId]);
+    await pool.query("DELETE FROM tenant_notifications WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM reservation_emails WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM tenant_smtp_health WHERE tenant_id = ?", [tenantId]);
     await pool.query("DELETE FROM waitlist WHERE tenant_id = ?", [tenantId]);

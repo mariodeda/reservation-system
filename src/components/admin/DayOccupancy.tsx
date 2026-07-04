@@ -162,7 +162,7 @@ export default function DayOccupancy({
                         {am.availability.covers(s.booked, s.capacity)}
                       </span>
                       {(s.overbookedBy ?? 0) > 0 && (
-                        <span className="mt-1 inline-flex items-center gap-1 rounded border border-rose-300/40 bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-100">
+                        <span className="mt-1 inline-flex items-center gap-1 rounded border border-rose-300/40 bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-on-surface">
                           <WarningIcon />
                           {am.availability.overbookedShort(s.overbookedBy ?? 0)}
                         </span>
@@ -205,12 +205,12 @@ export default function DayOccupancy({
 
             <div className="space-y-4 px-4 py-4 sm:px-5">
               {selectedSlot.overbookedBy > 0 && (
-                <div className="rounded-lg border border-rose-400/40 bg-rose-500/15 px-3 py-3 text-sm text-rose-100">
+                <div className="rounded-lg border border-rose-400/40 bg-rose-500/15 px-3 py-3 text-sm text-on-surface">
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-rose-200"><WarningIcon /></span>
+                    <span className="mt-0.5 text-error"><WarningIcon /></span>
                     <div>
                       <div className="font-semibold">{am.availability.overbookedTitle(selectedSlot.overbookedBy)}</div>
-                      <div className="mt-1 text-xs text-rose-100/80">{am.availability.overbookedHint}</div>
+                      <div className="mt-1 text-xs text-on-surface-variant">{am.availability.overbookedHint}</div>
                     </div>
                   </div>
                 </div>
@@ -352,7 +352,7 @@ function slotCoverStatus(
     return {
       label: am.availability.overbookedTitle(overbookedBy),
       shortLabel: am.availability.overbookedStateShort,
-      className: "bg-rose-600/25 text-rose-100 border-rose-300/50 ring-1 ring-rose-300/30",
+      className: "bg-rose-600/25 text-on-surface border-rose-300/50 ring-1 ring-rose-300/30",
       dotClass: "bg-rose-100",
     };
   }

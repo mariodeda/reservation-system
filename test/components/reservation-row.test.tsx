@@ -31,7 +31,7 @@ afterEach(() => vi.restoreAllMocks());
 describe("ReservationRow", () => {
   it("renders the core reservation details", () => {
     render(<ReservationRow r={row()} onChanged={() => {}} />);
-    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+    expect(screen.getAllByText("Jane Doe").length).toBeGreaterThan(0);
     expect(screen.getByText(/4 guests/)).toBeInTheDocument();
     expect(screen.getByText("Pending")).toBeInTheDocument();
   });
@@ -128,7 +128,7 @@ describe("ReservationRow", () => {
     render(<ReservationRow r={row({ status: "completed", tableLabel: "Patio 2" })} onChanged={() => {}} />);
 
     expect(screen.getByText("20:00")).toBeInTheDocument();
-    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+    expect(screen.getAllByText("Jane Doe").length).toBeGreaterThan(0);
     expect(screen.getByText(/4 guests/)).toBeInTheDocument();
     expect(screen.getByText("Completed")).toBeInTheDocument();
     expect(screen.queryByText("Table: Patio 2")).not.toBeInTheDocument();
@@ -326,5 +326,17 @@ describe("ReservationRow", () => {
     render(<ReservationRow r={row({ status: "seated" })} onChanged={() => {}} />);
     await user.click(screen.getByRole("button", { name: "Completed" }));
     expect(toast).toHaveBeenCalledWith(expect.stringMatching(/could not update/i), "error");
+  });
+
+  it("keeps quick actions stacked on mobile and as a right rail on desktop", () => {
+    render(<ReservationRow r={row({ status: "seated" })} onChanged={() => {}} />);
+
+    const completed = screen.getByRole("button", { name: "Completed" });
+    const rail = completed.closest(".border-t");
+
+    expect(rail).toHaveClass("border-t");
+    expect(rail).toHaveClass("md:w-[150px]");
+    expect(rail).toHaveClass("md:border-l");
+    expect(rail).toHaveClass("md:border-t-0");
   });
 });

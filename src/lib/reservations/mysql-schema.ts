@@ -61,6 +61,37 @@ type Migration = { version: number; run: (pool: Pool) => Promise<void> };
 
 const MIGRATIONS: Migration[] = [
   {
+    // Durable tenant notification inbox. SSE remains a live delivery channel,
+    // but this table is the source of truth so staff see missed notifications
+    // after login, refresh, deployments, or reconnects.
+    version: 23,
+    run: async (pool) => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tenant_notifications (
+          id CHAR(36) NOT NULL PRIMARY KEY,
+          tenant_id CHAR(36) NOT NULL,
+          type VARCHAR(64) NOT NULL,
+          severity VARCHAR(12) NOT NULL DEFAULT 'info',
+          title VARCHAR(160) NOT NULL,
+          body VARCHAR(500) NULL,
+          source VARCHAR(24) NOT NULL DEFAULT 'system',
+          reservation_id CHAR(36) NULL,
+          reference VARCHAR(16) NULL,
+          dedupe_key VARCHAR(191) NOT NULL,
+          metadata JSON NULL,
+          created_at VARCHAR(32) NOT NULL,
+          read_at VARCHAR(32) NULL,
+          dismissed_at VARCHAR(32) NULL,
+          expires_at VARCHAR(32) NULL,
+          UNIQUE KEY uq_tn_tenant_dedupe (tenant_id, dedupe_key),
+          INDEX idx_tn_tenant_unread (tenant_id, read_at, created_at),
+          INDEX idx_tn_tenant_created (tenant_id, created_at),
+          INDEX idx_tn_reservation (tenant_id, reservation_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    },
+  },
+  {
     // One-way external reservation sync from TheFork. Credentials are managed
     // by platform operators per tenant; imported reservation rows stay in the
     // canonical reservations table so public availability counts them.

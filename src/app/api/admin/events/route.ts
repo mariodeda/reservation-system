@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { reservationBus, type ReservationEvent } from "@/lib/reservations/events";
 import { observeAdminRoute } from "@/lib/observability/route-events";
+import { notificationBus, type NotificationEvent } from "@/lib/reservations/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,9 +36,14 @@ async function getEvents(req: NextRequest) {
         if (e.tenantId !== tenantId) return;
         try { controller.enqueue(sse("reservation.updated", e)); } catch { /* closed */ }
       };
+      const onNotification = (e: NotificationEvent) => {
+        if (e.tenantId !== tenantId) return;
+        try { controller.enqueue(sse("notification.created", e.notification)); } catch { /* closed */ }
+      };
 
       reservationBus.on("reservation.created", onCreated);
       reservationBus.on("reservation.updated", onUpdated);
+      notificationBus.on("notification.created", onNotification);
 
       // 25 s heartbeat — keeps the connection alive through proxies
       const hb = setInterval(() => {
@@ -47,6 +53,7 @@ async function getEvents(req: NextRequest) {
       req.signal.addEventListener("abort", () => {
         reservationBus.off("reservation.created", onCreated);
         reservationBus.off("reservation.updated", onUpdated);
+        notificationBus.off("notification.created", onNotification);
         clearInterval(hb);
         try { controller.close(); } catch { /* already closed */ }
       });

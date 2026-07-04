@@ -147,12 +147,12 @@ export default function AvailabilityPage() {
     <div className="space-y-6 pb-24">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-semibold">{am.availability.title}</h1>
-        <div className="flex items-center gap-3">
-          {saved && <span className="text-emerald-400 text-sm">{am.availability.savedIndicator}</span>}
+        <div className="flex w-full items-center gap-3 sm:w-auto">
+          {saved && <span className="text-on-surface-variant text-sm">{am.availability.savedIndicator}</span>}
           <button
             onClick={save}
             disabled={saving}
-            className="bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60"
+            className="ml-auto bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60 sm:ml-0"
           >
             {saving ? am.availability.saving : am.availability.saveChanges}
           </button>
@@ -237,7 +237,7 @@ export default function AvailabilityPage() {
                 <div className={`flex items-center gap-3 px-4 py-3 lg:items-start lg:flex-col lg:gap-2 ${isOpen ? "" : "opacity-60"}`}>
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="font-medium text-sm min-w-24 lg:min-w-0">{label}</span>
-                    <span className={`text-[11px] font-medium ${isOpen ? "text-emerald-400" : "text-on-surface-variant"}`}>
+                    <span className={`text-[11px] font-medium ${isOpen ? "text-on-surface" : "text-on-surface-variant"}`}>
                       {isOpen ? am.availability.open : am.availability.closed}
                     </span>
                   </div>
@@ -306,7 +306,7 @@ export default function AvailabilityPage() {
                           })
                         }
                       />
-                      {sched.closed ? <span className="text-on-surface-variant">{am.availability.closed}</span> : <span className="text-emerald-400">{am.availability.open}</span>}
+                      {sched.closed ? <span className="text-on-surface-variant">{am.availability.closed}</span> : <span className="text-on-surface">{am.availability.open}</span>}
                     </label>
                   </div>
                   <button
@@ -327,8 +327,8 @@ export default function AvailabilityPage() {
             ))}
         </div>
 
-        <div className="flex gap-2">
-          <input type="date" value={overrideDate} onChange={(e) => setOverrideDate(e.target.value)} className={field} />
+        <div className="flex flex-wrap gap-2">
+          <input type="date" value={overrideDate} onChange={(e) => setOverrideDate(e.target.value)} className={`${field} min-w-[9rem] flex-1 sm:flex-none`} />
           <button
             onClick={() => {
               if (!overrideDate) return;
@@ -341,7 +341,7 @@ export default function AvailabilityPage() {
               });
               setOverrideDate("");
             }}
-            className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary"
+            className="min-h-8 flex-1 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary sm:flex-none"
           >
             {am.availability.addSpecialDate}
           </button>
@@ -371,15 +371,15 @@ export default function AvailabilityPage() {
             </span>
           ))}
         </div>
-        <div className="flex gap-2">
-          <input type="date" value={newClosure} onChange={(e) => setNewClosure(e.target.value)} className={field} />
+        <div className="flex flex-wrap gap-2">
+          <input type="date" value={newClosure} onChange={(e) => setNewClosure(e.target.value)} className={`${field} min-w-[9rem] flex-1 sm:flex-none`} />
           <button
             onClick={() => {
               if (newClosure && !config.closures.includes(newClosure))
                 update((c) => c.closures.push(newClosure));
               setNewClosure("");
             }}
-            className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary"
+            className="min-h-8 flex-1 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary sm:flex-none"
           >
             {am.availability.addClosedDay}
           </button>
@@ -422,9 +422,9 @@ export default function AvailabilityPage() {
               </div>
             ))}
         </div>
-        <div className="flex gap-2">
-          <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className={field} />
-          <input type="time" value={blockTime} onChange={(e) => setBlockTime(e.target.value)} className={field} />
+        <div className="flex flex-wrap gap-2">
+          <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className={`${field} min-w-[9rem] flex-1 sm:flex-none`} />
+          <input type="time" value={blockTime} onChange={(e) => setBlockTime(e.target.value)} className={`${field} min-w-[7rem] flex-1 sm:flex-none`} />
           <button
             onClick={() => {
               if (!blockDate || !blockTime) return;
@@ -435,7 +435,7 @@ export default function AvailabilityPage() {
               });
               setBlockTime("");
             }}
-            className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary"
+            className="min-h-8 flex-1 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 text-sm hover:border-primary sm:flex-none"
           >
             {am.availability.blockSlot}
           </button>
@@ -529,12 +529,12 @@ function OfferingsBar({
       </div>
       {/* Inline editor for the selected offering */}
       <div className="flex items-end gap-2 flex-wrap border-t border-outline-variant/20 pt-3">
-        <label className="flex flex-col gap-1">
+        <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
           <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{am.availability.offeringName}</span>
           <input
             value={active.label}
             onChange={(e) => onRename(active.id, e.target.value)}
-            className={`${field} w-44`}
+            className={`${field} w-full sm:w-44`}
             maxLength={60}
           />
         </label>

@@ -187,7 +187,7 @@ function TableCard({
   })();
 
   return (
-    <div className={`flex items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface-container p-3 ${table.active ? "" : "opacity-50"}`}>
+    <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface-container p-3 ${table.active ? "" : "opacity-50"}`}>
       {/* Avatar chip — short abbreviation, never overflows */}
       <div className="w-10 h-10 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-bold shrink-0 text-xs text-center leading-tight overflow-hidden">
         {abbrev}
@@ -214,7 +214,7 @@ function TableCard({
           )}
         </div>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex w-full items-center justify-end gap-3 shrink-0 sm:w-auto">
         <button onClick={() => setEditing(true)} className="text-primary hover:underline text-xs whitespace-nowrap">
           {am.tables.edit}
         </button>

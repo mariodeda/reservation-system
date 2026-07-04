@@ -24,10 +24,10 @@ function formatTime(t: string) {
 }
 
 function sourceBadgeClass(source: ReservationNotification["source"]) {
-  if (source === "web") return "bg-emerald-400/15 text-emerald-400";
-  if (source === "thefork") return "bg-amber-400/15 text-amber-500";
-  if (source === "dish") return "bg-orange-400/15 text-orange-400";
-  return "bg-sky-400/15 text-sky-400";
+  if (source === "web") return "bg-emerald-400/15 text-on-surface";
+  if (source === "thefork") return "bg-amber-400/15 text-on-surface";
+  if (source === "dish") return "bg-orange-400/15 text-on-surface";
+  return "bg-sky-400/15 text-on-surface";
 }
 
 function sourceAccentClass(source: ReservationNotification["source"]) {
@@ -90,7 +90,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
         transform: visible ? "translateY(0)" : "translateY(16px)",
       }}
     >
-      <div className="relative overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl w-80">
+      <div className="relative w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl sm:w-80">
         {/* colour accent strip */}
         <div className={`absolute left-0 top-0 bottom-0 w-1 ${sourceAccentClass(n.source)}`} />
 
@@ -158,7 +158,7 @@ interface ToastStackProps {
 export function ReservationToastStack({ toasts, slug, onDismiss }: ToastStackProps) {
   if (toasts.length === 0) return null;
   return (
-    <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 items-end pointer-events-none">
+    <div className="fixed inset-x-3 bottom-3 z-[200] flex flex-col gap-2 items-stretch pointer-events-none sm:inset-x-auto sm:bottom-6 sm:right-6 sm:items-end">
       {toasts.map((n) => (
         <ReservationToast key={n.notificationId} n={n} slug={slug} onDismiss={() => onDismiss(n.notificationId)} />
       ))}
@@ -257,13 +257,13 @@ export function NotificationBell({
       </Tooltip>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-10 w-[calc(100vw-1.5rem)] max-w-sm rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
           {/* header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-outline-variant/20">
             <span className="text-sm font-semibold text-on-surface">{am.notifications.title}</span>
             <div className="flex items-center gap-2">
               {!connected && (
-                <span className="text-[10px] text-amber-400 font-medium">{am.notifications.reconnectingShort}</span>
+                <span className="text-[10px] text-on-surface-variant font-medium">{am.notifications.reconnectingShort}</span>
               )}
               {visibleUnreadCount > 0 && (
                 <button

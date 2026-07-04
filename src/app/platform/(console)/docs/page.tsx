@@ -20,12 +20,12 @@ export const metadata = {
 export default async function PlatformDocsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ doc?: string }>;
+  searchParams?: Promise<{ doc?: string; lang?: string }>;
 }) {
   const params = await searchParams;
   const activeDoc = platformDocBySlug(params?.doc);
   const cookieStore = await cookies();
-  const lang = platformDocLang(cookieStore.get("admin-locale")?.value);
+  const lang = platformDocLang(params?.lang ?? cookieStore.get("admin-locale")?.value);
   const markdown = await readPlatformDoc(activeDoc, lang);
   const groups = Array.from(new Set(PLATFORM_DOCS.map((doc) => doc.group)));
   const copy = lang === "it"
@@ -62,7 +62,7 @@ export default async function PlatformDocsPage({
                   return (
                     <Link
                       key={doc.slug}
-                      href={`/platform/docs?doc=${encodeURIComponent(doc.slug)}`}
+                      href={`/platform/docs?doc=${encodeURIComponent(doc.slug)}${lang === "it" ? "&lang=it" : ""}`}
                       className={`block rounded-lg px-2.5 py-2 text-sm transition ${
                         active
                           ? "bg-primary/15 text-primary"

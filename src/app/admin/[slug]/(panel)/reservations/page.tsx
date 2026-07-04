@@ -204,12 +204,12 @@ export default function ReservationsPage() {
 
   return (
     <div className="space-y-3 sm:space-y-5">
-      <div className="flex items-center justify-between gap-2 sm:gap-3">
+      <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
         <h1 className="min-w-0 flex-1 truncate text-xl sm:text-2xl font-semibold">{am.reservations.title}</h1>
-        <div className="flex shrink-0 gap-2">
+        <div className="grid shrink-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex">
           <button
             onClick={() => { setShowWalkIn(true); setShowForm(false); }}
-            className="inline-flex items-center gap-2 border border-outline-variant/40 text-on-surface-variant hover:text-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition"
+            className="inline-flex items-center justify-center gap-2 border border-outline-variant/40 text-on-surface-variant hover:text-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition"
           >
             <WalkInIcon />
             {am.walkIn.button}

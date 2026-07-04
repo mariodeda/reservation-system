@@ -88,7 +88,7 @@ export default function TodayBookingControls() {
           aria-label={am.bookingControls.button}
           className={`relative h-8 px-2.5 flex items-center gap-1.5 rounded-lg border transition text-xs font-semibold ${
             stopped > 0
-              ? "border-amber-400/40 bg-amber-400/15 text-amber-200 hover:bg-amber-400/20"
+              ? "border-amber-400/40 bg-amber-400/15 text-on-surface hover:bg-amber-400/20"
               : "border-outline-variant/40 text-on-surface-variant hover:text-primary hover:bg-surface-container-high"
           }`}
         >
@@ -108,7 +108,7 @@ export default function TodayBookingControls() {
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold text-on-surface">{am.bookingControls.title}</span>
               {stopped > 0 && (
-                <span className="rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 px-2 py-0.5 text-[10px] font-semibold">
+                <span className="rounded-full bg-amber-400/15 text-on-surface border border-amber-400/30 px-2 py-0.5 text-[10px] font-semibold">
                   {am.bookingControls.activeCount(stopped)}
                 </span>
               )}
@@ -159,7 +159,7 @@ function ServiceControl({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-on-surface truncate">{service.serviceLabel}</span>
-            <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${service.disabled ? "bg-amber-400/20 text-amber-300" : "bg-emerald-400/15 text-emerald-300"}`}>
+            <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${service.disabled ? "bg-amber-400/20 text-on-surface" : "bg-emerald-400/15 text-on-surface"}`}>
               {service.disabled ? am.bookingControls.stopped : am.bookingControls.accepting}
             </span>
           </div>

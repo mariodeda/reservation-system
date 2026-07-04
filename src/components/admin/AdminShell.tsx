@@ -49,20 +49,20 @@ export default function AdminShell({
   const [tenantMenuOpen, setTenantMenuOpen] = useState(false);
   const clientStatsRef = useRef<HTMLDetailsElement>(null);
   const tenantMenuRef = useRef<HTMLDivElement>(null);
-  const { notifications, unreadCount, connected, markAllRead, markRead } = useReservationEvents();
+  const { notifications, unreadCount, connected, markAllRead, markRead, dismiss } = useReservationEvents();
   const [toasts, setToasts] = useState<typeof notifications>([]);
 
   // Each new notification pops a toast
   useEffect(() => {
     const newest = notifications[0];
-    if (newest && !newest.read) {
+    if (newest && !newest.read && newest.live) {
       setToasts((prev) => {
-        if (prev.some((t) => t.id === newest.id)) return prev;
+        if (prev.some((t) => t.notificationId === newest.notificationId)) return prev;
         return [newest, ...prev].slice(0, 4);
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notifications[0]?.id]);
+  }, [notifications[0]?.notificationId]);
 
   useEffect(() => {
     const saved = localStorage.getItem("admin-theme");
@@ -108,6 +108,11 @@ export default function AdminShell({
     setToasts((prev) => prev.filter((t) => t.notificationId !== notificationId));
   }
 
+  function handleDismiss(notificationId: string) {
+    dismiss(notificationId);
+    setToasts((prev) => prev.filter((t) => t.notificationId !== notificationId));
+  }
+
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.replace(`${base}/login`);
@@ -123,7 +128,7 @@ export default function AdminShell({
   return (
     <div data-admin data-theme={theme} className="min-h-screen bg-background text-on-surface">
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
-        <div className="px-4 lg:px-6 h-14 flex items-center justify-between gap-3">
+        <div className="px-3 sm:px-4 lg:px-6 h-14 flex items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-3 lg:gap-5 min-w-0">
             <Tooltip content={am.nav.dashboard}>
             <Link
@@ -237,13 +242,13 @@ export default function AdminShell({
                 </button>
               </Tooltip>
               {tenantMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-outline-variant/20">
                     <div className="text-xs uppercase tracking-widest text-on-surface-variant/70">Restaurant</div>
                     <div className="mt-1 text-sm font-semibold text-on-surface truncate">{brandName}</div>
                     <div className="mt-0.5 text-xs text-on-surface-variant truncate">/{slug}</div>
                     {impersonation && (
-                      <div className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-200">
+                      <div className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-on-surface">
                         Platform support session
                       </div>
                     )}
@@ -314,14 +319,14 @@ export default function AdminShell({
         {impersonation && (
           <div className="border-t border-amber-500/20 bg-amber-500/10 px-4 py-2 lg:px-6">
             <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-amber-200">
+              <div className="text-on-surface">
                 <span className="font-semibold">Impersonating {brandName}</span>
-                <span className="text-amber-100/80"> as platform operator {impersonation.operator}</span>
+                <span className="text-on-surface-variant"> as platform operator {impersonation.operator}</span>
               </div>
               <button
                 type="button"
                 onClick={exitImpersonation}
-                className="self-start rounded-lg border border-amber-300/40 px-3 py-1 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/10 sm:self-auto"
+                className="self-start rounded-lg border border-amber-500/40 px-3 py-1 text-xs font-semibold text-on-surface transition hover:bg-amber-500/10 sm:self-auto"
               >
                 Exit impersonation
               </button>
@@ -368,11 +373,11 @@ export default function AdminShell({
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface-container/95 to-transparent" aria-hidden="true" />
         </div>
       </header>
-      <main className="px-6 py-6">{children}</main>
+      <main className="px-3 py-4 sm:px-6 sm:py-6">{children}</main>
       <ReservationToastStack
         toasts={toasts}
         slug={slug}
-        onDismiss={handleMarkRead}
+        onDismiss={handleDismiss}
       />
     </div>
   );

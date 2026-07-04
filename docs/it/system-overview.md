@@ -150,6 +150,24 @@ Le richieste recensione usano controlli di idempotenza e lock di invio per
 evitare duplicati. Lo staff puo inviare manualmente una richiesta recensione
 solo dopo che la prenotazione e completata.
 
+## Notifiche Tenant
+
+Le notifiche tenant sono record MySQL persistenti e filtrati per `tenant_id`.
+Servono per alert operativi sulle prenotazioni che lo staff deve vedere anche se
+nessuno aveva la pagina admin aperta quando l'evento e arrivato.
+
+L'header tenant carica le notifiche non lette da `/api/admin/notifications` dopo
+il login e poi ascolta `/api/admin/events` per eventi live
+`notification.created`. Le azioni segna letta, segna tutte lette e dismiss
+scrivono sulle route admin notifiche, quindi lo stato letto segue la sessione
+tenant tra refresh, tab e dispositivi.
+
+Le notifiche usano una chiave duplicato per tenant. Gli eventi creazione
+prenotazione sono deduplicati per id prenotazione. Gli aggiornamenti esterni da
+provider come TheFork e DISH usano una chiave piu ampia con dettagli operativi
+dello slot, cosi i retry non generano spam ma modifiche esterne reali possono
+essere visibili.
+
 ## Osservabilita
 
 Le route usano wrapper di osservabilita:

@@ -106,16 +106,16 @@ export default function ReservationRow({
 
   return (
     <div className={`rounded-xl border p-3 sm:p-4 ${completed ? "border-emerald-400/30 bg-emerald-400/10" : "border-outline-variant/30 bg-surface-container"} ${dimmed ? "opacity-60" : ""}`}>
-      <div className="flex items-stretch gap-3">
+      <div className="flex flex-col items-stretch gap-3 md:flex-row">
         {/* Time / service col */}
-        <div className={`text-center shrink-0 ${showDate ? "w-20" : "w-14"}`}>
+        <div className={`flex shrink-0 items-center gap-3 text-left md:block md:text-center ${showDate ? "md:w-20" : "md:w-14"}`}>
           {showDate && (
             <div className="text-[10px] font-medium text-on-surface-variant">
               {formatDateLong(r.date).replace(/, \d{4}$/, "")}
             </div>
           )}
           <div className="text-lg font-semibold text-primary tabular-nums">{r.time}</div>
-          <div className="text-[10px] uppercase tracking-widest text-on-surface-variant">{r.service}</div>
+          <div className="text-[10px] uppercase tracking-widest text-on-surface-variant md:mt-0">{r.service}</div>
           {externalPlatform && (
             <Tooltip content={externalReservationHint(externalPlatform)}>
               <img
@@ -129,7 +129,7 @@ export default function ReservationRow({
         </div>
 
         {/* Main info */}
-        <div className="flex-1 min-w-0 space-y-2">
+        <div className="min-w-0 flex-1 space-y-2">
           {/* Name row */}
           <div className="flex items-center gap-2 flex-wrap">
             <Tooltip content={r.name} className="min-w-0 max-w-[180px] sm:max-w-[260px]">
@@ -167,14 +167,14 @@ export default function ReservationRow({
             )}
             {hasUnreachableEmail(r.emails) ? (
               <Tooltip content={unreachableEmailTitle(r.emails)}>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-200 border border-rose-500/40">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-on-surface border border-rose-500/40">
                   <AlertIcon />
                   {am.email.unreachableBadge}
                 </span>
               </Tooltip>
             ) : hasBookingConfirmationFailure(r.emails) ? (
               <Tooltip content={bookingFailureTitle(r.emails)}>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-200 border border-rose-500/40">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-on-surface border border-rose-500/40">
                   <AlertIcon />
                   {am.email.bookingFailedBadge}
                 </span>
@@ -343,8 +343,8 @@ export default function ReservationRow({
 
         {/* Quick status actions — equal width + icons */}
         {!editing && !externalReadOnly && quickActions.length > 0 && (
-          <div className="flex w-[150px] shrink-0 items-center border-l border-outline-variant/30 pl-3">
-            <div className="flex w-full flex-col items-stretch gap-1.5">
+          <div className="flex shrink-0 items-center border-t border-outline-variant/30 pt-3 md:w-[150px] md:border-l md:border-t-0 md:pl-3 md:pt-0">
+            <div className="grid w-full grid-cols-2 gap-1.5 md:flex md:flex-col md:items-stretch">
               {quickActions.map((s) => (
                 <button
                   key={s}

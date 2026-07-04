@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { notifyReservationEvent } from "./notifications";
 
 export interface ReservationEvent {
   type: "reservation.created" | "reservation.updated";
@@ -21,4 +22,7 @@ reservationBus.setMaxListeners(500);
 
 export function emitReservation(event: ReservationEvent): void {
   reservationBus.emit(event.type, event);
+  notifyReservationEvent(event).catch((err) => {
+    console.error("[notifications] reservation notification failed:", err);
+  });
 }
