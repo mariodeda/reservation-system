@@ -42,8 +42,15 @@ export interface DishCronTenantResult extends DishSyncResult {
   error?: string;
 }
 
+const DISH_CRON_LOOKAHEAD_DAYS = 14;
+
 function safeText(value: unknown, max = 500): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function optionalSafeText(value: unknown, max = 500): string | undefined {
+  const text = safeText(value, max);
+  return text || undefined;
 }
 
 function localParts(iso: string, timezone: string): { date: string; time: string } | null {
@@ -88,6 +95,10 @@ function changed(existing: Reservation, patch: Partial<Reservation>): boolean {
   return Object.entries(patch).some(([key, value]) => (existing as unknown as Record<string, unknown>)[key] !== value);
 }
 
+function compactPatch(patch: Partial<Reservation>): Partial<Reservation> {
+  return Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) as Partial<Reservation>;
+}
+
 function notesFor(item: DishReservationListItem, detail?: ReturnType<typeof parseDishReservationDetail>): string | undefined {
   const parts = [
     "External source: DISH",
@@ -103,6 +114,10 @@ function notesFor(item: DishReservationListItem, detail?: ReturnType<typeof pars
     detail?.diet ? `Diet: ${detail.diet}` : undefined,
   ].map((p) => p?.trim()).filter(Boolean) as string[];
   return [...new Set(parts)].join("\n") || undefined;
+}
+
+function dishCronLookaheadDays(config: AvailabilityConfig): number {
+  return Math.min(Math.max(1, config.bookingWindowDays), DISH_CRON_LOOKAHEAD_DAYS);
 }
 
 async function importDishItem(
@@ -125,20 +140,20 @@ async function importDishItem(
   const local = localParts(item.startDate, config.timezone);
   if (!local) return "skipped";
   const name = safeText(detail?.name, 160) || item.name || "DISH guest";
-  const patch: Partial<Reservation> = {
+  const patch: Partial<Reservation> = compactPatch({
     date: local.date,
     time: local.time,
     offering: "main",
     service: inferService(config, local.date, local.time),
     partySize: Math.max(1, Math.trunc(Number(detail?.partySize ?? item.partySize)) || 1),
     name,
-    email: safeText(detail?.email || item.email, 254),
-    phone: safeText(detail?.phone, 80),
-    occasion: safeText(detail?.occasion, 80),
-    notes: notesFor(item, detail),
+    email: optionalSafeText(detail?.email || item.email, 254),
+    phone: detail ? optionalSafeText(detail.phone, 80) : undefined,
+    occasion: detail ? optionalSafeText(detail.occasion, 80) : undefined,
+    notes: detail || !existingId ? notesFor(item, detail) : undefined,
     status: mapStatus(item.status),
     source: "dish",
-  };
+  });
 
   const store = getStore().forTenant(integration.tenantId);
   let reservation: Reservation;
@@ -353,12 +368,12 @@ export async function runDishSyncCron(): Promise<DishCronTenantResult[]> {
     if (!tenant || tenant.status !== "active") continue;
     const config = await getStore().forTenant(tenant.id).getConfig();
     const startDate = nowInTz(config.timezone).dateStr;
-    const endDate = addDays(startDate, 1);
+    const endDate = addDays(startDate, dishCronLookaheadDays(config));
     try {
       const result = await syncDishReservations(tenant.id, {
         startDate,
         endDate,
-        detailMode: "always",
+        detailMode: "new",
         trigger: "cron",
         deadlineAt: Date.now() + 110_000,
       });

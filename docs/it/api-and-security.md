@@ -118,9 +118,11 @@ Gruppi principali:
 - `/api/platform/bounces`
 
 Schedulare `/api/platform/cron/dish-sync` ogni 15 minuti con
-`Authorization: Bearer $CRON_SECRET`. Sincronizza i tenant DISH attivi per oggi
-e domani, cosi prenotazioni esterne restano visibili nella UI staff e nella
-disponibilita pubblica senza avviare backfill storici automatici.
+`Authorization: Bearer $CRON_SECRET`. Sincronizza i tenant DISH attivi sulla
+booking window pubblica rolling per i prossimi 14 giorni calendario, limitata
+dalla booking window di ogni tenant, cosi prenotazioni esterne restano visibili
+nella UI staff e nella disponibilita pubblica senza avviare backfill storici
+automatici.
 
 Schedulare `/api/platform/cron/smtp-health` ogni 6 ore con
 `Authorization: Bearer $CRON_SECRET`. Gli operatori possono comunque avviare

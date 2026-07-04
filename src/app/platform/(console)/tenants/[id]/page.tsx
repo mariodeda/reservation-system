@@ -110,9 +110,9 @@ function SyncStatusBanner({
     <div
       className={`rounded-lg border px-3 py-2 text-sm ${
         tone === "active"
-          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+          ? "border-emerald-500/40 bg-emerald-500/10 text-on-surface"
           : tone === "warning"
-            ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+            ? "border-amber-500/40 bg-amber-500/10 text-on-surface"
             : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
       }`}
     >
@@ -122,7 +122,7 @@ function SyncStatusBanner({
             tone === "active" ? "bg-emerald-400" : tone === "warning" ? "bg-amber-300" : "bg-on-surface-variant/50"
           }`}
         />
-        <span className="font-semibold">
+        <span className={tone === "off" ? "font-semibold text-on-surface-variant" : "font-semibold text-on-surface"}>
           {active
             ? `${name} sync is active for this restaurant.`
             : enabled
@@ -130,7 +130,7 @@ function SyncStatusBanner({
               : `${name} sync is not active for this restaurant.`}
         </span>
       </div>
-      <div className="mt-1 text-xs opacity-85">
+      <div className="mt-1 text-xs text-on-surface-variant">
         {active ? "Enabled restaurants are included in automated sync jobs where that provider supports cron imports." : "Save valid credentials and enable sync before relying on automated imports."}
         {" "}
         Last sync: {formatPlatformDateTime(lastSyncAt)}.

@@ -331,6 +331,33 @@ describe("DISH HTML sync", () => {
     expect(external.get(reservations[0].id)?.externalStatus).toBe(externalStatus);
   });
 
+  it("updates existing DISH status from the list without wiping detail-only fields", async () => {
+    await syncDishReservations(tenantId, {
+      startDate: "2026-07-10",
+      endDate: "2026-07-10",
+    });
+
+    const store = getStore().forTenant(tenantId);
+    const before = (await store.listReservations({ date: "2026-07-10" }))[0];
+    expect(before.notes).toContain("Internal guest information: Prefers the window");
+    expect(before.phone).toBe("+39 333 123 4567");
+
+    vi.mocked(DishClient.prototype.fetchReservationsHtml).mockResolvedValue(listHtml("CANCELLED"));
+    vi.mocked(DishClient.prototype.fetchReservationDetailHtml).mockClear();
+    const update = await syncDishReservations(tenantId, {
+      startDate: "2026-07-10",
+      endDate: "2026-07-10",
+      detailMode: "new",
+    });
+
+    expect(update).toMatchObject({ imported: 0, updated: 1, skipped: 0, errors: 0 });
+    expect(DishClient.prototype.fetchReservationDetailHtml).not.toHaveBeenCalled();
+    const after = (await store.listReservations({ date: "2026-07-10" }))[0];
+    expect(after.status).toBe("cancelled");
+    expect(after.notes).toContain("Internal guest information: Prefers the window");
+    expect(after.phone).toBe("+39 333 123 4567");
+  });
+
   it("platform history60 mode backfills in bounded batches without tenant notifications", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-10T09:00:00Z"));
@@ -367,10 +394,11 @@ describe("DISH HTML sync", () => {
     }
   });
 
-  it("cron syncs enabled DISH tenants for today and tomorrow", async () => {
+  it("cron syncs enabled DISH tenants across the rolling booking-window lookahead", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-10T09:00:00Z"));
     const fetchList = vi.mocked(DishClient.prototype.fetchReservationsHtml);
+    fetchList.mockImplementation(async (date) => (date === "2026-07-10" ? listHtml() : "<html><body></body></html>"));
     try {
       const results = await runDishSyncCron();
       const result = results.find((r) => r.tenantId === tenantId);
@@ -378,12 +406,13 @@ describe("DISH HTML sync", () => {
         tenantId,
         ok: true,
         startDate: "2026-07-10",
-        endDate: "2026-07-11",
+        endDate: "2026-07-24",
         imported: 1,
+        daysFetched: 15,
         errors: 0,
       });
       expect(fetchList).toHaveBeenCalledWith("2026-07-10");
-      expect(fetchList).toHaveBeenCalledWith("2026-07-11");
+      expect(fetchList).toHaveBeenCalledWith("2026-07-24");
     } finally {
       vi.useRealTimers();
     }

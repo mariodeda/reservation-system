@@ -121,9 +121,10 @@ Major endpoint groups include:
 - `/api/platform/bounces`
 
 Schedule `/api/platform/cron/dish-sync` every 15 minutes with
-`Authorization: Bearer $CRON_SECRET`. It syncs enabled DISH tenants for today
-and tomorrow, keeping external bookings reflected in staff UI and public
-availability without running historical backfills automatically.
+`Authorization: Bearer $CRON_SECRET`. It syncs enabled DISH tenants across the
+next 14 calendar days, capped by each tenant's booking window, keeping external
+bookings reflected in staff UI and public availability without running
+historical backfills automatically.
 
 Schedule `/api/platform/cron/smtp-health` every 6 hours with
 `Authorization: Bearer $CRON_SECRET`. Operators can still trigger SMTP checks
