@@ -1,12 +1,12 @@
 # Disponibilita e tavoli
 
-Disponibilita e tavoli decidono cosa gli ospiti possono prenotare e cosa lo
-staff puo gestire in sicurezza. E l'area piu importante per evitare overbooking,
+Orari e tavoli decidono cosa gli ospiti possono prenotare e cosa lo staff puo
+gestire in sicurezza. E l'area piu importante per evitare overbooking,
 assegnazioni tavolo sbagliate e slot confusi.
 
-## Cosa controlla la disponibilita
+## Cosa controllano gli orari
 
-La disponibilita controlla:
+Gli orari controllano:
 
 - Orari servizio settimanali.
 - Nomi servizio.
@@ -15,8 +15,8 @@ La disponibilita controlla:
 - Durata tavolo default.
 - Numero minimo ospiti.
 - Numero massimo ospiti.
-- Finestra booking.
-- Lead time.
+- Finestra futura di prenotazione.
+- Tempo minimo prima della prenotazione.
 - Giorni chiusi.
 - Date speciali.
 - Slot bloccati.
@@ -24,13 +24,13 @@ La disponibilita controlla:
 
 I tavoli controllano:
 
-- Capacita fisica.
-- Offering del tavolo.
+- Posti fisici.
+- Zona prenotabile del tavolo.
 - Stato attivo.
 - Possibilita di unire tavoli.
 
-Il calendario pubblico dipende da entrambi. Pensa alla disponibilita come
-"quando si puo prenotare" e ai tavoli come "dove si puo sedere".
+Il calendario pubblico dipende da entrambi. Pensa agli orari come "quando si
+puo prenotare" e ai tavoli come "dove si puo sedere".
 
 ## Panoramica pagina disponibilita
 
@@ -41,12 +41,12 @@ Usa Disponibilita quando:
 - Si aggiunge o rimuove un servizio.
 - Una festivita o evento privato cambia una data.
 - Un orario deve essere bloccato.
-- Lead time o finestra booking cambiano.
+- Tempo minimo o finestra futura cambiano.
 - Cambia massimo gruppo online.
-- Durata tavolo differisce per servizio.
+- Durata tavolo diversa per servizio.
 
-Evita cambi live durante servizio intenso salvo necessita. Possono influenzare
-subito il booking pubblico.
+Evita cambi durante un servizio intenso salvo necessita. Possono influenzare
+subito cosa gli ospiti possono prenotare online.
 
 ## Servizi settimanali
 
@@ -60,8 +60,8 @@ Ogni riga include:
 | Da | Primo orario del servizio. |
 | A | Fine finestra servizio. |
 | Ogni (min) | Intervallo slot, per esempio ogni 15 o 30 minuti. |
-| Durata | Quanto le prenotazioni occupano tavoli. |
-| Azioni | Modifica, duplica o rimuovi riga secondo controlli UI. |
+| Durata | Quanto le prenotazioni tengono occupati i tavoli. |
+| Azioni | Modifica, duplica o rimuovi riga secondo i controlli mostrati. |
 
 Gli orari usano formato 24 ore. Usa nomi chiari.
 
@@ -107,7 +107,7 @@ Scelte comuni:
 
 ## Durata
 
-Durata e quanto una prenotazione occupa capacita tavolo.
+Durata e quanto una prenotazione tiene occupato il tavolo.
 
 Esempio:
 
@@ -118,36 +118,36 @@ Esempio:
 Influenza:
 
 - Conflitti tavoli.
-- Calcoli coperti slot.
-- Pressione disponibilita.
+- Coperti mostrati nelle slot card.
+- Quanto sembra pieno il servizio.
 - Layout sala/giorno.
 - Sicurezza slot successivi.
 
-Durata troppo corta puo permettere overbooking. Durata troppo lunga blocca
-troppa disponibilita.
+Durata troppo corta puo causare overbooking. Durata troppo lunga blocca troppi
+orari utili.
 
 ## Durata default e durata servizio
 
 | Tipo durata | Quando usata |
 | --- | --- |
-| Durata tavolo default | Fallback quando servizio non ha durata specifica. |
+| Durata tavolo default | Valore di riserva quando un servizio non ha durata specifica. |
 | Durata servizio | Valore preferito per quel servizio e giorno. |
 
 Usa durata servizio quando pranzo, cena o brunch hanno tempi diversi. Mantieni
-default come fallback sicuro.
+default come valore di riserva sicuro.
 
 ## Minimo e massimo ospiti
 
-Minimo controlla il booking piu piccolo. Massimo controlla il gruppo singolo piu
+Minimo controlla la prenotazione piu piccola. Massimo controlla il gruppo singolo piu
 grande.
 
-Massimo ospiti non e capacita slot. Il ristorante puo avere 80 posti ma
+Massimo ospiti non e la stessa cosa dei posti totali. Il ristorante puo avere 80 posti ma
 permettere online solo gruppi da 12 o 20.
 
 Per gruppi oltre massimo online, staff decide se gestire manualmente secondo
-policy e fattibilita tavoli.
+regole del ristorante e possibilita reale dei tavoli.
 
-## Finestra booking
+## Finestra futura
 
 Controlla quanto avanti nel futuro gli ospiti possono prenotare.
 
@@ -157,18 +157,18 @@ Esempi:
 - 30 giorni: finestra comune.
 - 90 giorni: utile per ristoranti destination o eventi.
 
-Se gli ospiti non possono prenotare una data futura, controlla finestra booking
+Se gli ospiti non possono prenotare una data futura, controlla la finestra futura
 prima di pensare a chiusura.
 
-## Lead time
+## Tempo minimo prima della prenotazione
 
-Lead time impedisce booking troppo vicini all'orario.
+Il tempo minimo impedisce prenotazioni troppo vicine all'orario.
 
-Esempio: lead time 120 minuti significa che un ospite non puo prenotare 19:00
+Esempio: tempo minimo 120 minuti significa che un ospite non puo prenotare 19:00
 dopo le 17:00.
 
-Protegge lo staff da booking last-minute. Lo staff puo comunque creare booking
-manuale se sicuro.
+Protegge lo staff da prenotazioni online all'ultimo minuto. Lo staff puo
+comunque creare una prenotazione manuale se e sicuro per il servizio.
 
 ## Giorni chiusi
 
@@ -214,39 +214,41 @@ oggi, usa stop rapido o data speciale in base al caso.
 
 ## Servizi fermati oggi
 
-L'azione rapida header ferma booking online per un servizio oggi. E operativa,
-temporanea e visibile allo staff.
+L'azione rapida in header ferma le prenotazioni online per un servizio di oggi.
+E temporanea e visibile allo staff.
 
 Usa quando:
 
 - Servizio pieno inaspettatamente.
 - Ristorante sotto organico.
-- Meteo impatta seating.
-- Cucina chiede di fermare nuovi booking online.
+- Meteo riduce i posti utilizzabili.
+- Cucina chiede di fermare nuove prenotazioni online.
 
 Non elimina prenotazioni esistenti.
 
 ## Tavoli e capacita
 
-Quando esistono tavoli attivi per un offering, i posti tavolo guidano la
-capacita slot.
+Quando esistono tavoli attivi per una zona prenotabile, i posti tavolo decidono
+quanti ospiti possono entrare in ogni slot.
 
 Quindi:
 
 - Tavoli attivi contano.
 - Tavoli inattivi non contano.
-- Tavoli bound contano solo per offering corrispondente.
+- Tavoli assegnati a una zona contano solo per quella zona.
 - Tavoli uniti possono aiutare gruppi grandi.
 
-La capacita deve riflettere seating reale, non obiettivo vendite.
+I posti devono riflettere la sala reale, non quante prenotazioni si vorrebbero
+vendere.
 
-## Capacita legacy
+## Capacita vecchia di riserva
 
-Se non esistono tavoli attivi per un offering, il sistema puo usare capacita
-legacy del servizio. E compatibilita. Per operazioni accurate, configura tavoli
-reali.
+Se non esistono tavoli attivi per una zona, il sistema puo usare un vecchio
+numero di capacita del servizio. Serve a mantenere funzionanti configurazioni
+vecchie, ma i tavoli reali sono piu accurati.
 
-Se i coperti sembrano troppo alti o bassi, controlla se usa tavoli o legacy.
+Se i coperti sembrano troppo alti o bassi, controlla se usa tavoli reali o il
+vecchio numero di riserva.
 
 ## Processo sicuro di modifica
 
@@ -255,10 +257,10 @@ Quando cambi disponibilita:
 1. Fai il minimo cambio necessario.
 2. Salva.
 3. Controlla la data interessata in Prenotazioni.
-4. Controlla una risposta pubblica o pagina booking se possibile.
+4. Controlla la pagina pubblica di prenotazione se possibile.
 5. Conferma che lo staff capisca il cambio.
 
-Per grandi cambi schedule, evita picchi di booking attivo.
+Per grandi cambi di orario, evita momenti con molte prenotazioni in corso.
 
 ## Checklist setup
 
@@ -266,40 +268,40 @@ Prima del live:
 
 1. Crea tavoli con etichette e capacita accurate.
 2. Disabilita tavoli non disponibili.
-3. Associa tavoli a offering dove serve.
+3. Associa tavoli alle zone dove serve.
 4. Configura servizi settimanali.
 5. Imposta durate specifiche.
 6. Imposta durata default.
 7. Imposta minimo e massimo ospiti.
-8. Imposta lead time.
-9. Imposta finestra booking.
+8. Imposta tempo minimo.
+9. Imposta finestra futura.
 10. Aggiungi giorni chiusi noti.
 11. Aggiungi date speciali note.
 12. Aggiungi slot bloccati.
-13. Testa booking pubblico per giorno normale.
-14. Testa booking pubblico per data speciale.
-15. Crea booking staff test e assegna tavolo.
+13. Testa una prenotazione pubblica per un giorno normale.
+14. Testa una prenotazione pubblica per una data speciale.
+15. Crea una prenotazione staff di prova e assegna tavolo.
 
 ## Domande comuni
 
 ### Perche capacita e stata rimossa dalle righe servizio?
 
-Quando i tavoli sono configurati, la capacita deve venire dai tavoli attivi.
+Quando i tavoli sono configurati, i posti devono venire dai tavoli attivi.
 Questo e piu accurato di un numero scritto in ogni riga servizio.
 
 ### Cambio durata tavolo o intervallo slot?
 
 Cambia durata quando gli ospiti occupano tavoli per tempo diverso. Cambia
-intervallo quando vuoi orari booking piu o meno frequenti.
+intervallo quando vuoi orari di prenotazione piu o meno frequenti.
 
 ### Perche cambiare durata cambia i coperti?
 
-Durata piu lunga sovrappone prenotazioni a piu slot futuri. Durata piu corta
-libera capacita prima.
+Durata piu lunga tiene occupati tavoli in piu slot futuri. Durata piu corta
+libera tavoli prima.
 
 ### Perche non posso fermare un servizio oggi?
 
-L'ultimo orario prenotabile puo essere gia passato dopo lead time. Non resta
+L'ultimo orario prenotabile puo essere gia passato. Non resta
 niente da fermare online.
 
 ### Cosa fare per evento privato?

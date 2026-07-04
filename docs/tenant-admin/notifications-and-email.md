@@ -6,7 +6,7 @@ by phone.
 
 ## Notification Types
 
-Tenant admin can show:
+The restaurant admin can show:
 
 - Bell notifications in the header.
 - Toast notifications in the bottom-right corner.
@@ -43,15 +43,15 @@ Dismissing a toast does not cancel or delete the reservation.
 
 ## Duplicate Notification Protection
 
-The browser should deduplicate reservation-created events by reservation id in a
-single tab. Staff can still become confused when:
+The browser tries to avoid showing the same new-booking alert twice in one tab.
+Staff can still become confused when:
 
 - Multiple browser tabs are open.
 - Multiple real reservations are made by the same guest.
-- A stale tab reconnects.
+- An old browser tab reconnects.
 - Staff mistake notifications for reservation rows.
 
-When in doubt, check the reservation list for the selected date and offering.
+When in doubt, check the reservation list for the selected date and bookable area.
 
 ## Notification Troubleshooting
 
@@ -79,14 +79,14 @@ Try:
 
 1. Refresh the reservation list.
 2. Confirm the selected date.
-3. Confirm the selected offering.
+3. Confirm the selected bookable area.
 4. Check internet connection.
-5. Ask platform support to inspect events/logs if the issue persists.
+5. Ask platform support to check system logs if the issue persists.
 
 ## Booking Confirmation Emails
 
-Booking confirmations are controlled by platform configuration. Staff do not
-enable SMTP or confirmation policy from tenant admin.
+Booking confirmations are controlled by platform support. Staff do not turn on
+email sending or confirmation rules from the restaurant admin.
 
 If a guest says the confirmation did not arrive:
 
@@ -118,20 +118,20 @@ Staff can send a review request only when:
 - The reservation is completed.
 - The guest has an email address.
 - A review request was not already sent.
-- Platform email policy allows it.
-- The tenant has a review URL.
-- SMTP is ready.
+- Platform support has allowed review emails.
+- The restaurant has a review link saved.
+- Email sending is ready.
 
-There is no custom feedback form in this application. Review links point to the
-external review site configured by platform administrators.
+There is no feedback form inside this system. Review links take guests to the
+restaurant's external review site, set up by platform support.
 
 ## Email Warning On Reservation Cards
 
 An email warning means the system has reason to believe the guest email is not
 reachable. This can happen because:
 
-- SMTP rejected the recipient immediately.
-- A provider reported a delayed bounce.
+- The email address was rejected immediately.
+- The email provider later reported that delivery failed.
 - A previous send failed.
 
 Staff response:
@@ -148,11 +148,11 @@ Platform email logs use three states:
 
 | State | Meaning For Staff |
 | --- | --- |
-| Sent | The app sent the message and SMTP accepted it. This does not guarantee the guest saw it. |
+| Sent | The message was accepted for delivery. This does not guarantee the guest saw it. |
 | Failed | Sending failed or a bounce was recorded. Staff may need to call the guest. |
-| Skipped | The system intentionally did not send because policy or configuration was not ready. |
+| Skipped | The system intentionally did not send because a rule or required setting was not ready. |
 
-Tenant staff usually do not see the full platform email log page. Ask platform
+Restaurant staff usually do not see the full platform email log page. Ask platform
 support to check it when needed.
 
 ## Common Email Questions
@@ -185,4 +185,4 @@ Escalate to platform support when:
 - Email warnings appear on many reservations.
 - Notifications do not clear after refresh.
 - New online bookings do not appear in tenant admin.
-- Staff need SMTP, template, review URL, or email policy changes.
+- Staff need email sending, template, review link, or email rule changes.

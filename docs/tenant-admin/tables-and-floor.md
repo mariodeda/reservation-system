@@ -1,22 +1,23 @@
 # Tables And Floor Operations
 
-Tables are the bridge between online availability and real floor management.
-They determine how many covers can be accepted, which bookings can be assigned,
-and whether a service is physically realistic.
+Tables connect online booking with the real floor. They decide how many guests
+can be accepted, which bookings can be seated, and whether the plan is realistic
+for service.
 
 ## Tables Page Purpose
 
 Use the Tables page to maintain the restaurant's real seating layout:
 
 - Table label.
-- Seat capacity.
+- Seats.
 - Active or inactive state.
-- Offering binding.
+- Which bookable area the table belongs to.
 - Joinable behavior.
 
 The table setup should match what staff can actually use during service. If a
 table is broken, unavailable, removed for an event, or not used online, disable
-it or adjust its offering binding rather than leaving misleading capacity.
+it or assign it to the correct bookable area rather than leaving misleading
+seats available.
 
 ## Table Labels
 
@@ -33,9 +34,9 @@ look at the label and know where the guest should go.
 
 ## Capacity
 
-Capacity is the number of guests the table can reasonably seat. Do not inflate
-capacity to make the booking calendar look better. Inflated capacity leads to
-overbooking and bad table suggestions.
+Capacity is the number of guests the table can reasonably seat. Do not increase
+it just to make the booking calendar look more open. That leads to overbooking
+and bad table suggestions.
 
 If a table sometimes seats 2 and sometimes 4, choose the normal operational
 capacity and use joined tables or staff judgement for exceptions.
@@ -53,18 +54,18 @@ Inactive tables should not contribute to availability. Use inactive state for:
 If the change is only for today, consider whether a blocked slot, stopped
 service, or manager note is more appropriate than changing table setup.
 
-## Offering Binding
+## Bookable Area
 
-Offering binding limits a table to a specific booking area or channel.
+Bookable area limits a table to the correct part of the restaurant.
 
 Examples:
 
-- Patio tables bound to patio offering.
-- Bar seats bound to bar offering.
-- Private room tables bound to private room offering.
-- Main dining tables left shared if they can serve the default offering.
+- Patio tables assigned to patio.
+- Bar seats assigned to bar.
+- Private room tables assigned to private room.
+- Main dining tables left shared if they can serve the main dining area.
 
-If a table appears available in the wrong area, check offering binding first.
+If a table appears available in the wrong area, check its bookable area first.
 
 ## Joinable Tables
 
@@ -138,7 +139,7 @@ The dropdown should show enough information for staff to choose correctly:
 - Joined table information where relevant.
 
 Rows should be vertically centered and readable in both light and dark themes.
-Hover tooltips should explain any compact details.
+Hover tips should explain any short labels or compact details.
 
 ## Common Table Problems
 
@@ -149,8 +150,9 @@ Check:
 - Duplicate tables.
 - Tables with capacity too high.
 - Inactive tables still marked active.
-- Tables bound to the wrong offering.
-- Legacy capacity still used because no active tables exist for an offering.
+- Tables assigned to the wrong bookable area.
+- Older fallback capacity still used because no active tables exist for a
+  bookable area.
 
 ### Staff Cannot Assign A Table
 
@@ -158,8 +160,8 @@ Check:
 
 - Party size exceeds table capacity.
 - Table is inactive.
-- Table belongs to another offering.
-- Another reservation overlaps the effective duration window.
+- Table belongs to another bookable area.
+- Another reservation needs the table during the same time.
 - Joined table setup is missing or unrealistic.
 
 ### Public Booking Accepts Too Many Guests

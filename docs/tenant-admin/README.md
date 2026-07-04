@@ -1,15 +1,13 @@
 # Staff Admin Manual
 
-This manual is for restaurant staff administrators using `/admin/<slug>`.
-It explains every tenant-side feature in practical language: what each screen is
-for, how staff should use it during service, what each action changes, and what
-to check when something looks wrong.
+This manual is for restaurant staff administrators using the restaurant admin
+area. It explains what each screen is for, how to use it during service, what
+each action changes, and what to check when something looks wrong.
 
-The tenant admin is the restaurant workspace. It is not a platform configuration
-area. Staff manage daily operations: reservations, guests, seating, tables,
-availability, waitlist, customers, notifications, and local settings. Platform
-administrators manage sensitive items such as SMTP, public tenant keys, allowed
-origins, domains, platform logs, and global email policy.
+The restaurant admin is the day-to-day workspace. Staff manage reservations,
+guests, seating, tables, opening times, waitlist, customer notes,
+notifications, and local settings. Platform support manages sensitive setup
+such as email sending, website connections, domains, and system logs.
 
 ## Manual Sections
 
@@ -40,19 +38,19 @@ The system separates four ideas that are easy to confuse:
 | --- | --- |
 | Reservation | A guest booking with date, time, service, party size, contact details, status, notes, and optional table assignment. |
 | Availability | The rules that decide what times can be booked online or by staff. |
-| Table capacity | The physical seats available from active tables for an offering. |
-| Reservation policy | Rules such as minimum and maximum party size for one booking. |
+| Table capacity | The physical seats available from active tables in one bookable area. |
+| Booking rules | Limits such as minimum and maximum party size for one booking. |
 
 Example: a restaurant may have 180 physical seats available at 19:00 but still
-allow only 20 guests in a single online booking. The first number is capacity.
-The second number is booking policy.
+allow only 20 guests in a single online booking. The first number is how many
+seats exist. The second number is the largest party guests may book online.
 
 ## Daily Operating Rhythm
 
 ### Before Service
 
 1. Open the dashboard and review today's bookings.
-2. Open the reservations page for the correct date and offering.
+2. Open the reservations page for the correct date and bookable area.
 3. Check service and slot cards for capacity pressure.
 4. Check unavailable slot reasons, stopped services, blocked slots, and closed
    periods.
@@ -76,8 +74,8 @@ The second number is booking policy.
 1. Mark attended reservations as completed.
 2. Mark no-shows accurately.
 3. Send review request emails only for completed reservations when appropriate.
-4. Review customer notes and analytics if the manager needs a service recap.
-5. Record any configuration issues to fix before the next service.
+4. Review customer notes and statistics if the manager needs a service recap.
+5. Record any settings issues to fix before the next service.
 
 ## What Staff Can Change
 
@@ -90,31 +88,31 @@ Staff can manage operational data:
 - Availability hours.
 - Service durations.
 - Closed days and blocked slots.
-- Lead time and booking window.
-- Party-size policy.
-- Tables and table metadata.
+- Minimum notice time and future booking window.
+- Party-size rules.
+- Tables and table details.
 - Customer records and local notes.
-- Staff password from tenant settings.
+- Staff password from restaurant settings.
 
 ## What Staff Cannot Change
 
-Staff cannot manage platform-sensitive configuration:
+Staff cannot manage system-level setup:
 
-- SMTP credentials.
-- Global outbound email policy.
-- Booking confirmation template policy.
-- Review request template policy.
-- Public tenant key.
-- Allowed origins for marketing sites.
+- Email sending credentials.
+- Global email on/off rules.
+- Booking confirmation templates.
+- Review request templates.
+- Public booking website key.
+- Approved website addresses.
 - Domains.
-- Platform logs.
-- Platform-wide email logs.
+- System logs.
+- System-wide email logs.
 
 If one of these needs to change, ask a platform administrator.
 
 ## Important Rules Staff Should Remember
 
-- The logged-in session decides tenant access. Changing the URL slug does not
+- The logged-in account decides restaurant access. Changing the URL does not
   grant access to another restaurant.
 - Seated and completed reservations cannot be edited or deleted.
 - Completed reservations collapse to a minimal view so active service work stays
@@ -132,8 +130,8 @@ If one of these needs to change, ask a platform administrator.
 
 | Term | Meaning |
 | --- | --- |
-| Offering | A bookable area or channel, such as main dining, patio, or bar. |
-| Service | A time window inside an offering, such as lunch or dinner. |
+| Offering | A bookable area, such as main dining, patio, or bar. |
+| Service | A time window inside a bookable area, such as lunch or dinner. |
 | Slot | A bookable time generated inside a service. |
 | Cover | One guest seat in a reservation. |
 | Lead time | Minimum time before a slot when guests can still book online. |
@@ -148,9 +146,10 @@ If one of these needs to change, ask a platform administrator.
 Ask platform support when:
 
 - Booking confirmations or review emails fail for many guests.
-- SMTP or email warnings appear broadly.
+- Email warnings appear broadly.
 - The public website cannot load availability.
 - Staff cannot save settings because of repeated 403 or server errors.
 - Notifications do not update after refresh.
-- A tenant appears to see data from another restaurant.
-- A domain, public key, allowed origin, or SMTP setting must change.
+- One restaurant appears to see another restaurant's data.
+- A domain, public booking key, approved website address, or email sending
+  setting must change.

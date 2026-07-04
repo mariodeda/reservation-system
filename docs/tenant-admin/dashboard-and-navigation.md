@@ -7,16 +7,16 @@ what is happening today, what needs attention, and where staff should go next.
 
 The header gives staff fast access to operational areas:
 
-- Tenant logo: returns to the dashboard.
+- Restaurant logo: returns to the dashboard.
 - Reservations: opens the main reservation workspace.
 - Tables: opens table setup and capacity management.
 - Availability: opens weekly hours, booking rules, closed days, and blocks.
 - Clients & Statistics: dropdown for customer records and analytics.
-- Settings icon: opens tenant-local settings and staff password change.
+- Settings icon: opens restaurant settings and staff password change.
 - Sign out: ends the staff session.
 
-The dashboard link is intentionally not duplicated in the header. Use the tenant
-logo to return home.
+The dashboard link is intentionally not duplicated in the header. Use the
+restaurant logo to return home.
 
 ## Clients & Statistics Dropdown
 
@@ -55,13 +55,12 @@ bookings by service. Use it only for same-day operational decisions, such as:
 - Weather makes patio seating unavailable.
 - A service is already effectively closed.
 
-If the latest bookable time for a service has passed after applying lead time,
-that service switch is disabled because there are no remaining public slots to
-stop.
+If the latest bookable time for a service has already passed, that service
+switch is disabled because there are no remaining online times to stop.
 
 When a service is manually stopped, staff should see that state clearly in the
-controls and on relevant slot cards. This prevents confusion between "closed by
-staff choice" and "system cannot load availability."
+controls and on relevant slot cards. This helps staff tell the difference
+between "we stopped bookings" and "availability failed to load."
 
 ## Bell Notifications
 
@@ -72,7 +71,7 @@ Actions:
 
 - Open bell: review recent notifications.
 - Mark all read: clear unread state.
-- Click a notification: use it as a pointer to the reservation context.
+- Click a notification: jump to the reservation's date.
 
 Notifications do not replace the reservation list. A booking remains in
 Reservations even after its notification is dismissed.

@@ -1,7 +1,7 @@
 # Customers, Analytics, And Settings
 
 Customers, analytics, and settings help managers understand guest history,
-service performance, and tenant-local preferences. These pages are less urgent
+service performance, and restaurant preferences. These pages are less urgent
 than Reservations during service, but they are important for good operations.
 
 ## Clients & Statistics Navigation
@@ -14,7 +14,7 @@ Use:
 - Analytics when you need performance trends.
 
 The dropdown should close when staff click outside it. On smaller screens, the
-UI may use a compact selector instead of a desktop dropdown.
+page may use a compact selector instead of a desktop dropdown.
 
 ## Customers Page
 
@@ -68,8 +68,9 @@ Common metrics include:
 - Lead-time trends.
 - Customer trends.
 
-Analytics are only as accurate as the operational data. If staff forget to mark
-completed, cancelled, or no-show reservations, reports will be misleading.
+Reports are only as accurate as the reservation updates staff make. If staff
+forget to mark completed, cancelled, or no-show reservations, reports will be
+misleading.
 
 ## How Managers Should Use Analytics
 
@@ -79,38 +80,38 @@ Use analytics to answer questions like:
 - Which days are under-booked?
 - Are no-shows increasing?
 - Are guests booking too late?
-- Does lead time need adjustment?
+- Does the minimum notice time need adjustment?
 - Are table durations realistic?
-- Are large parties common enough to adjust policy?
+- Are large parties common enough to adjust the booking rules?
 - Should staffing change for a specific service?
 
 Analytics should guide operational decisions, not replace manager judgement.
 
 ## Settings Page
 
-Tenant settings are for local staff preferences and password management.
+Settings are for restaurant preferences and staff password management.
 
 Staff may see:
 
 - Local account settings.
 - Staff password change.
-- Tenant-level operational preferences.
+- Restaurant operating preferences.
 
 Staff should not see:
 
-- SMTP credentials.
-- Public tenant key.
-- Allowed origins.
+- Email sending credentials.
+- Public booking website key.
+- Approved website addresses.
 - Domains.
-- Platform logs.
-- Platform email logs.
+- System logs.
+- System email logs.
 - Global email flow switches.
 
-Those are platform-admin responsibilities.
+Platform support manages those items.
 
 ## Password Change
 
-Staff can change the tenant admin password from settings when allowed.
+Staff can change the restaurant admin password from settings when allowed.
 
 Good practice:
 
@@ -119,9 +120,9 @@ Good practice:
 - Change passwords after staff turnover.
 - Sign out on shared devices.
 
-Password changes may be disabled during platform impersonation. If staff cannot
-change the password, ask platform support whether an operator is currently
-supporting the tenant or whether a platform reset is needed.
+Password changes may be disabled while platform support is helping inside the
+restaurant account. If staff cannot change the password, ask platform support
+whether a reset is needed.
 
 ## Data Quality Checklist
 
@@ -150,10 +151,10 @@ contact details going forward.
 
 ### Can staff export customer data?
 
-Use only the tools available in the tenant UI. If a special export is needed,
+Use only the tools available in the restaurant admin. If a special export is needed,
 ask platform support and follow the restaurant's privacy process.
 
 ### Why can staff not change email templates?
 
-Email templates and flow policy are platform-controlled to protect sender
-identity, delivery quality, and configuration safety.
+Email templates and sending rules are managed by platform support to protect the
+restaurant's sender identity and avoid delivery problems.

@@ -1,9 +1,9 @@
 # Prenotazioni
 
-La pagina Prenotazioni e lo spazio principale per il servizio live. Lo staff la
-usa per controllare disponibilita, creare booking, gestire waitlist, assegnare
-tavoli, aggiornare stati, inviare richieste recensione e capire la giornata sia
-da vista slot sia da vista sala.
+La pagina Prenotazioni e lo spazio principale durante il servizio. Lo staff la
+usa per controllare orari disponibili, creare prenotazioni, gestire lista
+d'attesa, assegnare tavoli, aggiornare stati, inviare richieste recensione e
+capire la giornata sia per orario sia per sala.
 
 Usa questa pagina quando serve piu controllo rispetto alla dashboard.
 
@@ -11,7 +11,7 @@ Usa questa pagina quando serve piu controllo rispetto alla dashboard.
 
 La pagina risponde a queste domande:
 
-- Quale data e offering sto gestendo?
+- Quale data e zona sto gestendo?
 - Quali servizi sono aperti?
 - Quali slot sono prenotabili?
 - Quanti coperti sono gia riservati?
@@ -27,15 +27,15 @@ La pagina risponde a queste domande:
 | Area | Scopo |
 | --- | --- |
 | Selettore data | Sceglie la data servizio. |
-| Selettore offering | Sceglie area o canale prenotabile quando il ristorante ne ha piu di uno. |
-| Card servizio | Riassumono stato slot e pressione capacita per servizio. |
+| Selettore zona | Sceglie l'area prenotabile quando il ristorante ne ha piu di una. |
+| Card servizio | Riassumono gli orari e mostrano quanto e pieno il servizio. |
 | Slot card | Mostrano disponibilita per ogni orario prenotabile. |
-| Lista prenotazioni | Mostra booking per data e offering selezionati. |
-| Modal nuova prenotazione | Aggiunge booking staff, telefono o walk-in. |
+| Lista prenotazioni | Mostra prenotazioni per data e zona selezionate. |
+| Modal nuova prenotazione | Aggiunge prenotazioni staff, telefono o walk-in. |
 | Modal sala/giorno | Mostra tutta la giornata visualmente sui tavoli. |
 | Modal waitlist | Gestisce gruppi in attesa. |
 
-Quasi tutto dipende da data e offering selezionati. Se qualcosa sembra sbagliato,
+Quasi tutto dipende da data e zona selezionate. Se qualcosa sembra sbagliato,
 controlla prima quei due controlli.
 
 ## Selettore data
@@ -45,22 +45,22 @@ Usa il selettore data per cambiare giorno. Lo staff lo usa per:
 - Preparare domani.
 - Controllare un gruppo futuro.
 - Rivedere una prenotazione passata.
-- Aggiungere booking futuro.
+- Aggiungere una prenotazione futura.
 
 Se la disponibilita non carica per una data, aggiorna una volta, poi controlla
 date speciali, giorni chiusi o modifiche recenti.
 
-## Selettore offering
+## Selettore zona
 
-Alcuni ristoranti hanno piu offering:
+Alcuni ristoranti hanno piu zone prenotabili:
 
 - Sala principale.
 - Patio.
 - Bar.
 - Sala privata.
 
-Se appare il selettore, scegli l'area corretta prima di leggere capacita o
-assegnare tavoli. I tavoli possono essere legati a offering specifici.
+Se appare il selettore, scegli l'area corretta prima di leggere disponibilita o
+assegnare tavoli. I tavoli possono appartenere a zone specifiche.
 
 ## Card servizio
 
@@ -72,13 +72,13 @@ La card aiuta a capire:
 - Nome servizio.
 - Orari servizio.
 - Intervallo slot.
-- Coperti riservati rispetto alla capacita tavoli attivi.
-- Pressione capacita.
+- Coperti riservati rispetto ai posti dei tavoli attivi.
+- Quanto e pieno il servizio.
 - Se il servizio e chiuso, fermato o ancora prenotabile.
 
-Gli indicatori capacita sono pressione operativa, non garanzia che ogni gruppo
-possa essere accettato. Uno slot puo essere non disponibile per dimensione
-gruppo, cutoff, blocco o conflitto tavolo.
+Gli indicatori mostrano quanto e pieno il servizio. Non garantiscono che ogni
+gruppo possa entrare. Uno slot puo essere non disponibile per numero ospiti,
+tempo minimo, blocco o conflitto tavolo.
 
 ## Slot card
 
@@ -86,46 +86,47 @@ Le slot card rappresentano orari prenotabili. Dovrebbero mostrare:
 
 - Orario.
 - Coperti prenotati.
-- Capacita totale slot.
+- Posti totali disponibili nello slot.
 - Stato disponibilita.
 - Motivo specifico se non prenotabile.
 
 Cliccare uno slot prenotabile dovrebbe aprire la modal nuova prenotazione con
-data, servizio, offering e orario precompilati.
+data, servizio, zona e orario precompilati.
 
 ## Motivi di indisponibilita
 
 | Motivo | Significato | Risposta staff |
 | --- | --- | --- |
-| Servizio fermato oggi | Lo staff ha fermato manualmente booking online. | Prenotazioni esistenti restano valide. Riaprire solo se sicuro. |
+| Servizio fermato oggi | Lo staff ha fermato manualmente prenotazioni online. | Prenotazioni esistenti restano valide. Riaprire solo se sicuro. |
 | Orario bloccato | Un manager ha bloccato l'orario. | Controlla blocchi o note manager. |
-| Cutoff passato | Lead time non consente piu booking online. | Staff puo decidere se booking manuale e possibile. |
-| Coperti insufficienti | Lo slot non contiene il gruppo richiesto. | Prova altro orario, gruppo minore o override manager. |
-| Pieno | Non resta capacita significativa. | Usa waitlist o altro orario. |
-| Servizio terminato | Ultimo slot piu durata e passato. | Non accettare nuovi booking salvo approvazione manuale. |
-| Ristorante chiuso | Data chiusa o fuori schedule. | Controlla chiusure e date speciali. |
+| Cutoff passato | Il tempo minimo non consente piu prenotazioni online. | Lo staff puo decidere se una prenotazione manuale e possibile. |
+| Coperti insufficienti | Lo slot non contiene il gruppo richiesto. | Prova altro orario, gruppo minore o approvazione manager. |
+| Pieno | Non restano abbastanza posti utili. | Usa lista d'attesa o altro orario. |
+| Servizio terminato | Ultimo slot piu durata e passato. | Non accettare nuove prenotazioni salvo approvazione manuale. |
+| Ristorante chiuso | Data chiusa o fuori orario. | Controlla chiusure e date speciali. |
 
 ## Coperti spiegati
 
-Gli slot mostrano coperti riservati su capacita tavoli per quello slot:
+Gli slot mostrano ospiti prenotati rispetto ai posti disponibili dei tavoli:
 
 ```text
 24 / 80 coperti
 ```
 
-Significa che 24 posti ospite sono gia riservati contro 80 posti tavolo attivi.
+Significa che 24 posti ospite sono gia riservati su 80 posti tavolo attivi.
 Non significa che il ristorante accetti un gruppo singolo da 80.
 
-Il massimo numero ospiti e policy separata. Non confondere capacita totale con
-massimo gruppo accettato.
+Il massimo numero ospiti e una regola separata. Non confondere posti totali con
+massimo gruppo accettato in una singola prenotazione.
 
 ## Perche i coperti appaiono in piu slot
 
-Le prenotazioni occupano capacita per la durata effettiva tavolo. Se cena dura
-90 minuti, un booking 19:00 puo influenzare 19:00, 19:30 e 20:00 in base
-all'intervallo.
+Le prenotazioni tengono occupato il tavolo per la durata del servizio. Se cena
+dura 90 minuti, una prenotazione alle 19:00 puo influenzare 19:00, 19:30 e
+20:00 in base all'intervallo.
 
-E previsto e previene overbooking tra turni.
+E previsto: evita di promettere lo stesso tavolo a due ospiti in orari
+sovrapposti.
 
 ## Modal nuova prenotazione
 
@@ -133,14 +134,14 @@ Usa la modal per:
 
 - Prenotazioni telefoniche.
 - Walk-in.
-- Booking inseriti da staff.
-- Eccezioni operative.
-- Booking creati da slot selezionato.
+- Prenotazioni inserite dallo staff.
+- Eccezioni approvate dal manager.
+- Prenotazioni create da slot selezionato.
 
 Informazioni normalmente richieste:
 
 - Data.
-- Offering.
+- Zona.
 - Servizio.
 - Orario.
 - Numero ospiti.
@@ -158,24 +159,25 @@ Informazioni opzionali utili:
 Ogni input deve avere label visibile. Se lo staff non capisce un campo, e un
 problema di usabilita da segnalare.
 
-## Booking staff contro booking pubblico
+## Prenotazione staff e prenotazione online
 
-I booking staff possono permettere eccezioni operative che gli ospiti pubblici
-non possono fare online. Questo e utile, ma lo staff deve comunque rispettare:
+Le prenotazioni staff possono permettere eccezioni approvate dal manager che gli
+ospiti non possono fare online. Questo e utile, ma lo staff deve comunque
+rispettare:
 
-- Capacita fisica tavoli.
+- Posti fisici dei tavoli.
 - Conflitti tavoli.
 - Orari servizio.
 - Qualita contatti ospite.
-- Lock seated/completed.
-- Policy manager.
+- Blocchi seated/completed.
+- Regole manager.
 
-Non usare booking staff per aggirare regolarmente regole che proteggono da
+Non usare prenotazioni staff per aggirare regolarmente regole che proteggono da
 overbooking.
 
 ## Lista prenotazioni
 
-La lista mostra booking per data e offering selezionati. Controlla:
+La lista mostra prenotazioni per data e zona selezionate. Controlla:
 
 - Orario arrivo.
 - Nome ospite.
@@ -187,7 +189,8 @@ La lista mostra booking per data e offering selezionati. Controlla:
 - Warning email.
 - Azioni disponibili.
 
-Durante servizio mantieni stati aggiornati.
+Durante servizio mantieni stati aggiornati, cosi il prossimo collega puo fidarsi
+della lista.
 
 ## Modal sala/giorno
 
@@ -204,7 +207,8 @@ coprire etichette orario. I periodi chiusi devono restare chiari.
 
 ## Modal waitlist
 
-Usa waitlist quando c'e domanda ma un booking confermato non puo essere accettato.
+Usa lista d'attesa quando c'e domanda ma una prenotazione confermata non puo
+essere accettata.
 
 Buone voci includono:
 
@@ -215,7 +219,7 @@ Buone voci includono:
 - Note su flessibilita.
 - Urgenze o necessita speciali.
 
-Quando si libera capacita, lo staff puo contattare l'ospite e creare o
+Quando si liberano posti, lo staff puo contattare l'ospite e creare o
 aggiornare prenotazione.
 
 ## Azioni prenotazione
@@ -257,7 +261,7 @@ Espandi solo se servono dettagli.
 Se la card avvisa che email ospite non e raggiungibile:
 
 1. Chiama l'ospite.
-2. Conferma dettagli booking.
+2. Conferma dettagli prenotazione.
 3. Chiedi email corretta.
 4. Aggiorna contatti dove possibile.
 5. Aggiungi nota se serve follow-up.
@@ -266,14 +270,14 @@ Non affidarti all'email finche non e corretta.
 
 ## Domande comuni
 
-### Perche staff puo aggiungere un booking che il pubblico rifiuterebbe?
+### Perche staff puo aggiungere una prenotazione che il pubblico rifiuterebbe?
 
-I workflow staff supportano eccezioni reali. Conflitti tavoli e lock stato
-proteggono comunque il ristorante.
+Lo staff puo gestire eccezioni reali. Conflitti tavoli e stati bloccati
+proteggono comunque il ristorante da errori.
 
 ### Perche assegnazione tavolo sparisce dopo modifica?
 
-Cambiando data, orario, servizio, offering, numero ospiti o durata, il tavolo
+Cambiando data, orario, servizio, zona, numero ospiti o durata, il tavolo
 vecchio puo non essere sicuro. Il sistema puo pulirlo.
 
 ### Perche uno slot grigio e ancora visibile?
@@ -299,7 +303,7 @@ Potrebbe essere completed, seated, cancelled o in stato che blocca azioni.
 ### Coperti troppo alti
 
 1. Controlla capacita tavoli attivi.
-2. Controlla binding offering.
+2. Controlla assegnazione zona dei tavoli.
 3. Controlla tavoli duplicati.
 4. Controlla sovrapposizione durata servizio.
 5. Controlla stati prenotazioni attive/cancellate.
@@ -308,14 +312,14 @@ Potrebbe essere completed, seated, cancelled o in stato che blocca azioni.
 
 1. Leggi motivo indisponibilita.
 2. Controlla numero ospiti.
-3. Controlla lead time e finestra booking.
+3. Controlla tempo minimo e finestra futura.
 4. Controlla chiusure e blocchi.
 5. Controlla tavoli.
 6. Controlla se servizio fermato oggi.
 
 ### Notifica appare ma prenotazione non visibile
 
-1. Conferma data e offering.
+1. Conferma data e zona.
 2. Aggiorna lista prenotazioni.
-3. Controlla se appartiene ad altro offering.
+3. Controlla se appartiene a un'altra zona.
 4. Chiedi supporto se continua a puntare a nulla.

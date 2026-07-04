@@ -6,8 +6,8 @@ This FAQ answers common staff questions in plain language.
 
 ### Why does changing the URL slug not show another restaurant?
 
-Access comes from the logged-in staff session, not the URL slug. The slug is for
-routing and branding only.
+Access comes from the logged-in staff account, not the URL. The URL helps show
+the right restaurant page, but it does not give access by itself.
 
 ### How do I get back to the dashboard?
 
@@ -45,9 +45,9 @@ Common reasons:
 - Reservation is not completed.
 - Review email was already sent.
 - Guest has no email.
-- Platform disabled review request emails.
+- Platform support turned off review request emails.
 - Review URL is missing.
-- SMTP is not ready.
+- Email sending is not ready.
 
 ### Can I send a review email to a no-show?
 
@@ -57,8 +57,8 @@ No. Review requests are for attended, completed reservations.
 
 ### Why does a slot show booked covers across multiple times?
 
-A reservation occupies capacity for its effective table duration. If a 19:00
-reservation lasts 90 minutes, it overlaps later slots. This is expected.
+A reservation holds a table for its service duration. If a 19:00 reservation
+lasts 90 minutes, it overlaps later slots. This is expected.
 
 ### Why does the restaurant have enough seats but the booking is rejected?
 
@@ -74,18 +74,18 @@ Possible reasons:
 ### What is the difference between maximum party size and capacity?
 
 Maximum party size is the largest single booking allowed. Capacity is how many
-total covers can fit in a slot.
+total guests can fit in a slot.
 
 ### Why is a service switch disabled in quick booking controls?
 
-The service may be past its latest bookable time after lead time is applied.
+The service may be past its latest bookable time.
 
 ## Tables
 
 ### Why can I not assign a table that looks empty?
 
-It may conflict with another reservation's duration window, belong to another
-offering, be inactive, or be too small for the party.
+It may be needed by another reservation at the same time, belong to another
+bookable area, be inactive, or be too small for the party.
 
 ### What are joined tables?
 
@@ -105,8 +105,8 @@ No. It only clears notification unread state.
 
 ### Why do I see duplicate notifications?
 
-Possible causes include multiple browser tabs or repeated event delivery. Check
-whether there is actually one booking or multiple bookings.
+Possible causes include multiple browser tabs or the same alert arriving again.
+Check whether there is actually one booking or multiple bookings.
 
 ### What should I do with a toast notification?
 
@@ -118,9 +118,9 @@ Use it as an alert. The reservation itself remains in the reservation list.
 
 The guest email may not be reachable. Call the guest.
 
-### Can staff configure SMTP?
+### Can staff configure email sending?
 
-No. SMTP is configured by platform administrators.
+No. Email sending is set up by platform support.
 
 ### The guest did not receive confirmation. What should I do?
 
@@ -129,14 +129,14 @@ inspect email logs.
 
 ### Does Sent guarantee the guest saw the email?
 
-No. Sent means SMTP accepted the message. The email can still be filtered,
-bounced later, or hidden by the email client.
+No. Sent means the message was accepted for delivery. The email can still be
+filtered, fail later, or be hidden by the guest's email app.
 
 ## Customers And Analytics
 
 ### Why are analytics wrong?
 
-Analytics depend on accurate reservation statuses. Make sure completed,
+Reports depend on accurate reservation statuses. Make sure completed,
 cancelled, and no-show states are kept up to date.
 
 ### How do I find a returning guest?
@@ -153,8 +153,9 @@ Escalate to platform support when:
 
 - Availability does not load after refresh.
 - Many emails fail or skip unexpectedly.
-- Public booking site has CORS or tenant key problems.
+- Public booking site cannot connect to the restaurant account.
 - Staff see repeated 403 errors.
 - Notifications do not clear.
-- Data appears to cross tenant boundaries.
-- SMTP, domains, public keys, or allowed origins need changes.
+- One restaurant appears to see another restaurant's data.
+- Email sending, domains, public booking keys, or approved website addresses
+  need changes.

@@ -1,12 +1,12 @@
 # Notifiche ed email
 
-Le notifiche aiutano lo staff a reagire a nuove attivita booking. Lo stato email
-aiuta a capire se gli ospiti ricevono messaggi e quando serve follow-up
+Le notifiche aiutano lo staff a reagire a nuove prenotazioni. Lo stato email
+aiuta a capire se gli ospiti ricevono messaggi e quando serve richiamarli
 telefonico.
 
 ## Tipi di notifica
 
-L'admin tenant puo mostrare:
+L'admin ristorante puo mostrare:
 
 - Notifiche campanella nell'header.
 - Toast in basso a destra.
@@ -21,15 +21,15 @@ Mostra notifiche recenti.
 Lo staff puo:
 
 - Aprire campanella per rivedere notifiche.
-- Usare `Segna tutte lette` per pulire stato unread.
+- Usare `Segna tutte lette` per pulire stato non letto.
 - Cliccare notifica per attenzione operativa.
 
-Se unread non si pulisce:
+Se lo stato non letto non si pulisce:
 
 1. Clicca Segna tutte lette una volta.
 2. Chiudi e riapri popup.
 3. Aggiorna pagina.
-4. Segnala se unread ritorna sulle stesse notifiche.
+4. Segnala se lo stato non letto ritorna sulle stesse notifiche.
 
 ## Toast
 
@@ -41,15 +41,15 @@ la prenotazione.
 
 ## Protezione duplicati
 
-Il browser dovrebbe deduplicare eventi reservation-created per reservation id in
-una singola tab. Lo staff puo comunque confondersi quando:
+Il browser prova a non mostrare due volte lo stesso avviso di nuova
+prenotazione nella stessa tab. Lo staff puo comunque confondersi quando:
 
 - Sono aperte piu tab.
 - Lo stesso ospite fa piu prenotazioni reali.
 - Una tab vecchia si riconnette.
 - Le notifiche vengono confuse con righe prenotazione.
 
-Nel dubbio, controlla la lista prenotazioni per data e offering selezionati.
+Nel dubbio, controlla la lista prenotazioni per data e zona selezionate.
 
 ## Troubleshooting notifiche
 
@@ -77,14 +77,14 @@ Prova:
 
 1. Aggiorna lista prenotazioni.
 2. Conferma data selezionata.
-3. Conferma offering selezionato.
+3. Conferma zona selezionata.
 4. Controlla connessione internet.
 5. Chiedi supporto piattaforma se persiste.
 
 ## Email conferma prenotazione
 
-Le conferme booking sono controllate da configurazione piattaforma. Lo staff non
-abilita SMTP o policy conferma da admin tenant.
+Le conferme prenotazione sono controllate dal supporto piattaforma. Lo staff non
+attiva invio email o regole conferma dall'admin ristorante.
 
 Se un ospite dice che conferma non e arrivata:
 
@@ -95,7 +95,7 @@ Se un ospite dice che conferma non e arrivata:
 
 ## Allegati calendario
 
-Le conferme booking possono includere allegato calendario. I client email lo
+Le conferme prenotazione possono includere allegato calendario. Le app email lo
 mostrano in modi diversi:
 
 - Alcuni mostrano invito RSVP.
@@ -103,8 +103,8 @@ mostrano in modi diversi:
 - Alcuni aggiungono evento dopo accettazione.
 - Alcuni nascondono dettagli calendario in menu.
 
-Se ospite non trova evento, conferma prima che email sia arrivata, poi chiedi di
-controllare come il client mostra allegati calendario.
+Se ospite non trova l'evento, conferma prima che email sia arrivata, poi chiedi
+di controllare come la sua app email mostra allegati calendario.
 
 ## Email richiesta recensione
 
@@ -116,20 +116,20 @@ Staff puo inviare solo quando:
 - Prenotazione completed.
 - Ospite ha email.
 - Richiesta non gia inviata.
-- Policy piattaforma lo consente.
-- Tenant ha URL recensione.
-- SMTP pronto.
+- Il supporto piattaforma ha abilitato le email recensione.
+- Il ristorante ha un link recensione salvato.
+- Invio email pronto.
 
-Non esiste form feedback custom in questa applicazione. I link puntano al sito
-recensione esterno configurato da piattaforma.
+Non esiste un form feedback dentro questo sistema. I link portano al sito
+recensioni esterno impostato dal supporto piattaforma.
 
 ## Warning email su card
 
 Un warning significa che il sistema pensa che l'email ospite non sia
 raggiungibile. Puo succedere per:
 
-- SMTP ha rifiutato destinatario subito.
-- Provider ha riportato bounce dopo.
+- L'indirizzo email e stato rifiutato subito.
+- Il provider email ha segnalato dopo che la consegna e fallita.
 - Invio precedente fallito.
 
 Risposta staff:
@@ -146,16 +146,16 @@ I log email piattaforma usano tre stati:
 
 | Stato | Significato per staff |
 | --- | --- |
-| Sent | L'app ha inviato e SMTP ha accettato. Non garantisce che ospite lo abbia visto. |
-| Failed | Invio fallito o bounce registrato. Staff puo dover chiamare. |
-| Skipped | Il sistema non ha inviato per policy o configurazione. |
+| Sent | Il messaggio e stato accettato per la consegna. Non garantisce che ospite lo abbia visto. |
+| Failed | Invio fallito o consegna fallita dopo. Staff puo dover chiamare. |
+| Skipped | Il sistema non ha inviato per una regola o impostazione mancante. |
 
-Lo staff tenant di solito non vede i log email completi. Chiedi supporto quando
+Lo staff ristorante di solito non vede i log email completi. Chiedi supporto quando
 serve.
 
 ## Domande email comuni
 
-### Lo staff puo reinviare conferma booking?
+### Lo staff puo reinviare conferma prenotazione?
 
 Usa le azioni disponibili sulla card. Se non esiste reinvio, conferma per
 telefono e chiedi supporto se il reinvio e supportato.
@@ -169,17 +169,18 @@ No. Le recensioni sono per visite completed.
 Il sistema registra invii per prevenire duplicati. Se gia inviata, il pulsante
 resta disabilitato.
 
-### Nessun warning significa delivery garantita?
+### Nessun warning significa consegna garantita?
 
-No. Significa solo che il sistema non ha registrato fallimenti noti.
+No. Significa solo che il sistema non ha registrato fallimenti noti. L'email
+puo comunque finire in spam o essere nascosta dall'app email dell'ospite.
 
-## Quando escalare
+## Quando chiedere supporto
 
 Escala a supporto piattaforma quando:
 
 - Molti ospiti segnalano conferme mancanti.
-- Email recensione non disponibile su booking completed.
+- Email recensione non disponibile su prenotazioni completed.
 - Warning email appaiono su molte prenotazioni.
 - Notifiche non si puliscono dopo refresh.
 - Nuove prenotazioni online non appaiono.
-- Servono cambi SMTP, template, URL recensione o policy email.
+- Servono cambi a invio email, template, link recensione o regole email.

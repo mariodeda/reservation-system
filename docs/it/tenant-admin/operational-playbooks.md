@@ -17,7 +17,7 @@ Passi:
 5. Controlla slot card Prenotazioni per messaggio servizio fermato.
 6. Avvisa staff che prenotazioni esistenti restano valide.
 
-Ricorda: fermare booking non cancella prenotazioni esistenti.
+Ricorda: fermare prenotazioni online non cancella prenotazioni esistenti.
 
 ## Riaprire un servizio oggi
 
@@ -29,7 +29,7 @@ Passi:
 2. Trova il servizio fermato.
 3. Riaccendilo se il controllo e disponibile.
 4. Controlla slot card.
-5. Conferma che l'ultimo orario prenotabile non sia passato dopo lead time.
+5. Conferma che l'ultimo orario prenotabile non sia gia passato.
 
 Se lo switch e disabilitato, il servizio potrebbe essere oltre l'ultimo orario
 prenotabile.
@@ -37,7 +37,7 @@ prenotabile.
 ## Gestire prenotazione telefonica
 
 1. Apri Prenotazioni.
-2. Seleziona data e offering corretti.
+2. Seleziona data e zona corrette.
 3. Scegli servizio e orario richiesti.
 4. Clicca slot o apri modal nuova prenotazione.
 5. Inserisci nome, numero ospiti, telefono, email e note.
@@ -50,23 +50,24 @@ Se l'ospite non ha email, assicurati che il telefono sia corretto.
 ## Gestire walk-in
 
 1. Controlla stato slot e tavoli corrente.
-2. Aggiungi prenotazione staff o voce waitlist in base alla capacita.
+2. Aggiungi prenotazione staff o voce lista d'attesa in base ai posti
+   disponibili.
 3. Se seduto subito, assegna tavolo e marca seated.
 4. Aggiungi note se il gruppo ha limite orario o necessita speciale.
 5. Marca completed dopo la visita.
 
 ## Gestire gruppo grande
 
-1. Controlla massimo numero ospiti.
-2. Controlla capacita slot.
+1. Controlla la regola sul massimo numero ospiti.
+2. Controlla quanti posti sono disponibili nello slot.
 3. Controlla possibilita assegnazione tavoli.
 4. Usa tavoli uniti solo se realistici.
 5. Aggiungi note staff per preparazione.
 6. Conferma orario arrivo e contatti per telefono.
 
-Se la policy online blocca il gruppo ma il ristorante vuole accettarlo
-manualmente, lo staff puo crearlo come eccezione se i conflitti tavoli sono
-gestibili.
+Se la prenotazione online blocca il gruppo ma il ristorante vuole accettarlo
+manualmente, lo staff puo crearlo come eccezione approvata dal manager se i
+conflitti tavoli sono gestibili.
 
 ## Ospite in ritardo
 
@@ -81,7 +82,7 @@ gestibili.
 1. Aspetta il normale tempo di tolleranza.
 2. Marca no-show.
 3. Non inviare email recensione.
-4. Usa analytics per monitorare pattern no-show.
+4. Usa le statistiche per monitorare se i no-show si ripetono.
 
 ## Cancellazione
 
@@ -93,14 +94,14 @@ gestibili.
 
 ## Warning email ospite
 
-1. Tratta il warning come richiesta follow-up.
+1. Tratta l'avviso come richiesta di richiamare l'ospite.
 2. Chiama l'ospite.
-3. Conferma dettagli booking verbalmente.
+3. Conferma dettagli prenotazione verbalmente.
 4. Chiedi email corretta se serve.
 5. Aggiorna contatti dove possibile.
 
-I warning possono venire da reject SMTP immediato o bounce successivo. Non
-affidarti all'email finche non e corretta.
+Gli avvisi possono venire da un rifiuto immediato dell'indirizzo o da un errore
+di consegna arrivato dopo. Non affidarti all'email finche non e corretta.
 
 ## "Could not load availability"
 
@@ -112,7 +113,7 @@ affidarti all'email finche non e corretta.
 6. Chiedi supporto piattaforma se persiste.
 
 Non continuare a creare prenotazioni manuali alla cieca se disponibilita fallisce.
-Il ristorante potrebbe perdere protezione conflitti.
+Il ristorante potrebbe perdere la protezione dai conflitti tavolo.
 
 ## Notifiche duplicate sospette
 
@@ -121,7 +122,8 @@ Il ristorante potrebbe perdere protezione conflitti.
 3. Conferma se c'e una prenotazione o piu prenotazioni reali.
 4. Segna notifiche lette.
 5. Aggiorna la tab attiva.
-6. Escala se la stessa prenotazione continua a generare unread.
+6. Chiedi supporto se la stessa prenotazione continua a generare notifiche non
+   lette.
 
 Notifiche duplicate non sono la stessa cosa di prenotazioni duplicate.
 

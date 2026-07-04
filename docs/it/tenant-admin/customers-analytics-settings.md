@@ -1,20 +1,20 @@
 # Clienti, statistiche e impostazioni
 
-Clienti, analytics e impostazioni aiutano i manager a capire storico ospiti,
-performance servizio e preferenze locali. Sono meno urgenti di Prenotazioni
+Clienti, statistiche e impostazioni aiutano i manager a capire storico ospiti,
+andamento del servizio e preferenze locali. Sono meno urgenti di Prenotazioni
 durante il servizio, ma importanti per buone operazioni.
 
 ## Navigazione Clienti & Statistiche
 
-L'header raggruppa Clienti e Analytics sotto `Clienti & Statistiche`.
+L'header raggruppa Clienti e Statistiche sotto `Clienti & Statistiche`.
 
 Usa:
 
 - Clienti quando servono informazioni ospite o storico.
-- Analytics quando servono trend performance.
+- Statistiche quando servono trend e riepiloghi.
 
-Il dropdown dovrebbe chiudersi quando lo staff clicca fuori. Su schermi piccoli,
-la UI puo usare un selettore compatto.
+Il menu dovrebbe chiudersi quando lo staff clicca fuori. Su schermi piccoli, la
+pagina puo usare un selettore compatto.
 
 ## Pagina Clienti
 
@@ -53,64 +53,64 @@ Se una prenotazione mostra warning email, il record cliente potrebbe dover
 essere corretto. Lo staff dovrebbe chiamare l'ospite e confermare email corretta.
 Questo migliora conferme future e richieste recensione.
 
-## Pagina Analytics
+## Pagina Statistiche
 
-Analytics riassume performance in un periodo selezionato.
+Statistiche riassume l'andamento in un periodo selezionato.
 
 Metriche comuni:
 
 - Numero prenotazioni.
 - Coperti.
 - Ospiti.
-- Breakdown servizi.
-- Breakdown fonte.
+- Riepilogo per servizio.
+- Riepilogo per fonte.
 - Indicatori no-show.
-- Trend lead time.
-- Trend clienti.
+- Tendenze sul tempo di anticipo.
+- Tendenze clienti.
 
-Analytics e accurata quanto i dati operativi. Se lo staff dimentica completed,
-cancelled o no-show, i report saranno fuorvianti.
+I report sono accurati solo quanto gli aggiornamenti dello staff. Se lo staff
+dimentica completed, cancelled o no-show, i report saranno fuorvianti.
 
-## Come usare analytics
+## Come usare le statistiche
 
-Usa analytics per domande come:
+Usa le statistiche per domande come:
 
 - Quali servizi sono piu pieni?
 - Quali giorni sono sotto-prenotati?
 - I no-show aumentano?
 - Gli ospiti prenotano troppo tardi?
-- Serve cambiare lead time?
+- Serve cambiare il tempo minimo prima della prenotazione?
 - Le durate tavolo sono realistiche?
-- I gruppi grandi sono abbastanza frequenti da cambiare policy?
+- I gruppi grandi sono abbastanza frequenti da cambiare le regole prenotazione?
 - Serve cambiare staffing per un servizio?
 
-Analytics guida decisioni, non sostituisce giudizio manager.
+Le statistiche guidano decisioni, ma non sostituiscono il giudizio del manager.
 
 ## Pagina impostazioni
 
-Le impostazioni tenant sono per preferenze locali e password staff.
+Le impostazioni sono per preferenze del ristorante e password staff.
 
 Lo staff puo vedere:
 
 - Impostazioni account locali.
 - Cambio password staff.
-- Preferenze operative tenant.
+- Preferenze operative del ristorante.
 
 Lo staff non dovrebbe vedere:
 
-- Credenziali SMTP.
-- Chiave pubblica tenant.
-- Origini consentite.
+- Credenziali per invio email.
+- Chiave del sito pubblico di prenotazione.
+- Indirizzi web approvati.
 - Domini.
-- Log piattaforma.
-- Log email piattaforma.
+- Log di sistema.
+- Log email di sistema.
 - Switch email globali.
 
-Queste sono responsabilita piattaforma.
+Queste sono responsabilita del supporto piattaforma.
 
 ## Cambio password
 
-Lo staff puo cambiare password admin tenant quando permesso.
+Lo staff puo cambiare password admin ristorante quando permesso.
 
 Buone pratiche:
 
@@ -119,12 +119,12 @@ Buone pratiche:
 - Cambia password dopo turnover staff.
 - Fai sign out su dispositivi condivisi.
 
-Il cambio password puo essere disabilitato durante impersonificazione
-piattaforma. Se non funziona, chiedi supporto.
+Il cambio password puo essere disabilitato mentre il supporto piattaforma sta
+aiutando dentro l'account ristorante. Se non funziona, chiedi supporto.
 
 ## Checklist qualita dati
 
-Per clienti e analytics migliori:
+Per clienti e statistiche migliori:
 
 1. Usa nomi ospite accurati.
 2. Richiedi almeno un contatto affidabile.
@@ -137,10 +137,10 @@ Per clienti e analytics migliori:
 
 ## Domande comuni
 
-### Perche analytics cambiano dopo servizio?
+### Perche le statistiche cambiano dopo servizio?
 
-Gli stati possono essere aggiornati dopo che gli ospiti vanno via. Analytics
-riflette dati salvati piu recenti.
+Gli stati possono essere aggiornati dopo che gli ospiti vanno via. Le
+statistiche riflettono i dati salvati piu recenti.
 
 ### Perche un cliente appare due volte?
 
@@ -149,10 +149,11 @@ andando avanti.
 
 ### Lo staff puo esportare clienti?
 
-Usa solo gli strumenti disponibili nella UI tenant. Per export speciali, chiedi
-supporto piattaforma e segui processo privacy del ristorante.
+Usa solo gli strumenti disponibili nell'admin ristorante. Per esportazioni
+speciali, chiedi supporto piattaforma e segui il processo privacy del
+ristorante.
 
 ### Perche staff non puo cambiare template email?
 
-Template e policy email sono controllati da piattaforma per proteggere mittente,
-delivery e sicurezza configurazione.
+Template e regole email sono gestiti dal supporto piattaforma per proteggere il
+mittente del ristorante ed evitare problemi di consegna.

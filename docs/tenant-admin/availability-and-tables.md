@@ -1,12 +1,12 @@
 # Availability And Tables
 
-Availability and tables decide what guests can book and what staff can safely
-manage. This is the most important configuration area for preventing
-overbooking, bad table assignments, and confusing slot availability.
+Opening times and tables decide what guests can book and what staff can safely
+manage. This is the most important setup area for preventing overbooking, bad
+table assignments, and confusing slot availability.
 
-## What Availability Controls
+## What Opening-Time Settings Control
 
-Availability controls:
+Opening-time settings control:
 
 - Weekly service hours.
 - Service names.
@@ -24,13 +24,14 @@ Availability controls:
 
 Tables control:
 
-- Physical seating capacity.
-- Which offering a table belongs to.
+- Physical seats.
+- Which bookable area a table belongs to.
 - Whether a table is active.
 - Whether tables can be joined.
 
-The public booking calendar depends on both. Staff should think of availability
-as "when can guests book?" and tables as "where can guests physically sit?"
+The public booking calendar depends on both. Staff should think of opening-time
+settings as "when can guests book?" and tables as "where can guests physically
+sit?"
 
 ## Availability Page Overview
 
@@ -41,12 +42,12 @@ Use the Availability page when:
 - The restaurant adds or removes a service.
 - A holiday or private event changes one date.
 - A time must be blocked.
-- Lead time or booking window needs adjustment.
+- Minimum notice time or future booking window needs adjustment.
 - Maximum online party size changes.
-- Table duration differs by service.
+- Table turn time differs by service.
 
 Do not make live changes during a busy service unless necessary. Availability
-changes can immediately affect public booking.
+changes can immediately affect what guests can book online.
 
 ## Weekly Services
 
@@ -60,8 +61,8 @@ Each service row includes:
 | From | First time in the service window. |
 | To | End of the service window. |
 | Every (min) | Slot interval, such as every 15 or 30 minutes. |
-| Duration | How long reservations in this service occupy tables. |
-| Actions | Edit, duplicate, or remove the service row depending on UI controls. |
+| Duration | How long reservations in this service hold tables. |
+| Actions | Edit, duplicate, or remove the service row depending on the controls shown. |
 
 Times use 24-hour format. Use service names that staff understand immediately.
 
@@ -108,7 +109,7 @@ Common choices:
 
 ## Duration
 
-Duration is how long a reservation occupies table capacity.
+Duration is how long a reservation holds a table.
 
 Example:
 
@@ -119,13 +120,13 @@ Example:
 Duration affects:
 
 - Table conflict checks.
-- Slot cover calculations.
-- Availability pressure.
+- Covers shown on slot cards.
+- How full a service looks.
 - Floor/day calendar layout.
 - Whether later slots remain safe to book.
 
-If duration is too short, the system may allow overbooking. If duration is too
-long, the system may block too much availability.
+If duration is too short, the restaurant may get overbooked. If duration is too
+long, too many useful times may be blocked.
 
 ## Default Duration Versus Service Duration
 
@@ -133,22 +134,23 @@ There are two duration layers:
 
 | Duration Type | When Used |
 | --- | --- |
-| Default table duration | Fallback when a service row has no specific duration. |
+| Default table duration | Backup value when a service row has no specific duration. |
 | Service duration | Preferred value for that service and day. |
 
 Use service duration when lunch, dinner, brunch, or special services have
-different turn times. Keep the default duration as a safe fallback.
+different turn times. Keep the default duration as a safe backup.
 
 ## Minimum And Maximum Party Size
 
 Minimum party size controls the smallest booking accepted. Maximum party size
 controls the largest single booking accepted.
 
-Maximum party size is not the same as slot capacity. A restaurant may have 80
+Maximum party size is not the same as total seats. A restaurant may have 80
 seats available but allow only 12 or 20 guests in one online booking.
 
 If a guest wants a larger party than the online maximum, staff can decide
-whether to handle it manually based on restaurant policy and table feasibility.
+whether to handle it manually based on restaurant rules and whether tables can
+realistically fit the party.
 
 ## Booking Window
 
@@ -160,19 +162,19 @@ Examples:
 - 30 days: common restaurant window.
 - 90 days: useful for destination or event-heavy restaurants.
 
-If guests say they cannot book a future date, check booking window before
+If guests say they cannot book a future date, check the future booking window before
 assuming the date is closed.
 
-## Lead Time
+## Minimum Notice Time
 
-Lead time prevents guests from booking too close to the reservation time.
+Minimum notice time prevents guests from booking too close to the reservation time.
 
-Example: if lead time is 120 minutes, a guest cannot book a 19:00 slot after
+Example: if minimum notice time is 120 minutes, a guest cannot book a 19:00 slot after
 17:00.
 
-Lead time protects staff from last-minute online bookings the restaurant cannot
-prepare for. Staff may still decide to create a manual booking if operationally
-safe.
+Minimum notice time protects staff from last-minute online bookings the restaurant cannot
+prepare for. Staff may still decide to create a manual booking if it is safe for
+service.
 
 ## Closed Days
 
@@ -233,25 +235,27 @@ It does not delete existing reservations.
 
 ## Tables And Capacity
 
-When active tables exist for an offering, table seats drive slot capacity.
+When active tables exist for a bookable area, table seats decide how many guests
+can fit in each slot.
 
 That means:
 
 - Active tables count.
 - Inactive tables do not count.
-- Offering-bound tables count only for the matching offering.
+- Tables assigned to one area count only for that area.
 - Joined tables can help fit larger parties when configured.
 
-Capacity should reflect real seating, not desired sales volume.
+Seat counts should reflect real seating, not how many bookings the restaurant
+wishes it could sell.
 
-## Legacy Capacity
+## Older Capacity Fallback
 
-If no active tables exist for an offering, the system may fall back to legacy
-service capacity. This is a compatibility path. For accurate operations, staff
-should configure real tables.
+If no active tables exist for a bookable area, the system may fall back to an
+older service-level capacity number. This keeps older setups working, but real
+tables are more accurate.
 
 If covers look much higher or lower than expected, check whether the service is
-using table capacity or legacy capacity.
+using real tables or the older fallback number.
 
 ## Safe Change Process
 
@@ -260,7 +264,7 @@ When changing availability:
 1. Make the smallest change that solves the problem.
 2. Save.
 3. Check the affected date on Reservations.
-4. Check at least one public availability response or booking page if possible.
+4. Check the public booking page if possible.
 5. Confirm staff understand the change.
 
 For major schedule changes, avoid editing during active booking peaks.
@@ -271,13 +275,13 @@ Before accepting live bookings:
 
 1. Create tables with accurate labels and capacities.
 2. Disable unavailable tables.
-3. Bind tables to offerings where needed.
+3. Assign tables to bookable areas where needed.
 4. Configure normal weekly services.
 5. Set service-specific durations.
 6. Set default duration.
 7. Set minimum and maximum party size.
-8. Set lead time.
-9. Set booking window.
+8. Set minimum notice time.
+9. Set the future booking window.
 10. Add known closed days.
 11. Add known special dates.
 12. Add blocked slots.
@@ -289,8 +293,8 @@ Before accepting live bookings:
 
 ### Why was capacity removed from weekly service rows?
 
-Capacity should come from real active tables when tables are configured. This is
-more accurate than typing a number into each service row.
+When tables are set up, seats should come from real active tables. This is more
+accurate than typing a number into each service row.
 
 ### Should I change table duration or slot interval?
 
@@ -299,12 +303,12 @@ slot interval when you want booking times to appear more or less frequently.
 
 ### Why does changing duration affect covers?
 
-Longer duration means reservations overlap more future slots. Shorter duration
-frees capacity sooner.
+Longer duration means reservations hold tables across more later slots. Shorter
+duration frees tables sooner.
 
 ### Why can I not stop a service today?
 
-The latest bookable time may have passed after lead time. There is nothing left
+The latest bookable time may have already passed. There is nothing left
 for online guests to book.
 
 ### What should I do for a private event?

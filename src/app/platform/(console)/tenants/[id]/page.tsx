@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
+import { formatPlatformDateTime } from "@/components/platform/date-format";
 import {
   CONFIRMATION_PRESETS,
   FEEDBACK_PRESETS,
@@ -89,6 +90,54 @@ async function platformJsonWithTimeout<T>(input: string, init: RequestInit, time
   } finally {
     clearTimeout(timer);
   }
+}
+
+function SyncStatusBanner({
+  name,
+  active,
+  enabled,
+  lastSyncAt,
+  lastError,
+}: {
+  name: string;
+  active: boolean;
+  enabled: boolean;
+  lastSyncAt?: string;
+  lastError?: string;
+}) {
+  const tone = active ? "active" : enabled ? "warning" : "off";
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 text-sm ${
+        tone === "active"
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+          : tone === "warning"
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+            : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`h-2 w-2 rounded-full ${
+            tone === "active" ? "bg-emerald-400" : tone === "warning" ? "bg-amber-300" : "bg-on-surface-variant/50"
+          }`}
+        />
+        <span className="font-semibold">
+          {active
+            ? `${name} sync is active for this restaurant.`
+            : enabled
+              ? `${name} sync is enabled but not fully configured.`
+              : `${name} sync is not active for this restaurant.`}
+        </span>
+      </div>
+      <div className="mt-1 text-xs opacity-85">
+        {active ? "Enabled restaurants are included in automated sync jobs where that provider supports cron imports." : "Save valid credentials and enable sync before relying on automated imports."}
+        {" "}
+        Last sync: {formatPlatformDateTime(lastSyncAt)}.
+        {lastError ? ` Last error: ${lastError}` : ""}
+      </div>
+    </div>
+  );
 }
 
 function toForm(t: TenantView): Form {
@@ -635,6 +684,13 @@ export default function TenantDetail() {
             Import TheFork reservations into this tenant so staff can see them and public availability counts their covers. Imported reservations are read-only and do not send local emails.
           </p>
         </div>
+        <SyncStatusBanner
+          name="TheFork"
+          active={Boolean(theFork?.enabled && theFork.clientId && theFork.clientSecretSet && theFork.restaurantUuid)}
+          enabled={Boolean(theFork?.enabled)}
+          lastSyncAt={theFork?.lastSyncAt}
+          lastError={theFork?.lastError}
+        />
         <div className="grid sm:grid-cols-2 gap-3">
           <Check
             label="Enable TheFork sync"
@@ -668,8 +724,8 @@ export default function TenantDetail() {
           </div>
         )}
         <div className="grid sm:grid-cols-3 gap-2 text-xs text-on-surface-variant">
-          <div>Last webhook: {theFork?.lastWebhookAt ?? "never"}</div>
-          <div>Last sync: {theFork?.lastSyncAt ?? "never"}</div>
+          <div>Last webhook: {formatPlatformDateTime(theFork?.lastWebhookAt)}</div>
+          <div>Last sync: {formatPlatformDateTime(theFork?.lastSyncAt)}</div>
           <div className={theFork?.lastError ? "text-rose-300" : ""}>Last error: {theFork?.lastError ?? "none"}</div>
         </div>
         {tfSyncStatus && (
@@ -729,6 +785,13 @@ export default function TenantDetail() {
             Read reservations from DISH using the restaurant manager login. Imported reservations are labeled as external, count against public availability, and stay read-only except local table assignment.
           </p>
         </div>
+        <SyncStatusBanner
+          name="DISH"
+          active={Boolean(dish?.enabled && dish.email && dish.passwordSet && dish.establishmentId)}
+          enabled={Boolean(dish?.enabled)}
+          lastSyncAt={dish?.lastSyncAt}
+          lastError={dish?.lastError}
+        />
         <div className="space-y-3">
           <Check
             label="Enable DISH sync"
@@ -756,7 +819,7 @@ export default function TenantDetail() {
           DISH does not provide a public reservation API for this account. This integration is read-only and depends on the manager HTML pages staying compatible; saving credentials always tests the login before enabling sync. The establishment id is the `est` value from the DISH Reservation tool URL.
         </div>
         <div className="grid sm:grid-cols-2 gap-2 text-xs text-on-surface-variant">
-          <div>Last sync: {dish?.lastSyncAt ?? "never"}</div>
+          <div>Last sync: {formatPlatformDateTime(dish?.lastSyncAt)}</div>
           <div className={dish?.lastError ? "text-rose-300" : ""}>Last error: {dish?.lastError ?? "none"}</div>
         </div>
         {dishSyncStatus && (

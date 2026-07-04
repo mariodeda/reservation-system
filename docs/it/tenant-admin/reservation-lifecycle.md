@@ -1,8 +1,7 @@
 # Ciclo vita e azioni prenotazione
 
-Questa pagina spiega stati prenotazione, pulsanti azione, regole di modifica,
-regole eliminazione, assegnazione tavoli, email recensione e modo piu sicuro di
-gestire situazioni comuni con ospiti.
+Questa pagina spiega stati prenotazione, pulsanti azione, assegnazione tavoli,
+email recensione e modo piu sicuro di gestire situazioni comuni con ospiti.
 
 ## Stati prenotazione
 
@@ -13,7 +12,7 @@ gestire situazioni comuni con ospiti.
 | Seated | Ospite arrivato e seduto. | Non modificare dettagli core. Segnare completed dopo visita. |
 | Completed | Visita finita. | Conservare storico, eventualmente inviare richiesta recensione. |
 | Cancelled | Prenotazione cancellata. | Nessuna azione seating. |
-| No-show | Ospite non arrivato. | Marcare accuratamente per analytics e contesto futuro. |
+| No-show | Ospite non arrivato. | Marcare accuratamente cosi report e note future hanno senso. |
 
 ## Perche lo stato conta
 
@@ -22,7 +21,7 @@ Lo stato influenza:
 - Se staff puo modificare o eliminare.
 - Se la prenotazione conta nelle viste operative.
 - Se email recensione puo essere inviata.
-- Analytics come no-show e coperti completati.
+- Report come no-show e coperti completati.
 - Chiarezza staff su cosa richiede ancora attenzione.
 
 ## Modifica prenotazioni
@@ -33,7 +32,7 @@ seduto:
 - Data.
 - Orario.
 - Servizio.
-- Offering.
+- Zona.
 - Numero ospiti.
 - Nome.
 - Telefono.
@@ -42,7 +41,7 @@ seduto:
 
 La modifica e disabilitata quando la prenotazione e seated o completed. Questo
 protegge lo storico servizio. Se un ospite seduto cambia tavolo o numero persone,
-usa stato operativo e note dove disponibili invece di riscrivere il booking
+usa stato e note dove disponibili invece di riscrivere la prenotazione
 originale.
 
 ## Elimina prenotazione
@@ -72,12 +71,12 @@ Prima di assegnare, controlla:
 
 - Il gruppo entra nel tavolo o set.
 - Il tavolo e attivo.
-- Il tavolo appartiene all'offering corretto o pool condiviso.
-- Non c'e conflitto con altra prenotazione nella finestra durata effettiva.
+- Il tavolo appartiene alla zona corretta o e condiviso.
+- Il tavolo non serve gia a un'altra prenotazione nello stesso orario.
 
-Se data, orario, servizio, offering, numero ospiti o durata cambiano, la vecchia
-assegnazione puo diventare non sicura. Il sistema dovrebbe rivalidare e pulire
-assegnazioni non sicure.
+Se data, orario, servizio, zona, numero ospiti o durata cambiano, la vecchia
+assegnazione puo diventare non sicura. Il sistema dovrebbe controllare di nuovo
+e pulire assegnazioni non sicure.
 
 ## Tavoli uniti
 
@@ -110,12 +109,12 @@ L'azione puo non essere disponibile perche:
 - Prenotazione non completed.
 - Ospite senza email.
 - Richiesta recensione gia inviata.
-- Policy piattaforma disabilita richieste recensione.
-- Tenant senza URL recensione.
-- SMTP non disponibile.
+- Le email recensione sono disattivate dal supporto piattaforma.
+- Il ristorante non ha un link recensione salvato.
+- Invio email non pronto.
 
 Se lo staff pensa che l'azione dovrebbe essere disponibile, chiedere supporto
-piattaforma per controllare configurazione email e log.
+piattaforma per controllare impostazioni email e log.
 
 ## Cambi ospite comuni
 
@@ -129,7 +128,7 @@ piattaforma per controllare configurazione email e log.
 
 ### Ospite cambia numero persone
 
-1. Controlla se nuovo numero rispetta policy e capacita.
+1. Controlla se il nuovo numero rispetta regole ristorante e tavoli disponibili.
 2. Modifica numero ospiti se permesso.
 3. Riassegna tavolo se il vecchio non basta.
 4. Aggiungi nota se il cambio impatta preparazione.

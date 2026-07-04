@@ -1,22 +1,23 @@
 # Tavoli e operazioni sala
 
-I tavoli collegano disponibilita online e gestione reale della sala. Decidono
-quanti coperti possono essere accettati, quali booking possono essere assegnati
-e se un servizio e fisicamente realistico.
+I tavoli collegano prenotazioni online e gestione reale della sala. Decidono
+quanti ospiti possono essere accettati, quali prenotazioni possono essere
+sedute e se un servizio e realistico per la sala.
 
 ## Scopo pagina Tavoli
 
 Usa Tavoli per mantenere il layout reale:
 
 - Etichetta tavolo.
-- Capacita posti.
+- Posti.
 - Stato attivo o inattivo.
-- Binding offering.
+- Zona prenotabile del tavolo.
 - Comportamento unibile.
 
-Il setup tavoli deve rispecchiare cio che lo staff puo usare davvero. Se un
+La configurazione tavoli deve rispecchiare cio che lo staff puo usare davvero. Se un
 tavolo e rotto, non disponibile, rimosso per evento o non usato online,
-disabilitalo o cambia binding offering invece di lasciare capacita fuorviante.
+disabilitalo o assegnalo alla zona corretta invece di lasciare posti
+fuorvianti.
 
 ## Etichette tavoli
 
@@ -34,8 +35,8 @@ portare l'ospite.
 ## Capacita
 
 Capacita e il numero di ospiti che il tavolo puo sedere ragionevolmente. Non
-gonfiare capacita per far sembrare migliore il calendario booking. Capacita
-gonfiata porta a overbooking e suggerimenti tavolo sbagliati.
+aumentarla solo per far sembrare piu libero il calendario. Capacita gonfiata
+porta a overbooking e suggerimenti tavolo sbagliati.
 
 Se un tavolo a volte siede 2 e a volte 4, scegli la capacita operativa normale e
 usa tavoli uniti o giudizio staff per eccezioni.
@@ -53,18 +54,19 @@ Tavoli inattivi non contribuiscono alla disponibilita. Usa inattivo per:
 Se il cambio e solo per oggi, valuta se usare slot bloccato, servizio fermato o
 nota manager invece di cambiare setup tavoli.
 
-## Binding offering
+## Zona prenotabile
 
-Il binding limita un tavolo a una area o canale specifico.
+La zona prenotabile limita un tavolo alla parte corretta del ristorante.
 
 Esempi:
 
-- Tavoli patio legati a offering patio.
-- Posti bar legati a offering bar.
-- Tavoli sala privata legati a offering sala privata.
-- Tavoli sala principale lasciati condivisi se servono l'offering default.
+- Tavoli patio assegnati al patio.
+- Posti bar assegnati al bar.
+- Tavoli sala privata assegnati alla sala privata.
+- Tavoli sala principale lasciati condivisi se servono la sala principale.
 
-Se un tavolo appare nell'area sbagliata, controlla prima il binding offering.
+Se un tavolo appare nell'area sbagliata, controlla prima la sua zona
+prenotabile.
 
 ## Tavoli unibili
 
@@ -123,7 +125,7 @@ Usa la modal sala/giorno quando:
 - C'e conflitto tavolo.
 - Un tavolo e in ritardo.
 - Host deve capire il prossimo turno.
-- Manager vuole fermare o riaprire booking same-day.
+- Manager vuole fermare o riaprire prenotazioni online dello stesso giorno.
 
 ## Dropdown assegnazione tavolo
 
@@ -131,11 +133,11 @@ Il dropdown dovrebbe mostrare informazioni sufficienti:
 
 - Etichetta tavolo.
 - Capacita.
-- Hint disponibilita o conflitto.
+- Indicazioni su disponibilita o conflitto.
 - Informazioni tavoli uniti dove rilevanti.
 
-Le righe devono essere centrate e leggibili in tema chiaro e scuro. I tooltip
-hover devono spiegare dettagli compatti.
+Le righe devono essere centrate e leggibili in tema chiaro e scuro. I
+suggerimenti al passaggio del mouse devono spiegare dettagli compatti.
 
 ## Problemi comuni tavoli
 
@@ -146,8 +148,9 @@ Controlla:
 - Tavoli duplicati.
 - Tavoli con capacita troppo alta.
 - Tavoli inattivi ancora attivi.
-- Tavoli legati all'offering sbagliato.
-- Capacita legacy usata perche non ci sono tavoli attivi per offering.
+- Tavoli assegnati alla zona sbagliata.
+- Vecchia capacita di riserva usata perche non ci sono tavoli attivi per una
+  zona.
 
 ### Staff non riesce ad assegnare un tavolo
 
@@ -155,11 +158,11 @@ Controlla:
 
 - Numero ospiti supera capacita tavolo.
 - Tavolo inattivo.
-- Tavolo appartiene a altro offering.
-- Altra prenotazione sovrapposta nella finestra durata.
+- Tavolo appartiene a un'altra zona.
+- Un'altra prenotazione usa il tavolo nello stesso orario.
 - Setup tavoli uniti mancante o irrealistico.
 
-### Booking pubblico accetta troppi ospiti
+### Prenotazione pubblica accetta troppi ospiti
 
 Controlla:
 
@@ -169,12 +172,12 @@ Controlla:
 - Intervallo slot.
 - Prenotazioni esistenti e sovrapposizioni.
 
-### Booking pubblico rifiuta nonostante tavoli vuoti
+### Prenotazione pubblica rifiuta nonostante tavoli vuoti
 
 Controlla:
 
-- Lead time.
-- Finestra booking.
+- Tempo minimo prima della prenotazione.
+- Finestra futura di prenotazione.
 - Giorno chiuso o data speciale.
 - Slot bloccato.
 - Servizio fermato oggi.

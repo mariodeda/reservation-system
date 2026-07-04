@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
+import { formatPlatformDateTime } from "@/components/platform/date-format";
 import { am } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
 
@@ -124,6 +125,7 @@ export default function PlatformHome() {
                     {t.hosts.length ? t.hosts.join(", ") : am.platform.noHostsMapped}
                   </div>
                   <EmailSummary tenant={t} />
+                  <ExternalSyncSummary tenant={t} />
                 </Link>
                 {stats && (
                   <div className="flex items-center gap-4 shrink-0 ml-4 text-xs text-on-surface-variant">
@@ -190,6 +192,55 @@ function EmailSummary({ tenant }: { tenant: TenantView }) {
   );
 }
 
+function ExternalSyncSummary({ tenant }: { tenant: TenantView }) {
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+      <span className="text-on-surface-variant mr-0.5">{am.platform.syncSummary}</span>
+      <ExternalSyncChip label="TheFork" sync={tenant.externalSync.theFork} />
+      <ExternalSyncChip label="DISH" sync={tenant.externalSync.dish} />
+    </div>
+  );
+}
+
+function ExternalSyncChip({
+  label,
+  sync,
+}: {
+  label: string;
+  sync: TenantView["externalSync"]["theFork"];
+}) {
+  const active = sync.enabled && sync.configured;
+  const tone = active ? "ok" : sync.enabled ? "warn" : "idle";
+  const status = active
+    ? am.platform.syncActive
+    : sync.enabled
+      ? am.platform.syncNotConfigured
+      : am.platform.syncInactive;
+  const title = [
+    `${label}: ${status}`,
+    sync.lastSyncAt ? `${am.platform.syncLastRun}: ${formatPlatformDateTime(sync.lastSyncAt)}` : "",
+    sync.lastError ? `${am.platform.syncLastError}: ${sync.lastError}` : "",
+  ].filter(Boolean).join(" · ");
+  return (
+    <Tooltip content={title}>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+          tone === "ok"
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+            : tone === "warn"
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+              : "border-outline-variant/40 bg-surface-container-high text-on-surface-variant"
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${
+          tone === "ok" ? "bg-emerald-400" : tone === "warn" ? "bg-amber-300" : "bg-on-surface-variant/50"
+        }`} />
+        {label}: {status}
+      </span>
+    </Tooltip>
+  );
+}
+
 function SmtpHealthChip({ tenant }: { tenant: TenantView }) {
   const health = tenant.smtpHealth;
   const configComplete = Boolean(tenant.settings.smtp?.host && tenant.settings.smtpPassSet);
@@ -205,7 +256,7 @@ function SmtpHealthChip({ tenant }: { tenant: TenantView }) {
           : am.platform.smtpUnknown;
   const title = [
     `${am.platform.smtpStatus}: ${label}`,
-    health.checkedAt ? new Date(health.checkedAt).toLocaleString() : "",
+    health.checkedAt ? formatPlatformDateTime(health.checkedAt) : "",
     health.reason || "",
   ].filter(Boolean).join(" · ");
   return (

@@ -60,6 +60,20 @@ export interface TenantView {
     checkedAt?: string;
     latencyMs?: number;
   };
+  externalSync: {
+    theFork: {
+      enabled: boolean;
+      configured: boolean;
+      lastSyncAt?: string;
+      lastError?: string;
+    };
+    dish: {
+      enabled: boolean;
+      configured: boolean;
+      lastSyncAt?: string;
+      lastError?: string;
+    };
+  };
 }
 
 export type PlatformLogLevel = "debug" | "info" | "warn" | "error";

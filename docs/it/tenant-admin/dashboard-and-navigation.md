@@ -7,15 +7,15 @@ rapida: cosa succede oggi, cosa richiede attenzione e dove andare dopo.
 
 L'header da accesso rapido alle aree operative:
 
-- Logo tenant: torna alla dashboard.
+- Logo ristorante: torna alla dashboard.
 - Prenotazioni: apre lo spazio principale prenotazioni.
-- Tavoli: apre setup tavoli e gestione capacita.
-- Disponibilita: apre orari settimanali, regole booking, chiusure e blocchi.
-- Clienti & Statistiche: dropdown per clienti e analytics.
+- Tavoli: apre configurazione tavoli e gestione posti.
+- Disponibilita: apre orari settimanali, regole prenotazione, chiusure e blocchi.
+- Clienti & Statistiche: menu per clienti e statistiche.
 - Icona impostazioni: apre impostazioni locali e cambio password staff.
 - Sign out: termina la sessione staff.
 
-Il link Dashboard non e duplicato nell'header. Usa il logo tenant per tornare
+Il link Dashboard non e duplicato nell'header. Usa il logo ristorante per tornare
 alla home.
 
 ## Dropdown Clienti & Statistiche
@@ -23,7 +23,7 @@ alla home.
 `Clienti & Statistiche` raggruppa due sezioni:
 
 - Clienti: record ospite, contatti e storico prenotazioni.
-- Analytics: riepiloghi performance e prenotazioni.
+- Statistiche: riepiloghi andamento e prenotazioni.
 
 Il dropdown dovrebbe chiudersi quando lo staff clicca fuori. Se resta aperto e
 copre la pagina, aggiorna il browser e segnala se il problema si ripete.
@@ -44,24 +44,23 @@ Attivita tipiche:
 Se servono griglia slot completa, waitlist, calendario sala/giorno o cambio
 data, passa alla pagina Prenotazioni.
 
-## Controlli rapidi booking
+## Controlli rapidi prenotazioni
 
 L'header puo includere una azione rapida per fermare prenotazioni online di oggi
-per servizio. Usala solo per decisioni operative same-day:
+per servizio. Usala solo per decisioni operative dello stesso giorno:
 
-- Cucina a capacita.
+- Cucina al limite.
 - Ristorante sotto organico.
 - Evento privato riduce spazio.
 - Meteo rende patio non disponibile.
 - Un servizio e gia praticamente chiuso.
 
-Se l'ultimo orario prenotabile e passato dopo applicazione lead time, lo switch
-del servizio e disabilitato perche non ci sono slot pubblici rimanenti da
-fermare.
+Se l'ultimo orario prenotabile e gia passato, lo switch del servizio e
+disabilitato perche non ci sono altri orari online da fermare.
 
 Quando un servizio e fermato manualmente, lo staff dovrebbe vederlo chiaramente
-nei controlli e nelle slot card. Cosi non si confonde "chiuso per scelta staff"
-con "il sistema non carica disponibilita".
+nei controlli e nelle slot card. Cosi lo staff distingue "abbiamo fermato le
+prenotazioni" da "la disponibilita non si carica".
 
 ## Notifiche campanella
 
@@ -72,7 +71,7 @@ Azioni:
 
 - Apri campanella: rivedi notifiche recenti.
 - Segna tutte lette: pulisce stato non letto.
-- Clicca notifica: usala come riferimento al contesto prenotazione.
+- Clicca notifica: vai alla data della prenotazione.
 
 Le notifiche non sostituiscono la lista prenotazioni. Una prenotazione resta in
 Prenotazioni anche dopo aver chiuso la notifica.
@@ -109,5 +108,5 @@ passate.
 
 ### Perche un servizio fermato mostra ancora prenotazioni esistenti?
 
-Fermare booking impedisce nuove prenotazioni online per oggi. Non cancella e non
+Fermare prenotazioni online impedisce nuove prenotazioni online per oggi. Non cancella e non
 nasconde prenotazioni gia esistenti.

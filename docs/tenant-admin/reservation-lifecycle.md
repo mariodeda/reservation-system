@@ -1,8 +1,7 @@
 # Reservation Lifecycle And Actions
 
-This page explains reservation statuses, action buttons, edit rules, delete
-rules, table assignment, review email actions, and the safest way to handle
-common guest situations.
+This page explains reservation statuses, action buttons, table assignment,
+review email actions, and the safest way to handle common guest situations.
 
 ## Reservation Statuses
 
@@ -13,7 +12,7 @@ common guest situations.
 | Seated | The guest has arrived and is occupying a table. | Do not edit core booking details. Mark completed after the visit. |
 | Completed | The visit is finished. | Keep history, optionally send review request. |
 | Cancelled | The booking was cancelled. | No seating action needed. |
-| No-show | The guest did not attend. | Mark accurately for analytics and future context. |
+| No-show | The guest did not attend. | Mark accurately so reports and future notes make sense. |
 
 ## Why Status Accuracy Matters
 
@@ -22,7 +21,7 @@ Status is not just a label. It affects:
 - Whether staff can edit or delete the reservation.
 - Whether the reservation counts in operational views.
 - Whether review request email can be sent.
-- Analytics such as no-show rate and completed covers.
+- Reports such as no-show rate and completed covers.
 - Staff understanding of what still needs attention.
 
 ## Editing Reservations
@@ -40,8 +39,8 @@ Use `Edit reservation` when the guest changes details before they are seated:
 - Notes or allergies.
 
 Editing is disabled once the reservation is seated or completed. This protects
-service history. If a seated guest changes table or party size, use operational
-status and notes where available instead of rewriting the original booking.
+service history. If a seated guest changes table or party size, use status and
+notes where available instead of rewriting the original booking.
 
 ## Delete Reservation
 
@@ -70,12 +69,11 @@ Before assigning, check:
 
 - Party size fits the table or joined set.
 - The table is active.
-- The table belongs to the correct offering or shared pool.
-- The assignment does not conflict with another reservation in the effective
-  duration window.
+- The table belongs to the correct bookable area or is shared.
+- The table is not already needed by another reservation during the same time.
 
-If a reservation's date, time, service, offering, party size, or duration
-changes, the old assignment may become unsafe. The system should revalidate and
+If a reservation's date, time, service, area, party size, or duration changes,
+the old table choice may no longer be safe. The system should check again and
 clear unsafe assignments.
 
 ## Joined Tables
@@ -113,12 +111,12 @@ The action can be unavailable because:
 - The reservation is not completed.
 - The guest has no email address.
 - The review request was already sent.
-- Platform email policy disables review requests.
-- The tenant has no review URL configured.
-- SMTP is unavailable.
+- Review emails are turned off by platform support.
+- The restaurant has no review link saved.
+- Email sending is not ready.
 
 If staff believe the action should be available, ask platform support to check
-email configuration and logs.
+email settings and logs.
 
 ## Handling Common Guest Changes
 
@@ -132,7 +130,7 @@ email configuration and logs.
 
 ### Guest Changes Party Size
 
-1. Check whether the new size fits policy and capacity.
+1. Check whether the new size fits the restaurant rules and available tables.
 2. Edit the party size if allowed.
 3. Reassign table if the old table no longer fits.
 4. Add a note when the change affects service preparation.

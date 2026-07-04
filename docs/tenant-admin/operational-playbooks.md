@@ -28,7 +28,7 @@ Steps:
 2. Find the stopped service.
 3. Toggle it back on if the control is still available.
 4. Check slot cards for availability.
-5. Confirm that the latest bookable time has not passed after lead time.
+5. Confirm that the latest bookable time has not already passed.
 
 If the switch is disabled, the service may already be past the latest bookable
 time.
@@ -36,7 +36,7 @@ time.
 ## Handle A Phone Booking
 
 1. Open Reservations.
-2. Select the correct date and offering.
+2. Select the correct date and bookable area.
 3. Choose the requested service and time.
 4. Click the slot or open the new reservation modal.
 5. Enter guest name, party size, phone, email, and notes.
@@ -56,16 +56,16 @@ If the guest has no email, make sure the phone number is accurate.
 
 ## Handle A Large Party
 
-1. Check maximum party size policy.
-2. Check slot capacity.
+1. Check the maximum party size rule.
+2. Check how many seats are available in the slot.
 3. Check table assignment possibilities.
 4. Use joined tables only if physically realistic.
 5. Add staff notes for preparation.
 6. Confirm arrival time and contact details by phone.
 
-If online policy blocks the party but the restaurant wants to accept it
-manually, staff may create it as an operational exception if table conflicts can
-be handled.
+If online booking blocks the party but the restaurant wants to accept it
+manually, staff may create it as a manager-approved exception if table conflicts
+can be handled.
 
 ## Handle A Guest Running Late
 
@@ -98,8 +98,8 @@ be handled.
 4. Ask for a corrected email if needed.
 5. Update contact details where possible.
 
-Email warnings can come from immediate SMTP rejection or later bounce
-processing. Either way, do not rely on email for that guest until corrected.
+Email warnings can come from an immediate rejection or a later delivery failure.
+Either way, do not rely on email for that guest until corrected.
 
 ## Handle "Could Not Load Availability"
 
@@ -108,7 +108,7 @@ processing. Either way, do not rely on email for that guest until corrected.
 3. Confirm the staff session has not expired.
 4. Try another date.
 5. Check whether availability settings were recently edited.
-6. Ask platform support to inspect logs if the issue persists.
+6. Ask platform support to check logs if the issue persists.
 
 Do not keep creating manual bookings blindly if availability is failing. The
 restaurant may lose conflict protection.
@@ -122,8 +122,8 @@ restaurant may lose conflict protection.
 5. Refresh the active tab.
 6. Escalate if the same reservation keeps producing new unread notifications.
 
-Duplicate notifications are different from duplicate reservations. Always
-confirm the reservation list before calling the guest.
+Duplicate notifications are different from duplicate reservations. Always check
+the reservation list before calling the guest.
 
 ## End-Of-Day Closeout
 

@@ -62,6 +62,18 @@ beforeEach(() => {
               checkedAt: "2026-07-01T10:00:00Z",
               latencyMs: 42,
             },
+            externalSync: {
+              theFork: {
+                enabled: true,
+                configured: true,
+                lastSyncAt: "2026-07-01T10:00:00Z",
+              },
+              dish: {
+                enabled: true,
+                configured: false,
+                lastError: "Missing establishment id",
+              },
+            },
           },
           {
             id: "tenant-2",
@@ -83,6 +95,10 @@ beforeEach(() => {
               smtpPassSet: false,
             },
             smtpHealth: { status: "unknown" },
+            externalSync: {
+              theFork: { enabled: false, configured: false },
+              dish: { enabled: false, configured: false },
+            },
           },
         ],
       });
@@ -113,6 +129,18 @@ describe("PlatformHome", () => {
     expect(screen.getByText("Beta Trattoria")).toBeInTheDocument();
     expect(screen.getByText("Email disattivate")).toBeInTheDocument();
     expect(screen.getAllByText("SMTP: Non configurato").length).toBeGreaterThan(0);
+  });
+
+  it("shows external sync status on each restaurant summary card", async () => {
+    render(<PlatformHome />);
+
+    expect(await screen.findByText("Acme Osteria")).toBeInTheDocument();
+    expect(screen.getByText("TheFork: Sync attivo")).toBeInTheDocument();
+    expect(screen.getByText("DISH: Non configurato")).toBeInTheDocument();
+
+    expect(screen.getByText("Beta Trattoria")).toBeInTheDocument();
+    expect(screen.getAllByText("TheFork: Sync disattivo").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("DISH: Sync disattivo").length).toBeGreaterThan(0);
   });
 
   it("lets platform admins manually trigger SMTP checks", async () => {
