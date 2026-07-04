@@ -274,17 +274,28 @@ export default function DayOccupancy({
                     type="button"
                     disabled={savingSlot === `${selectedSlot.service}:${selectedSlot.time}`}
                     onClick={() => void toggleSlotStop(selectedSlot.service, selectedSlot.time, !selectedSlot.blocked)}
-                    className={`w-full rounded-lg border px-3 py-3 text-left text-sm font-semibold transition disabled:opacity-60 ${
+                    className={`flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left text-sm font-semibold text-on-surface transition disabled:opacity-60 ${
                       selectedSlot.blocked
-                        ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/15"
-                        : "border-amber-400/35 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15"
+                        ? "border-emerald-500/35 bg-emerald-500/10 hover:bg-emerald-500/15"
+                        : "border-amber-500/40 bg-amber-500/12 hover:bg-amber-500/18"
                     }`}
                   >
-                    {selectedSlot.blocked
-                      ? am.availability.slotResumeAction(selectedSlot.time)
-                      : am.availability.slotStopAction(selectedSlot.time)}
-                    <span className="mt-1 block text-xs font-normal text-on-surface-variant">
-                      {selectedSlot.blocked ? am.availability.slotResumeHint : am.availability.slotStopHint}
+                    <span className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                      selectedSlot.blocked
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                        : "bg-amber-500/18 text-amber-700 dark:text-amber-300"
+                    }`}>
+                      {selectedSlot.blocked ? <UnlockIcon /> : <StopOnlineIcon />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block">
+                        {selectedSlot.blocked
+                          ? am.availability.slotResumeAction(selectedSlot.time)
+                          : am.availability.slotStopAction(selectedSlot.time)}
+                      </span>
+                      <span className="mt-1 block text-xs font-normal text-on-surface-variant">
+                        {selectedSlot.blocked ? am.availability.slotResumeHint : am.availability.slotStopHint}
+                      </span>
                     </span>
                   </button>
                 </div>
@@ -425,6 +436,24 @@ function WarningIcon() {
       <path d="M8 2.5 1.75 13.25h12.5L8 2.5Z" />
       <path d="M8 6v3.25" />
       <path d="M8 11.75h.01" />
+    </svg>
+  );
+}
+
+function StopOnlineIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 2.25a5.75 5.75 0 1 1 0 11.5 5.75 5.75 0 0 1 0-11.5Z" />
+      <path d="m4.5 4.5 7 7" />
+    </svg>
+  );
+}
+
+function UnlockIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 7V5.75a3 3 0 0 1 5.6-1.5" />
+      <path d="M4.5 7h7a.9.9 0 0 1 .9.9v4.1a.9.9 0 0 1-.9.9h-7a.9.9 0 0 1-.9-.9V7.9a.9.9 0 0 1 .9-.9Z" />
     </svg>
   );
 }

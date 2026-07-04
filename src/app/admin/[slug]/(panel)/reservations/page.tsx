@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { type AdminReservation, formatDateLong, todayInTz } from "@/components/admin/shared";
 import { am } from "@/i18n";
@@ -164,6 +164,10 @@ export default function ReservationsPage() {
     () => items.reduce((sum, r) => (r.status === "cancelled" || r.status === "no_show" ? sum : sum + r.partySize), 0),
     [items],
   );
+  const activeReservationCount = useMemo(
+    () => items.filter((r) => r.status !== "cancelled" && r.status !== "no_show").length,
+    [items],
+  );
 
   function exportCsv() {
     const offeringLabel = (id?: string) =>
@@ -241,9 +245,21 @@ export default function ReservationsPage() {
             <button onClick={() => setDate(todayInTz(tz))} className={`${NAVBTN} px-3 text-sm`}>
               {am.reservations.today}
             </button>
-            <span className="col-span-3 min-w-0 text-on-surface-variant text-xs sm:text-sm sm:ml-1">
-              {formatDateLong(date)} · {activeCovers} {am.reservations.covers}
-            </span>
+            <div className="col-span-3 flex min-w-0 flex-wrap items-center gap-2 sm:ml-1">
+              <span className="min-w-0 truncate text-sm font-medium text-on-surface-variant">
+                {formatDateLong(date)}
+              </span>
+              <DayMetric
+                icon={<ReservationsIcon />}
+                value={activeReservationCount}
+                label={am.reservations.title.toLowerCase()}
+              />
+              <DayMetric
+                icon={<CoversIcon />}
+                value={activeCovers}
+                label={am.reservations.covers}
+              />
+            </div>
             <div className="col-span-3 flex gap-2 sm:ml-auto">
               <button
                 onClick={exportCsv}
@@ -647,6 +663,18 @@ function WalkInForm({
   );
 }
 
+function DayMetric({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {
+  return (
+    <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-outline-variant/35 bg-surface-container-high px-3 text-on-surface shadow-sm">
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/15 text-primary">
+        {icon}
+      </span>
+      <span className="text-lg font-semibold leading-none tabular-nums">{value}</span>
+      <span className="text-xs font-medium text-on-surface-variant">{label}</span>
+    </span>
+  );
+}
+
 function ChevronLeftIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -659,6 +687,28 @@ function ChevronRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+function ReservationsIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 4.5h8" />
+      <path d="M6 8h8" />
+      <path d="M6 11.5h5" />
+      <rect x="3.5" y="2.5" width="13" height="15" rx="2" />
+    </svg>
+  );
+}
+
+function CoversIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="7" cy="6.5" r="2.5" />
+      <circle cx="13" cy="6.5" r="2.5" />
+      <path d="M3.5 16c.6-2.6 2.2-4 3.5-4s2.9 1.4 3.5 4" />
+      <path d="M9.5 16c.6-2.6 2.2-4 3.5-4s2.9 1.4 3.5 4" />
     </svg>
   );
 }

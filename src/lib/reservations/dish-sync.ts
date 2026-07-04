@@ -64,10 +64,11 @@ function localParts(iso: string, timezone: string): { date: string; time: string
 }
 
 function mapStatus(status: string): ReservationStatus {
-  const s = status.trim().toUpperCase();
-  if (s === "CANCELLED" || s === "CANCELED") return "cancelled";
-  if (s === "NO_SHOW") return "no_show";
-  if (s === "DONE") return "completed";
+  const s = status.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (s.includes("CANCEL")) return "cancelled";
+  if (s === "REJECTED") return "cancelled";
+  if (s.includes("NO_SHOW") || s.includes("NOSHOW")) return "no_show";
+  if (s === "DONE" || s === "COMPLETED" || s === "COMPLETE") return "completed";
   if (s === "ARRIVED" || s === "SEATED") return "seated";
   return "confirmed";
 }

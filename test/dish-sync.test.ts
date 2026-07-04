@@ -302,6 +302,35 @@ describe("DISH HTML sync", () => {
     expect(reservations[0].partySize).toBe(5);
   });
 
+  it.each(["CANCELLED_BY_USER", "REJECTED"])("updates existing DISH %s bookings to cancelled and releases availability", async (externalStatus) => {
+    await syncDishReservations(tenantId, {
+      startDate: "2026-07-10",
+      endDate: "2026-07-10",
+    });
+
+    vi.mocked(DishClient.prototype.fetchReservationsHtml).mockResolvedValue(listHtml(externalStatus));
+    vi.mocked(DishClient.prototype.fetchReservationDetailHtml).mockResolvedValue(detailHtml());
+    const update = await syncDishReservations(tenantId, {
+      startDate: "2026-07-10",
+      endDate: "2026-07-10",
+      detailMode: "always",
+    });
+
+    expect(update).toMatchObject({ imported: 0, updated: 1, skipped: 0, errors: 0 });
+    const store = getStore().forTenant(tenantId);
+    const reservations = await store.listReservations({ date: "2026-07-10" });
+    expect(reservations[0].status).toBe("cancelled");
+
+    const availability = getDayAvailability(await store.getConfig(), reservations, "2026-07-10", "main");
+    expect(availability.services[0].slots.find((slot) => slot.time === "12:30")).toMatchObject({
+      booked: 0,
+      remaining: 10,
+    });
+
+    const external = await listExternalReservationViews(tenantId, [reservations[0].id]);
+    expect(external.get(reservations[0].id)?.externalStatus).toBe(externalStatus);
+  });
+
   it("platform history60 mode backfills in bounded batches without tenant notifications", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-10T09:00:00Z"));

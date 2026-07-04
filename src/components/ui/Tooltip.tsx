@@ -73,6 +73,7 @@ export default function Tooltip({
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
   const [placement, setPlacement] = useState({ side, shiftX: 0 });
+  const [dismissed, setDismissed] = useState(false);
 
   const updatePlacement = useCallback(() => {
     const trigger = triggerRef.current;
@@ -112,8 +113,17 @@ export default function Tooltip({
     <span
       ref={triggerRef}
       className={`relative inline-flex group/tooltip ${className}`}
-      onFocusCapture={updatePlacement}
-      onPointerEnter={updatePlacement}
+      onBlurCapture={() => setDismissed(false)}
+      onClickCapture={() => setDismissed(true)}
+      onFocusCapture={() => {
+        setDismissed(false);
+        updatePlacement();
+      }}
+      onPointerEnter={() => {
+        setDismissed(false);
+        updatePlacement();
+      }}
+      onPointerLeave={() => setDismissed(false)}
     >
       {describedChildren}
       <span
@@ -121,7 +131,7 @@ export default function Tooltip({
         id={id}
         role="tooltip"
         style={{ "--tooltip-shift-x": `${placement.shiftX}px` } as CSSProperties}
-        className={`pointer-events-none absolute z-[80] min-w-[200px] max-w-[18rem] whitespace-pre-line rounded-md border border-outline-variant/50 bg-surface-container-high px-2.5 py-1.5 text-xs font-medium leading-snug text-on-surface shadow-xl opacity-0 transition-opacity duration-150 group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100 ${sideClass[placement.side]}`}
+        className={`pointer-events-none absolute z-[80] min-w-[200px] max-w-[18rem] whitespace-pre-line rounded-md border border-outline-variant/50 bg-surface-container-high px-2.5 py-1.5 text-xs font-medium leading-snug text-on-surface shadow-xl opacity-0 transition-opacity duration-150 ${dismissed ? "" : "group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100"} ${sideClass[placement.side]}`}
       >
         {content}
       </span>
