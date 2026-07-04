@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReservationNotification } from "./useReservationEvents";
 import Tooltip from "@/components/ui/Tooltip";
 import { am } from "@/i18n";
+import { dismissAdminTooltips } from "./tooltip-events";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -218,6 +219,7 @@ export function NotificationBell({
   }, []);
 
   function toggleOpen() {
+    dismissAdminTooltips();
     setOpen((v) => !v);
   }
 
@@ -242,6 +244,7 @@ export function NotificationBell({
       <Tooltip content={connected ? am.notifications.title : am.notifications.reconnecting}>
       <button
         onClick={toggleOpen}
+        onMouseEnter={dismissAdminTooltips}
         aria-label={visibleUnreadCount > 0 ? am.notifications.unreadAria(visibleUnreadCount) : am.notifications.title}
         className="relative w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition"
       >
@@ -257,7 +260,10 @@ export function NotificationBell({
       </Tooltip>
 
       {open && (
-        <div className="absolute right-0 top-10 w-[calc(100vw-1.5rem)] max-w-sm rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
+        <div
+          className="absolute right-0 top-10 w-[calc(100vw-1.5rem)] max-w-sm rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden"
+          onMouseEnter={dismissAdminTooltips}
+        >
           {/* header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-outline-variant/20">
             <span className="text-sm font-semibold text-on-surface">{am.notifications.title}</span>

@@ -82,6 +82,15 @@ describe("DayOccupancy", () => {
     expect(onPick).toHaveBeenCalledWith("lunch", "12:00");
   });
 
+  it("opens the floor view from the service covers summary when provided", async () => {
+    const user = userEvent.setup();
+    adminJson.mockResolvedValue(day());
+    const onOpenFloor = vi.fn();
+    render(<DayOccupancy date="2026-06-12" onOpenFloor={onOpenFloor} />);
+    await user.click(await screen.findByRole("button", { name: /lunch.*27\/40 covers/i }));
+    expect(onOpenFloor).toHaveBeenCalled();
+  });
+
   it("disables slot buttons when no onPickSlot is given", async () => {
     adminJson.mockResolvedValue(day());
     render(<DayOccupancy date="2099-06-12" />);

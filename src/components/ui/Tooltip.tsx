@@ -5,23 +5,19 @@ import {
   isValidElement,
   useCallback,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 type TooltipSide = "top" | "bottom" | "left" | "right";
 
-const sideClass: Record<TooltipSide, string> = {
-  top: "bottom-full left-1/2 mb-2 translate-x-[calc(-50%+var(--tooltip-shift-x,0px))]",
-  bottom: "left-1/2 top-full mt-2 translate-x-[calc(-50%+var(--tooltip-shift-x,0px))]",
-  left: "right-full top-1/2 mr-2 -translate-y-1/2",
-  right: "left-full top-1/2 ml-2 -translate-y-1/2",
-};
-
 const VIEWPORT_PADDING = 8;
 const TOOLTIP_GAP = 8;
+const OFFSCREEN_COORDS = { left: -9999, top: -9999 };
 
 function candidateRect(trigger: DOMRect, width: number, height: number, side: TooltipSide) {
   switch (side) {
@@ -58,6 +54,26 @@ function overflowsViewport(rect: ReturnType<typeof candidateRect>) {
   );
 }
 
+function positionFor(trigger: DOMRect, width: number, height: number, side: TooltipSide) {
+  const rect = candidateRect(trigger, width, height, side);
+  let left = rect.left;
+  let top = rect.top;
+
+  if (side === "top" || side === "bottom") {
+    left = Math.min(
+      Math.max(left, VIEWPORT_PADDING),
+      Math.max(VIEWPORT_PADDING, window.innerWidth - width - VIEWPORT_PADDING),
+    );
+  } else {
+    top = Math.min(
+      Math.max(top, VIEWPORT_PADDING),
+      Math.max(VIEWPORT_PADDING, window.innerHeight - height - VIEWPORT_PADDING),
+    );
+  }
+
+  return { left, top };
+}
+
 export default function Tooltip({
   content,
   children,
@@ -72,7 +88,11 @@ export default function Tooltip({
   const id = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
-  const [placement, setPlacement] = useState({ side, shiftX: 0 });
+  const [placement, setPlacement] = useState<{ side: TooltipSide; left: number; top: number }>({
+    side,
+    ...OFFSCREEN_COORDS,
+  });
+  const [active, setActive] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   const updatePlacement = useCallback(() => {
@@ -82,25 +102,31 @@ export default function Tooltip({
 
     const triggerRect = trigger.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
-    let nextSide = side;
-    let nextRect = candidateRect(triggerRect, tooltipRect.width, tooltipRect.height, nextSide);
-
-    if (overflowsViewport(nextRect)) {
-      nextSide = "bottom";
-      nextRect = candidateRect(triggerRect, tooltipRect.width, tooltipRect.height, nextSide);
-    }
-
-    let shiftX = 0;
-    if (nextSide === "top" || nextSide === "bottom") {
-      if (nextRect.left < VIEWPORT_PADDING) {
-        shiftX = VIEWPORT_PADDING - nextRect.left;
-      } else if (nextRect.right > window.innerWidth - VIEWPORT_PADDING) {
-        shiftX = window.innerWidth - VIEWPORT_PADDING - nextRect.right;
+    const choices = ([side, "bottom", "top", "right", "left"] satisfies TooltipSide[]).filter(
+      (value, index, all) => all.indexOf(value) === index,
+    );
+    let nextSide = choices[0];
+    for (const choice of choices) {
+      const rect = candidateRect(triggerRect, tooltipRect.width, tooltipRect.height, choice);
+      if (!overflowsViewport(rect)) {
+        nextSide = choice;
+        break;
       }
     }
 
-    setPlacement({ side: nextSide, shiftX });
+    setPlacement({ side: nextSide, ...positionFor(triggerRect, tooltipRect.width, tooltipRect.height, nextSide) });
   }, [side]);
+
+  useLayoutEffect(() => {
+    if (!active || dismissed) return;
+    updatePlacement();
+    window.addEventListener("scroll", updatePlacement, true);
+    window.addEventListener("resize", updatePlacement);
+    return () => {
+      window.removeEventListener("scroll", updatePlacement, true);
+      window.removeEventListener("resize", updatePlacement);
+    };
+  }, [active, dismissed, updatePlacement]);
 
   if (!content) return <>{children}</>;
   const describedChildren = isValidElement<{ "aria-describedby"?: string }>(children)
@@ -113,28 +139,44 @@ export default function Tooltip({
     <span
       ref={triggerRef}
       className={`relative inline-flex group/tooltip ${className}`}
-      onBlurCapture={() => setDismissed(false)}
-      onClickCapture={() => setDismissed(true)}
+      onBlurCapture={() => {
+        setActive(false);
+        setDismissed(false);
+      }}
+      onClickCapture={() => {
+        setActive(false);
+        setDismissed(true);
+      }}
       onFocusCapture={() => {
         setDismissed(false);
+        setActive(true);
         updatePlacement();
       }}
       onPointerEnter={() => {
         setDismissed(false);
+        setActive(true);
         updatePlacement();
       }}
-      onPointerLeave={() => setDismissed(false)}
+      onPointerLeave={() => {
+        setActive(false);
+        setDismissed(false);
+      }}
     >
       {describedChildren}
-      <span
-        ref={tooltipRef}
-        id={id}
-        role="tooltip"
-        style={{ "--tooltip-shift-x": `${placement.shiftX}px` } as CSSProperties}
-        className={`pointer-events-none absolute z-[80] min-w-[200px] max-w-[18rem] whitespace-pre-line rounded-md border border-outline-variant/50 bg-surface-container-high px-2.5 py-1.5 text-xs font-medium leading-snug text-on-surface shadow-xl opacity-0 transition-opacity duration-150 ${dismissed ? "" : "group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100"} ${sideClass[placement.side]}`}
-      >
-        {content}
-      </span>
+      {typeof document !== "undefined" &&
+        createPortal(
+          <span
+            ref={tooltipRef}
+            id={id}
+            role="tooltip"
+            data-side={placement.side}
+            style={{ left: placement.left, top: placement.top } as CSSProperties}
+            className={`pointer-events-none fixed z-[300] min-w-[200px] max-w-[18rem] whitespace-pre-line rounded-md border border-outline-variant/50 bg-surface-container-high px-2.5 py-1.5 text-xs font-medium leading-snug text-on-surface shadow-xl transition-opacity duration-150 ${active && !dismissed ? "opacity-100" : "opacity-0"}`}
+          >
+            {content}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

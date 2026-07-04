@@ -46,6 +46,7 @@ vi.mock("@/components/admin/TodayBookingControls", () => ({
 }));
 
 import AdminShell from "@/components/admin/AdminShell";
+import { DISMISS_ADMIN_TOOLTIPS_EVENT } from "@/components/admin/tooltip-events";
 
 beforeEach(() => {
   push.mockReset();
@@ -304,5 +305,17 @@ describe("AdminShell", () => {
 
     expect(popup).toHaveClass("w-[calc(100vw-1.5rem)]");
     expect(popup).toHaveClass("max-w-sm");
+  });
+
+  it("dismisses active page tooltips when opening notifications", async () => {
+    const user = userEvent.setup();
+    const onDismiss = vi.fn();
+    window.addEventListener(DISMISS_ADMIN_TOOLTIPS_EVENT, onDismiss);
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+
+    expect(onDismiss).toHaveBeenCalled();
+    window.removeEventListener(DISMISS_ADMIN_TOOLTIPS_EVENT, onDismiss);
   });
 });

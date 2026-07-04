@@ -16,6 +16,7 @@ type SelectedSlot = {
   overbookedBy: number;
   statusLabel: string;
   blocked: boolean;
+  available: boolean;
   ended: boolean;
   canToggleStop: boolean;
 };
@@ -33,6 +34,7 @@ export default function DayOccupancy({
   onPickSlot,
   allowSlotStops = false,
   onSlotStopChanged,
+  onOpenFloor,
 }: {
   date: string;
   /** Offering id to show occupancy for (defaults to the primary offering). */
@@ -43,6 +45,7 @@ export default function DayOccupancy({
   onPickSlot?: (service: string, time: string) => void;
   allowSlotStops?: boolean;
   onSlotStopChanged?: () => void | Promise<void>;
+  onOpenFloor?: () => void;
 }) {
   const [day, setDay] = useState<DayAvailability | null>(null);
   const [error, setError] = useState(false);
@@ -120,12 +123,28 @@ export default function DayOccupancy({
       {Heading}
       {day.services.map((svc) => {
         const ended = serviceHasEnded(day.date, svc.slots.at(-1)?.time, svc.turnMinutes);
+        const booked = svc.slots.reduce((sum, slot) => sum + slot.booked, 0);
+        const capacity = svc.slots.reduce((sum, slot) => sum + slot.capacity, 0);
         return (
           <div key={svc.id}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className={`text-sm font-semibold ${ended ? "text-on-surface-variant" : ""}`}>{svc.label}</span>
-              {ended && <span className="text-xs font-medium text-on-surface-variant/70">{am.availability.serviceEnded}</span>}
-            </div>
+            {onOpenFloor ? (
+              <button
+                type="button"
+                onClick={onOpenFloor}
+                className="mb-1.5 flex w-full items-center justify-between rounded-lg px-1 py-1 text-left transition hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <span className={`text-sm font-semibold ${ended ? "text-on-surface-variant" : ""}`}>{svc.label}</span>
+                <span className="flex items-center gap-3 text-xs text-on-surface-variant">
+                  {ended && <span className="font-medium text-on-surface-variant/70">{am.availability.serviceEnded}</span>}
+                  <span className="tabular-nums">{am.availability.covers(booked, capacity)}</span>
+                </span>
+              </button>
+            ) : (
+              <div className="flex items-center justify-between mb-1.5">
+                <span className={`text-sm font-semibold ${ended ? "text-on-surface-variant" : ""}`}>{svc.label}</span>
+                {ended && <span className="text-xs font-medium text-on-surface-variant/70">{am.availability.serviceEnded}</span>}
+              </div>
+            )}
             <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2">
               {svc.slots.map((s) => {
                 const status = slotCoverStatus(s, ended);
@@ -148,6 +167,7 @@ export default function DayOccupancy({
                         overbookedBy: s.overbookedBy ?? 0,
                         statusLabel: status.label,
                         blocked,
+                        available: s.available,
                         ended,
                         canToggleStop,
                       })}
@@ -272,7 +292,7 @@ export default function DayOccupancy({
                   </div>
                   <button
                     type="button"
-                    disabled={savingSlot === `${selectedSlot.service}:${selectedSlot.time}`}
+                    disabled={savingSlot === `${selectedSlot.service}:${selectedSlot.time}` || (!selectedSlot.blocked && !selectedSlot.available)}
                     onClick={() => void toggleSlotStop(selectedSlot.service, selectedSlot.time, !selectedSlot.blocked)}
                     className={`flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left text-sm font-semibold text-on-surface transition disabled:opacity-60 ${
                       selectedSlot.blocked
@@ -294,7 +314,11 @@ export default function DayOccupancy({
                           : am.availability.slotStopAction(selectedSlot.time)}
                       </span>
                       <span className="mt-1 block text-xs font-normal text-on-surface-variant">
-                        {selectedSlot.blocked ? am.availability.slotResumeHint : am.availability.slotStopHint}
+                        {selectedSlot.blocked
+                          ? am.availability.slotResumeHint
+                          : selectedSlot.available
+                            ? am.availability.slotStopHint
+                            : am.reservations.stopOnlineBookingDisabled}
                       </span>
                     </span>
                   </button>

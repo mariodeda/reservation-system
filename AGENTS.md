@@ -21,13 +21,15 @@ per-tenant SMTP settings. There is no global SMTP configuration.
   `/api/reservations/lookup`, `/api/tenant`.
   Marketing sites are separate apps and select the tenant with
   `?tenant=<publicKey>`; Host fallback exists for same-domain deployments.
+  Public tenant/availability responses expose `reservationPolicy.maxPartySize`
+  from live tenant reservation config via `public-policy.ts`.
 - **Staff admin**: `/admin/<slug>`. Staff manage reservations, waitlist,
   customers, tables, availability, analytics, and tenant-owned operational
   settings. The slug is for routing and page branding; the session is the
   authority for tenant access.
 - **Platform console**: `/platform`. Operators manage tenants, domains,
-  public keys, branding, SMTP, allowed origins, email flow policy, mock data,
-  and staff-password resets.
+  public keys, branding, SMTP, SMTP health, allowed origins, email flow policy,
+  mock data, cross-tenant logs, and staff-password resets.
 
 ## Non-Negotiable Architecture Rules
 
@@ -42,6 +44,9 @@ per-tenant SMTP settings. There is no global SMTP configuration.
 - Platform API access goes through `requirePlatform(req)`.
 - Public API tenant identity is resolved by `requireTenant(req)`, preferring
   `?tenant=<publicKey>` and falling back to Host.
+- Public marketing integrations should rely on `reservationPolicy.maxPartySize`
+  from `/api/tenant` or `/api/availability?offerings=1`, not hard-coded party
+  limits.
 - All tenant-scoped data access must go through `getStore().forTenant(tenant.id)`
   or the relevant tenant-scoped store constructor/helper. Never query shared
   tables without a tenant predicate.
@@ -67,6 +72,9 @@ per-tenant SMTP settings. There is no global SMTP configuration.
 - CORS is per tenant. Public endpoints must wrap responses with
   `withCors(res, allowedOrigin(req, tenant))` and export `OPTIONS` using
   `preflight(...)`. Only origins in `tenant.settings.allowedOrigins` are echoed.
+- Platform/system webhook-like routes that are not browser UI mutations, such as
+  SMTP health cron and bounce ingestion, use bearer-token secrets (`CRON_SECRET`
+  and/or `BOUNCE_WEBHOOK_SECRET`) before doing privileged work.
 
 ## Tenancy And Settings
 
@@ -91,6 +99,9 @@ per-tenant SMTP settings. There is no global SMTP configuration.
   read time and should not be rewritten until the tenant saves config.
 - Capacity-sensitive public booking writes must use `createReservationChecked`
   to close the read-then-write race.
+- Public policy helpers live in `src/lib/reservations/public-policy.ts`. Keep
+  public reservation-policy response shape consistent across `/api/tenant` and
+  `/api/availability`.
 
 ## Reservations, Tables, And Guest Self-Service
 
@@ -116,6 +127,13 @@ per-tenant SMTP settings. There is no global SMTP configuration.
 ## Email, Feedback, And Logs
 
 - Tenant SMTP is configured only per tenant. Do not add global mail env vars.
+- SMTP health is tracked per tenant in `tenant_smtp_health`, refreshed by
+  `/api/platform/cron/smtp-health`, and shown in the platform restaurant list.
+  The cron endpoint accepts `CRON_SECRET` bearer auth and also supports a
+  platform-session manual trigger from the console.
+- Bounce ingestion lives at `/api/platform/bounces`; it is bearer-authenticated
+  with `BOUNCE_WEBHOOK_SECRET` or `CRON_SECRET` and records failed reservation
+  email attempts in the tenant-scoped email log.
 - Platform operators own the email flow policy:
   - `settings.emailEnabled` is the global outbound email switch.
   - `settings.emailEvents.bookingConfirmation` controls booking confirmations.
@@ -138,6 +156,16 @@ per-tenant SMTP settings. There is no global SMTP configuration.
   return skipped/error results and write high-signal email log entries.
 - Email log access is tenant-scoped. Do not allow cross-tenant reads by
   reservation id alone.
+- Durable cross-surface app events live in `app_events` and are queried through
+  `src/lib/observability/app-event-store.ts`. Sensitive metadata is redacted by
+  `logger.ts`; keep PII and secrets out of event names, reasons, and unredacted
+  top-level fields.
+- Route-level non-success and thrown-error logging uses
+  `src/lib/observability/route-events.ts` (`observePublicRoute`,
+  `observeAdminRoute`, `observePlatformRoute`, `observeSystemRoute`). Preserve
+  these wrappers when editing existing routes.
+- Tenant-filterable log events need top-level `tenantId`; storing tenant ids
+  only inside metadata weakens `/platform/logs` filtering.
 
 ## Review Requests
 
@@ -155,6 +183,13 @@ per-tenant SMTP settings. There is no global SMTP configuration.
 - Platform tenant pages are the only place for operator-only controls such as
   domains, public tenant key, CORS allowed origins, SMTP, email flow policy,
   staff password reset, destructive tenant actions, and mock data.
+- `/platform/logs` is the platform-only cross-tenant log viewer. It is backed by
+  `/api/platform/logs`, protected by `requirePlatform(req)`, and filters on the
+  server by tenant, level, surface, actor, event, request/reservation ids,
+  reference, status, reason, date window, and search text.
+- `PlatformShell` owns shared platform navigation and the route-scoped
+  full-width layout exception for `/platform/logs`; keep other platform pages on
+  the normal constrained width unless explicitly asked otherwise.
 - Platform tenant detail UI should stay clear in both light and dark themes.
   Use existing surface tokens (`bg-surface-container`,
   `bg-surface-container-high`, `border-outline-variant`,
@@ -175,6 +210,10 @@ per-tenant SMTP settings. There is no global SMTP configuration.
 - If adding controls to reservation rows or modals, verify they work on narrow
   screens and do not obscure the existing status, table, waitlist, and feedback
   actions.
+- Staff reservation notifications are EventSource-driven through
+  `/api/admin/events`, `useReservationEvents`, and `NotificationBell`. Preserve
+  reconnect behavior, unread/read state, and toast navigation when changing the
+  admin shell or reservation event payloads.
 
 ## Route Handler Conventions
 
@@ -192,6 +231,9 @@ per-tenant SMTP settings. There is no global SMTP configuration.
   - use `requirePlatform(req)`;
   - sanitize tenant settings before persistence;
   - redact secrets such as SMTP passwords before returning settings.
+- For routes already wrapped with observability helpers, keep the wrapper at the
+  exported handler boundary so non-2xx responses and thrown errors continue to
+  land in platform logs.
 
 ## Testing Expectations
 

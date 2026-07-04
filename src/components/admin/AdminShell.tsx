@@ -10,6 +10,7 @@ import { NotificationBell, ReservationToastStack } from "./NotificationBell";
 import TodayBookingControls from "./TodayBookingControls";
 import Tooltip from "@/components/ui/Tooltip";
 import LanguageFlag from "@/components/ui/LanguageFlag";
+import { dismissAdminTooltips } from "./tooltip-events";
 
 export default function AdminShell({
   slug,
@@ -206,7 +207,7 @@ export default function AdminShell({
               </details>
             </nav>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0" onMouseEnter={dismissAdminTooltips}>
             <TodayBookingControls />
             <NotificationBell
               notifications={notifications}

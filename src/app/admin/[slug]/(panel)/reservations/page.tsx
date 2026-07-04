@@ -50,9 +50,9 @@ export default function ReservationsPage() {
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
-  const [showFloor, setShowFloor] = useState(false);
   const [showWaitlist, setShowWaitlist] = useState(false);
   const [seed, setSeed] = useState<{ offering?: string; service?: string; time?: string }>({});
+  const [floorOpen, setFloorOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<AdminReservation[] | null>(null);
@@ -279,7 +279,7 @@ export default function ReservationsPage() {
               </button>
               {hasTables && (
                 <button
-                  onClick={() => setShowFloor(true)}
+                  onClick={() => setFloorOpen(true)}
                   className={`${NAVBTN} flex-1 px-3 text-sm sm:flex-none`}
                 >
                   {am.floor.title}
@@ -293,6 +293,21 @@ export default function ReservationsPage() {
               </button>
             </div>
           </div>
+
+          {hasTables && (
+            <div className="grid grid-cols-2 gap-2">
+              <FloorOpenCard
+                label={am.dashboard.stats.reservations}
+                value={visible.length}
+                onClick={() => setFloorOpen(true)}
+              />
+              <FloorOpenCard
+                label={am.dashboard.stats.covers}
+                value={activeCovers}
+                onClick={() => setFloorOpen(true)}
+              />
+            </div>
+          )}
 
           {/* capacity overview — one per offering; click a slot to start a booking there */}
           <div className="space-y-2">
@@ -309,19 +324,12 @@ export default function ReservationsPage() {
                   setSeed({ offering: o.id, service, time });
                   setShowForm(true);
                 }}
+                onOpenFloor={() => setFloorOpen(true)}
               />
             ))}
           </div>
 
-          {hasTables && showFloor && (
-            <FloorModal
-              date={date}
-              refreshKey={refreshKey}
-              config={config}
-              tz={tz}
-              onClose={() => setShowFloor(false)}
-            />
-          )}
+          {hasTables && <FloorModal date={date} refreshKey={refreshKey} config={config} tz={tz} open={floorOpen} onClose={() => setFloorOpen(false)} />}
 
           {showWaitlist && (
             <WaitlistModal
@@ -341,6 +349,7 @@ export default function ReservationsPage() {
                 date={date}
                 offerings={offerings}
                 seed={seed}
+                refreshKey={refreshKey}
                 onCreated={() => {
                   setShowForm(false);
                   load();
@@ -726,6 +735,20 @@ function WalkInIcon() {
   );
 }
 
+function FloorOpenCard({ label, value, onClick }: { label: string; value: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Open floor view for ${label.toLowerCase()}`}
+      className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 text-left transition hover:border-primary/50 hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/40"
+    >
+      <div className="text-2xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-0.5 text-xs uppercase tracking-widest text-on-surface-variant">{label}</div>
+    </button>
+  );
+}
+
 const TIMELINE_STATUS: Record<string, string> = {
   seated:    "bg-sky-400/55 border border-sky-400/40",
   confirmed: "bg-amber-400/55 border border-amber-400/40",
@@ -742,25 +765,33 @@ function FloorModal({
   refreshKey,
   config,
   tz,
+  open,
   onClose,
 }: {
   date: string;
   refreshKey: number;
   config: AvailabilityConfig | null;
   tz: string;
+  open: boolean;
   onClose: () => void;
 }) {
   useEffect(() => {
+    if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [open, onClose]);
+
+  if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-[180] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={am.floor.title}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -784,7 +815,7 @@ function FloorModal({
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
           <TableTimelineView date={date} refreshKey={refreshKey} config={config} tz={tz} />
-          <FloorView date={date} refreshKey={refreshKey} defaultOpen />
+          <FloorView date={date} refreshKey={refreshKey} />
         </div>
       </div>
     </div>
@@ -998,40 +1029,55 @@ function TableTimelineView({
 
           {/* Table rows */}
           {activeTables.map(({ table, reservations }) => {
-            // Map each slot minute to the reservation whose window covers it.
-            // A reservation starting at T with durationMins D covers [T, T+D).
-            const occupancy = new Map<number, typeof reservations[0]>();
+            const occupiedSlots = new Set<number>();
             for (const r of reservations) {
               const rStart = toMins(r.time);
               const rEnd = rStart + r.durationMins;
-              for (let m = rStart; m < rEnd; m += SLOT) occupancy.set(m, r);
+              for (let m = rStart; m < rEnd; m += SLOT) occupiedSlots.add(m);
             }
             return (
               <div key={table.id} className="flex items-center mb-1 group">
                 <div className="w-24 shrink-0 text-xs font-medium truncate pr-2 text-on-surface-variant group-hover:text-on-surface transition-colors">
                   {table.label}
                 </div>
-                <div className="flex gap-0.5">
+                <div
+                  className="relative h-7"
+                  style={{ width: `${Math.max(0, slots.length * SLOT_STEP_REM - SLOT_GAP_REM)}rem` }}
+                >
+                  <div className="flex gap-0.5">
                   {slots.map((t) => {
                     const slotM = toMins(t);
-                    const res = occupancy.get(slotM);
-                    const isStart = res && toMins(res.time) === slotM;
                     const open = isOpenSlot(slotM);
-                    const cls = res
-                      ? (TIMELINE_STATUS[res.status] ?? "bg-primary/35 border border-primary/25")
+                    const cls = occupiedSlots.has(slotM)
+                      ? "bg-transparent"
                       : open
                         ? "bg-surface-container-high/60"
                         : "bg-surface/60 border border-outline-variant/10";
                     return (
-                      <Tooltip
-                        key={t}
-                        content={res ? `${res.time}-${fmtTime(toMins(res.time) + res.durationMins)} · ${res.name} (${res.partySize}) · ${res.status}` : `${t} · ${open ? am.floor.free : am.floor.closed}`}
-                      >
                       <div
-                        className={`w-10 h-7 ${isStart ? "rounded-l-sm" : ""} ${res && toMins(res.time) + res.durationMins <= slotM + SLOT ? "rounded-r-sm" : ""} ${!isStart && res ? "border-l-0" : ""} ${cls}`}
-                        style={!res && !open ? closedCellStyle : undefined}
+                        key={t}
+                        className={`h-7 w-10 shrink-0 ${cls}`}
+                        style={!occupiedSlots.has(slotM) && !open ? closedCellStyle : undefined}
+                        title={occupiedSlots.has(slotM) ? undefined : `${t} · ${open ? am.floor.free : am.floor.closed}`}
                       />
-                      </Tooltip>
+                    );
+                  })}
+                  </div>
+                  {reservations.map((res) => {
+                    const rawStart = toMins(res.time);
+                    const rawEnd = rawStart + res.durationMins;
+                    const blockStart = Math.max(startMins, Math.floor(rawStart / SLOT) * SLOT);
+                    const blockEnd = Math.min(endMins, Math.ceil(rawEnd / SLOT) * SLOT);
+                    if (blockEnd <= blockStart) return null;
+                    const leftRem = ((blockStart - startMins) / SLOT) * SLOT_STEP_REM;
+                    const widthRem = Math.max(SLOT_WIDTH_REM, ((blockEnd - blockStart) / SLOT) * SLOT_STEP_REM - SLOT_GAP_REM);
+                    return (
+                      <div
+                        key={res.id}
+                        className={`absolute top-0 z-10 h-7 rounded-sm ${TIMELINE_STATUS[res.status] ?? "bg-primary/35 border border-primary/25"}`}
+                        style={{ left: `${leftRem}rem`, width: `${widthRem}rem` }}
+                        title={`${res.time}-${fmtTime(rawEnd)} · ${res.name} (${res.partySize}) · ${res.status}`}
+                      />
                     );
                   })}
                 </div>
@@ -1051,17 +1097,15 @@ const FLOOR_STATE: Record<TableState, { dot: string; label: () => string }> = {
   inactive: { dot: "bg-zinc-600", label: () => am.tables.inactive },
 };
 
-/** Color-coded floor view for the selected day. Collapsible. */
-function FloorView({ date, refreshKey, defaultOpen = false }: { date: string; refreshKey: number; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
+/** Color-coded floor grid shown inside the floor modal. */
+function FloorView({ date, refreshKey }: { date: string; refreshKey: number }) {
   const [floor, setFloor] = useState<FloorEntry[]>([]);
 
   useEffect(() => {
-    if (!open) return;
     adminJson<{ floor: FloorEntry[] }>(`/api/admin/tables?date=${date}`)
       .then((d) => setFloor(d.floor ?? []))
       .catch(() => setFloor([]));
-  }, [date, open, refreshKey]);
+  }, [date, refreshKey]);
 
   const counts = floor.reduce<Record<string, number>>((acc, f) => {
     acc[f.state] = (acc[f.state] ?? 0) + 1;
@@ -1070,15 +1114,9 @@ function FloorView({ date, refreshKey, defaultOpen = false }: { date: string; re
 
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold"
-      >
-        <svg className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-          <path d="M6 8L1 3h10L6 8z" />
-        </svg>
-        {am.floor.title}
-        <span className="ml-auto flex items-center gap-3 text-xs font-normal text-on-surface-variant">
+      <div className="flex items-center gap-3 border-b border-outline-variant/25 px-4 py-2.5 text-sm font-semibold">
+        <span>{am.floor.title}</span>
+        <span className="ml-auto flex flex-wrap items-center justify-end gap-3 text-xs font-normal text-on-surface-variant">
           {(["free", "reserved", "seated"] as TableState[]).map((s) =>
             counts[s] ? (
               <span key={s} className="flex items-center gap-1">
@@ -1088,35 +1126,33 @@ function FloorView({ date, refreshKey, defaultOpen = false }: { date: string; re
             ) : null,
           )}
         </span>
-      </button>
-      {open && (
-        <div className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
-          {floor.length === 0 ? (
-            <p className="col-span-full text-sm text-on-surface-variant py-4 text-center">{am.floor.none}</p>
-          ) : (
-            floor.map(({ table, state, reservations }) => (
-              <Tooltip key={table.id} content={reservations.map((r) => `${r.time} · ${r.name} (${r.partySize})`).join("\n")}>
-              <div
-                className="rounded-lg border border-outline-variant/30 bg-surface-container-high p-2.5 space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm">{table.label}</span>
-                  <span className={`w-2.5 h-2.5 rounded-full ${FLOOR_STATE[state].dot}`} />
-                </div>
-                <div className="text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  {am.tables.seatsN(table.capacity)}
-                </div>
-                {reservations.length > 0 && (
-                  <div className="text-[11px] text-on-surface-variant tabular-nums truncate">
-                    {reservations.map((r) => r.time).join(", ")}
-                  </div>
-                )}
+      </div>
+      <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4 md:grid-cols-6">
+        {floor.length === 0 ? (
+          <p className="col-span-full py-4 text-center text-sm text-on-surface-variant">{am.floor.none}</p>
+        ) : (
+          floor.map(({ table, state, reservations }) => (
+            <div
+              key={table.id}
+              className="rounded-lg border border-outline-variant/30 bg-surface-container-high p-2.5 space-y-1"
+              title={reservations.map((r) => `${r.time} · ${r.name} (${r.partySize})`).join("\n")}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{table.label}</span>
+                <span className={`w-2.5 h-2.5 rounded-full ${FLOOR_STATE[state].dot}`} />
               </div>
-              </Tooltip>
-            ))
-          )}
-        </div>
-      )}
+              <div className="text-[10px] uppercase tracking-widest text-on-surface-variant">
+                {am.tables.seatsN(table.capacity)}
+              </div>
+              {reservations.length > 0 && (
+                <div className="text-[11px] text-on-surface-variant tabular-nums truncate">
+                  {reservations.map((r) => r.time).join(", ")}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -1184,11 +1220,13 @@ function NewReservationForm({
   date,
   offerings,
   seed,
+  refreshKey,
   onCreated,
 }: {
   date: string;
   offerings: OfferingServices[];
   seed: { offering?: string; service?: string; time?: string };
+  refreshKey: number;
   onCreated: () => void;
 }) {
   const initialOffering = seed.offering ?? offerings[0]?.id ?? "main";
@@ -1219,7 +1257,7 @@ function NewReservationForm({
     adminJson<DayAvailability>(`/api/admin/availability?date=${form.date}&offering=${encodeURIComponent(form.offering)}`)
       .then(setDay)
       .catch(() => setDay(null));
-  }, [form.date, form.offering]);
+  }, [form.date, form.offering, refreshKey]);
 
   const svcSlots = day?.services.find((s) => s.id === form.service)?.slots ?? [];
 

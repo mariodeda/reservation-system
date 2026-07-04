@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { am } from "@/i18n";
 import { adminJson, toast } from "@/components/admin/api";
+import { DISMISS_ADMIN_TOOLTIPS_EVENT } from "@/components/admin/tooltip-events";
 import { offeringSummaries } from "@/lib/reservations/offerings";
 import type { AvailabilityConfig } from "@/lib/reservations/types";
 
@@ -86,6 +87,13 @@ function sourceDisplayName(source: string, fallback?: string) {
 
 type TipState = { x: number; y: number; title: string; lines: string[] } | null;
 
+function useAdminTooltipDismiss(onDismiss: () => void) {
+  useEffect(() => {
+    window.addEventListener(DISMISS_ADMIN_TOOLTIPS_EVENT, onDismiss);
+    return () => window.removeEventListener(DISMISS_ADMIN_TOOLTIPS_EVENT, onDismiss);
+  }, [onDismiss]);
+}
+
 function Tip({ tip }: { tip: NonNullable<TipState> }) {
   const safeX =
     typeof window !== "undefined"
@@ -114,6 +122,11 @@ function BarChart({
 }) {
   const [tip, setTip] = useState<TipState>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const clearTip = useCallback(() => {
+    setTip(null);
+    setHoveredDate(null);
+  }, []);
+  useAdminTooltipDismiss(clearTip);
 
   if (!data.length)
     return (
@@ -156,10 +169,7 @@ function BarChart({
         viewBox={`0 0 ${W} ${H + (showLabels ? 28 : 4)}`}
         className="w-full cursor-crosshair"
         aria-label={`${metric} bar chart`}
-        onMouseLeave={() => {
-          setTip(null);
-          setHoveredDate(null);
-        }}
+        onMouseLeave={clearTip}
       >
         {data.map((d, i) => {
           const v = d[metric];
@@ -249,6 +259,11 @@ function DonutChart({
 }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [tip, setTip] = useState<TipState>(null);
+  const clearTip = useCallback(() => {
+    setHoveredIdx(null);
+    setTip(null);
+  }, []);
+  useAdminTooltipDismiss(clearTip);
 
   const total = slices.reduce((s, x) => s + x.value, 0);
   if (!total)
@@ -287,10 +302,7 @@ function DonutChart({
   return (
     <div
       className="flex items-center gap-4 flex-wrap"
-      onMouseLeave={() => {
-        setHoveredIdx(null);
-        setTip(null);
-      }}
+      onMouseLeave={clearTip}
     >
       <svg viewBox="0 0 100 100" className="w-24 h-24 shrink-0">
         {paths.map((p, i) => (
@@ -359,6 +371,8 @@ const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: number }[] }) {
   const [tip, setTip] = useState<TipState>(null);
+  const clearTip = useCallback(() => setTip(null), []);
+  useAdminTooltipDismiss(clearTip);
 
   if (!cells.length)
     return (
@@ -387,7 +401,7 @@ function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: nu
   const busiestDay = weekdayTotals[0];
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-5 items-start" onMouseLeave={() => setTip(null)}>
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] items-start" onMouseLeave={clearTip}>
       <div className="overflow-x-auto">
         <table className="border-separate border-spacing-1 w-full table-fixed min-w-[620px]">
           <thead>
@@ -440,7 +454,7 @@ function Heatmap({ cells }: { cells: { weekday: number; hour: number; covers: nu
                                 )
                             : undefined
                         }
-                        onMouseLeave={() => setTip(null)}
+                        onMouseLeave={clearTip}
                       />
                     </td>
                   );
@@ -504,6 +518,11 @@ function BarList({
 }) {
   const [tip, setTip] = useState<TipState>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const clearTip = useCallback(() => {
+    setTip(null);
+    setHoveredKey(null);
+  }, []);
+  useAdminTooltipDismiss(clearTip);
 
   if (!rows.length)
     return <p className="text-on-surface-variant text-sm">{am.analytics.noData}</p>;
@@ -513,10 +532,7 @@ function BarList({
   return (
     <div
       className="space-y-2"
-      onMouseLeave={() => {
-        setTip(null);
-        setHoveredKey(null);
-      }}
+      onMouseLeave={clearTip}
     >
       {rows.map((r) => {
         const pct = Math.round((r.value / max) * 100);
@@ -746,6 +762,11 @@ export default function AnalyticsPage() {
   // Page-level tooltip for inline bar rows (offering, service, feedback)
   const [pageTip, setPageTip] = useState<TipState>(null);
   const [pageHovered, setPageHovered] = useState<string | null>(null);
+  const clearPageTip = useCallback(() => {
+    setPageHovered(null);
+    setPageTip(null);
+  }, []);
+  useAdminTooltipDismiss(clearPageTip);
   const periods: { value: Period; label: string }[] = [
     { value: "7d", label: am.analytics.period7 },
     { value: "30d", label: am.analytics.period30 },
@@ -856,8 +877,7 @@ export default function AnalyticsPage() {
     setPageTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null));
   }
   function inlineBarLeave() {
-    setPageHovered(null);
-    setPageTip(null);
+    clearPageTip();
   }
 
   return (
@@ -1325,4 +1345,3 @@ function StarIcon({ className = "h-4 w-4" }: { className?: string }) {
     </svg>
   );
 }
-
