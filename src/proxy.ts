@@ -45,8 +45,9 @@ export async function proxy(req: NextRequest) {
     if (pathname === "/platform/login" || pathname === "/api/platform/login") {
       return noindex(NextResponse.next());
     }
-    if (isCronEndpoint(pathname) && hasCronAuth(req)) {
-      return noindex(NextResponse.next());
+    if (isCronEndpoint(pathname)) {
+      if (hasCronAuth(req)) return noindex(NextResponse.next());
+      return noindex(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
     }
     if (pathname === "/api/platform/bounces" && hasBounceAuth(req)) {
       return noindex(NextResponse.next());

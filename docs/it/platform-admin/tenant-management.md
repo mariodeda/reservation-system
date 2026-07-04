@@ -189,11 +189,12 @@ Azioni manuali:
   mancanti. La piattaforma lo esegue in batch da 7 giorni per mantenere
   reattive le pagine manager DISH e la UI piattaforma.
 
-Il sync DISH schedulato gira tramite `POST /api/platform/cron/dish-sync` ogni
-15 minuti. Sincronizza la booking window pubblica rolling per tutti i tenant
+Il sync DISH schedulato e gestito dallo scheduler interno dell'app ogni 15
+minuti. Sincronizza la booking window pubblica rolling per tutti i tenant
 attivi con integrazione DISH abilitata: i prossimi 14 giorni calendario,
 limitati dalla booking window di ogni tenant. Non avvia automaticamente
-backfill storici.
+backfill storici. La route `/api/platform/cron/dish-sync` e accesso di
+manutenzione solo bearer, non un'azione browser/operatore.
 
 ### Regole Operative
 

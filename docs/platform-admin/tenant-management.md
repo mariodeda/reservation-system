@@ -188,11 +188,12 @@ Manual actions:
   runs. The platform runs this in 7-day batches so the DISH manager pages and
   platform UI remain responsive.
 
-Scheduled DISH sync runs through `POST /api/platform/cron/dish-sync` every 15
-minutes. It syncs the rolling public booking-window lookahead for all active
-tenants with enabled DISH integrations: the next 14 calendar days, capped by
-each tenant's booking window. It does not run historical backfills
-automatically.
+Scheduled DISH sync is handled by the internal app scheduler every 15 minutes.
+It syncs the rolling public booking-window lookahead for all active tenants
+with enabled DISH integrations: the next 14 calendar days, capped by each
+tenant's booking window. It does not run historical backfills automatically.
+The `/api/platform/cron/dish-sync` route is bearer-only maintenance access, not
+a browser/operator action.
 
 ### Operational Rules
 

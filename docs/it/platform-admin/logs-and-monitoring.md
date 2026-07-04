@@ -62,7 +62,7 @@ Trigger sync esterni:
 - `manual`: l'operatore ha cliccato Sync now.
 - `first`: l'operatore ha cliccato First sync.
 - `history60`: l'operatore ha cliccato DISH Sync last 60 days.
-- `cron`: cron DISH schedulato.
+- `cron`: DISH eseguito dallo scheduler interno.
 - `webhook`: flusso guidato da webhook esterno, dove applicabile.
 - `system`: fallback quando un sync di basso livello e stato chiamato senza
   trigger specifico.
@@ -80,8 +80,8 @@ Per incident TheFork:
 Per incident DISH:
 
 1. Cerca `external_sync` e `dish`, poi filtra per tenant.
-2. Controlla che il cron giri ogni 15 minuti tramite
-   `POST /api/platform/cron/dish-sync`.
+2. Controlla `internal_scheduler.job_completed` con job `dish-sync` e
+   `external_sync.started` / `external_sync.completed` con trigger `cron`.
 3. Controlla `external_sync.failed` per login, parsing HTML, timeout o problemi
    connessione.
 4. Usa Sync now per oggi e Sync last 60 days per il primo import o per

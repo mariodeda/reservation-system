@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { observeSystemRoute } from "@/lib/observability/route-events";
 import { runDishSyncCron } from "@/lib/reservations/dish-sync";
-import { requirePlatform } from "@/lib/reservations/tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +22,7 @@ export async function POST(req: NextRequest) {
 
 async function runCron(req: NextRequest) {
   if (!hasCronAuth(req)) {
-    const ctx = await requirePlatform(req);
-    if (!ctx.ok) return ctx.res;
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const results = await runDishSyncCron();

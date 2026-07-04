@@ -112,21 +112,23 @@ Gruppi principali:
 - `/api/platform/logs`
 - `/api/platform/email-logs`
 - `/api/platform/analytics`
-- `/api/platform/cron/dish-sync`
-- `/api/platform/cron/feedback-requests`
-- `/api/platform/cron/smtp-health`
+- `/api/platform/cron/dish-sync` (endpoint manutenzione solo bearer)
+- `/api/platform/cron/feedback-requests` (endpoint manutenzione solo bearer)
+- `/api/platform/cron/smtp-health` (endpoint manutenzione solo bearer)
 - `/api/platform/bounces`
 
-Schedulare `/api/platform/cron/dish-sync` ogni 15 minuti con
-`Authorization: Bearer $CRON_SECRET`. Sincronizza i tenant DISH attivi sulla
-booking window pubblica rolling per i prossimi 14 giorni calendario, limitata
-dalla booking window di ogni tenant, cosi prenotazioni esterne restano visibili
-nella UI staff e nella disponibilita pubblica senza avviare backfill storici
-automatici.
+L'app avvia uno scheduler interno Node da `instrumentation.ts` in produzione.
+Esegue il sync DISH ogni 15 minuti, le richieste recensione ogni 30 minuti e i
+controlli SMTP ogni 6 ore. I job usano lock MySQL nominati, quindi piu processi
+app non eseguono lo stesso job schedulato nello stesso momento. Usa
+`INTERNAL_SCHEDULER_DISABLED=1` per disabilitare lo scheduler interno, oppure
+`INTERNAL_SCHEDULER_ENABLED=1` per abilitarlo in ambienti non produzione.
 
-Schedulare `/api/platform/cron/smtp-health` ogni 6 ore con
-`Authorization: Bearer $CRON_SECRET`. Gli operatori possono comunque avviare
-controlli SMTP manuali dalla console piattaforma quando indagano un ristorante.
+Le route `/api/platform/cron/*` non sono azioni manuali browser/operatore. Sono
+endpoint di manutenzione solo bearer, protetti da `Authorization: Bearer
+$CRON_SECRET`, per uso di emergenza/sistema. Gli operatori piattaforma avviano
+i controlli SMTP tramite `/api/platform/smtp-health`, che richiede una sessione
+piattaforma.
 
 Le mutazioni sensibili richiedono riautenticazione con password operatore. Vale
 per azioni distruttive e supporto privilegiato come eliminazione tenant, reset

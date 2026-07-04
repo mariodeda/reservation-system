@@ -34,6 +34,8 @@ describe("proxy platform gating", () => {
 
   it("allows cron endpoints with the cron bearer secret", async () => {
     vi.stubEnv("CRON_SECRET", "cron-secret");
+    const platformCookie = `${PLATFORM_COOKIE}=${await createPlatformSession("ops")}`;
+    expect((await proxy(make("/api/platform/cron/dish-sync", platformCookie))).status).toBe(401);
     expect((await proxy(make("/api/platform/cron/smtp-health", undefined, {
       authorization: "Bearer cron-secret",
     }))).status).toBe(200);

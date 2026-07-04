@@ -62,7 +62,7 @@ External sync triggers:
 - `manual`: operator clicked Sync now.
 - `first`: operator clicked First sync.
 - `history60`: operator clicked DISH Sync last 60 days.
-- `cron`: scheduled DISH cron.
+- `cron`: DISH was run by the internal scheduler.
 - `webhook`: external webhook-driven flow, where applicable.
 - `system`: fallback when a lower-level sync was called without a specific
   trigger.
@@ -80,8 +80,8 @@ For TheFork incidents:
 For DISH incidents:
 
 1. Search `external_sync` and `dish`, then filter by tenant.
-2. Check whether cron runs every 15 minutes through
-   `POST /api/platform/cron/dish-sync`.
+2. Check for `internal_scheduler.job_completed` with job `dish-sync` and
+   `external_sync.started` / `external_sync.completed` with trigger `cron`.
 3. Check `external_sync.failed` for login, HTML parsing, timeout, or connection
    issues.
 4. Use Sync now for today and Sync last 60 days for initial imports or

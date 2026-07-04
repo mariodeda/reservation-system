@@ -131,7 +131,7 @@ function SyncStatusBanner({
         </span>
       </div>
       <div className="mt-1 text-xs text-on-surface-variant">
-        {active ? "Enabled restaurants are included in automated sync jobs where that provider supports cron imports." : "Save valid credentials and enable sync before relying on automated imports."}
+        {active ? "Enabled restaurants are included in internal background sync jobs where that provider supports imports." : "Save valid credentials and enable sync before relying on automated imports."}
         {" "}
         Last sync: {formatPlatformDateTime(lastSyncAt)}.
         {lastError ? ` Last error: ${lastError}` : ""}

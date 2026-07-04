@@ -10,5 +10,7 @@ export async function register() {
     // platform_admins is empty (e.g. after a manual reset). Idempotent.
     const { ensureBootstrapPlatformAdmin } = await import("./lib/reservations/bootstrap");
     await ensureBootstrapPlatformAdmin();
+    const { startInternalScheduler } = await import("./lib/reservations/internal-scheduler");
+    startInternalScheduler();
   }
 }

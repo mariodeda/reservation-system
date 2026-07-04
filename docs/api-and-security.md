@@ -115,20 +115,22 @@ Major endpoint groups include:
 - `/api/platform/logs`
 - `/api/platform/email-logs`
 - `/api/platform/analytics`
-- `/api/platform/cron/dish-sync`
-- `/api/platform/cron/feedback-requests`
-- `/api/platform/cron/smtp-health`
+- `/api/platform/cron/dish-sync` (bearer-only maintenance endpoint)
+- `/api/platform/cron/feedback-requests` (bearer-only maintenance endpoint)
+- `/api/platform/cron/smtp-health` (bearer-only maintenance endpoint)
 - `/api/platform/bounces`
 
-Schedule `/api/platform/cron/dish-sync` every 15 minutes with
-`Authorization: Bearer $CRON_SECRET`. It syncs enabled DISH tenants across the
-next 14 calendar days, capped by each tenant's booking window, keeping external
-bookings reflected in staff UI and public availability without running
-historical backfills automatically.
+The app starts an internal Node background scheduler from `instrumentation.ts`
+in production. It runs DISH sync every 15 minutes, feedback request processing
+every 30 minutes, and SMTP health checks every 6 hours. Jobs use MySQL named
+locks, so multiple app processes do not run the same scheduled job at the same
+time. Set `INTERNAL_SCHEDULER_DISABLED=1` to disable the internal scheduler, or
+`INTERNAL_SCHEDULER_ENABLED=1` to enable it in non-production environments.
 
-Schedule `/api/platform/cron/smtp-health` every 6 hours with
-`Authorization: Bearer $CRON_SECRET`. Operators can still trigger SMTP checks
-manually from the platform console when investigating a restaurant.
+The `/api/platform/cron/*` routes are not browser/operator manual actions. They
+are bearer-only maintenance endpoints guarded by `Authorization: Bearer
+$CRON_SECRET` for emergency/system use. Platform operators trigger SMTP checks
+through `/api/platform/smtp-health`, which requires a platform session.
 
 Sensitive platform mutations require operator password re-authentication. This
 pattern applies to destructive actions and privileged support actions such as

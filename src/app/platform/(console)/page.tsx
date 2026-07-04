@@ -49,7 +49,7 @@ export default function PlatformHome() {
   async function checkSmtpNow() {
     setCheckingSmtp(true);
     try {
-      const res = await platformFetch("/api/platform/cron/smtp-health", { method: "POST" });
+      const res = await platformFetch("/api/platform/smtp-health", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || am.platform.smtpCheckFailed);
       toast(am.platform.smtpCheckComplete(Number(data.checked) || 0));

@@ -154,7 +154,7 @@ describe("PlatformHome", () => {
     await screen.findByText("Acme Osteria");
     await user.click(screen.getByRole("button", { name: "Verifica SMTP" }));
 
-    expect(platformFetch).toHaveBeenCalledWith("/api/platform/cron/smtp-health", { method: "POST" });
+    expect(platformFetch).toHaveBeenCalledWith("/api/platform/smtp-health", { method: "POST" });
     expect(toast).toHaveBeenCalledWith("SMTP verificato per 2 ristoranti.");
     expect(platformJson).toHaveBeenCalledWith("/api/platform/tenants");
   });

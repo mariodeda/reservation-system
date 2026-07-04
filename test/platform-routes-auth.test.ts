@@ -26,6 +26,7 @@ let dishSync: typeof import("@/app/api/platform/tenants/[id]/dish/sync/route");
 let logout: typeof import("@/app/api/platform/logout/route");
 let logs: typeof import("@/app/api/platform/logs/route");
 let emailLogs: typeof import("@/app/api/platform/email-logs/route");
+let smtpManual: typeof import("@/app/api/platform/smtp-health/route");
 let smtpCron: typeof import("@/app/api/platform/cron/smtp-health/route");
 let feedbackCron: typeof import("@/app/api/platform/cron/feedback-requests/route");
 let dishCron: typeof import("@/app/api/platform/cron/dish-sync/route");
@@ -48,6 +49,7 @@ beforeAll(async () => {
   logout = await import("@/app/api/platform/logout/route");
   logs = await import("@/app/api/platform/logs/route");
   emailLogs = await import("@/app/api/platform/email-logs/route");
+  smtpManual = await import("@/app/api/platform/smtp-health/route");
   smtpCron = await import("@/app/api/platform/cron/smtp-health/route");
   feedbackCron = await import("@/app/api/platform/cron/feedback-requests/route");
   dishCron = await import("@/app/api/platform/cron/dish-sync/route");
@@ -103,22 +105,53 @@ describe("platform routes reject unauthenticated callers (401)", () => {
   it("SMTP cron POST", async () => {
     expect((await smtpCron.POST(req("/api/platform/cron/smtp-health", "POST"))).status).toBe(401);
   });
-  it("SMTP cron POST accepts a platform session for manual checks", async () => {
+  it("SMTP manual check POST", async () => {
+    expect((await smtpManual.POST(req("/api/platform/smtp-health", "POST"))).status).toBe(401);
+  });
+  it("SMTP manual check accepts a platform session", async () => {
+    const res = await smtpManual.POST(await authed("/api/platform/smtp-health", "POST"));
+    expect(res.status).toBe(200);
+  });
+  it("SMTP cron POST does not accept a platform session", async () => {
     const res = await smtpCron.POST(await authed("/api/platform/cron/smtp-health", "POST"));
+    expect(res.status).toBe(401);
+  });
+  it("SMTP cron POST accepts the cron bearer secret", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    const res = await smtpCron.POST(new NextRequest("http://platform.local/api/platform/cron/smtp-health", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
     expect(res.status).toBe(200);
   });
   it("feedback cron POST", async () => {
     expect((await feedbackCron.POST(req("/api/platform/cron/feedback-requests", "POST"))).status).toBe(401);
   });
-  it("feedback cron POST accepts a platform session for manual checks", async () => {
+  it("feedback cron POST does not accept a platform session", async () => {
     const res = await feedbackCron.POST(await authed("/api/platform/cron/feedback-requests", "POST"));
+    expect(res.status).toBe(401);
+  });
+  it("feedback cron POST accepts the cron bearer secret", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    const res = await feedbackCron.POST(new NextRequest("http://platform.local/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
     expect(res.status).toBe(200);
   });
   it("DISH sync cron POST", async () => {
     expect((await dishCron.POST(req("/api/platform/cron/dish-sync", "POST"))).status).toBe(401);
   });
-  it("DISH sync cron POST accepts a platform session for manual checks", async () => {
+  it("DISH sync cron POST does not accept a platform session", async () => {
     const res = await dishCron.POST(await authed("/api/platform/cron/dish-sync", "POST"));
+    expect(res.status).toBe(401);
+  });
+  it("DISH sync cron POST accepts the cron bearer secret", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    const res = await dishCron.POST(new NextRequest("http://platform.local/api/platform/cron/dish-sync", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
     expect(res.status).toBe(200);
   });
   it("bounce ingest POST", async () => {
