@@ -264,12 +264,13 @@ describe("AdminShell", () => {
     expect(screen.getByText("No unread notifications")).toBeInTheDocument();
   });
 
-  it("labels TheFork update notifications as external updates", async () => {
+  it("labels TheFork update notifications with provider and status", async () => {
     const user = userEvent.setup();
     reservationEvents.notifications = [{
       id: "res-1",
       notificationId: "reservation.updated:res-1:1:0",
       type: "reservation.updated",
+      status: "confirmed",
       date: "2026-07-01",
       time: "20:00",
       service: "Dinner",
@@ -283,10 +284,11 @@ describe("AdminShell", () => {
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
 
     await user.click(screen.getByRole("button", { name: /notifications/i }));
-    expect(screen.getAllByText("External update").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("TheFork").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Confirmed").length).toBeGreaterThan(0);
   });
 
-  it("labels external cancellation notifications clearly", async () => {
+  it("labels external cancellation notifications with provider and status", async () => {
     const user = userEvent.setup();
     reservationEvents.notifications = [{
       id: "res-1",
@@ -306,7 +308,8 @@ describe("AdminShell", () => {
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
 
     await user.click(screen.getByRole("button", { name: /notifications/i }));
-    expect(screen.getAllByText("External cancellation").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("TheFork").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
   });
 
   it("formats notification reservation dates in a readable long form", async () => {

@@ -200,7 +200,12 @@ function cleanDishGuestName(value: string | undefined): string | undefined {
     .trim()
     .replace(/^["'“”]+|["'“”]+$/g, "")
     .trim();
-  return cleaned || undefined;
+  if (!cleaned) return undefined;
+  const commaParts = cleaned.split(",").map((part) => part.trim()).filter(Boolean);
+  if (commaParts.length === 2 && commaParts.every((part) => /[a-z]/i.test(part))) {
+    return `${commaParts[1]} ${commaParts[0]}`.replace(/\s+/g, " ").trim();
+  }
+  return cleaned;
 }
 
 function parseNameFromRow(text: string): string {

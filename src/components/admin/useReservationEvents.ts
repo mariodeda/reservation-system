@@ -37,6 +37,14 @@ function reservationStatus(value: unknown): ReservationStatus {
   return RESERVATION_STATUSES.includes(value as ReservationStatus) ? (value as ReservationStatus) : "confirmed";
 }
 
+function isExternalSource(source: ReservationNotification["source"]) {
+  return source === "thefork" || source === "dish";
+}
+
+function visibleNotificationKey(n: ReservationNotification) {
+  return isExternalSource(n.source) ? `external:${n.source}:${n.id}` : n.notificationId;
+}
+
 function fromTenantNotification(n: TenantNotificationPayload, live = false): ReservationNotification | null {
   const reservation = n.metadata?.reservation;
   if (!reservation || !n.reservationId) return null;
@@ -72,7 +80,12 @@ export function useReservationEvents() {
     setNotifications((prev) => {
       const byId = new Map<string, ReservationNotification>();
       for (const n of [...next, ...prev]) byId.set(n.notificationId, n);
-      const merged = [...byId.values()].sort((a, b) => b.receivedAt - a.receivedAt).slice(0, MAX);
+      const byVisible = new Map<string, ReservationNotification>();
+      for (const n of [...byId.values()].sort((a, b) => b.receivedAt - a.receivedAt)) {
+        const key = visibleNotificationKey(n);
+        if (!byVisible.has(key)) byVisible.set(key, n);
+      }
+      const merged = [...byVisible.values()].slice(0, MAX);
       seenIds.current = new Set(merged.map((n) => n.notificationId));
       return merged;
     });
@@ -105,7 +118,10 @@ export function useReservationEvents() {
       es.addEventListener("connected", () => setConnected(true));
 
       const pushNotification = (n: ReservationNotification) => {
-        if (seenIds.current.has(n.notificationId)) return null;
+        if (seenIds.current.has(n.notificationId)) {
+          mergeNotifications([n]);
+          return null;
+        }
         seenIds.current.add(n.notificationId);
         mergeNotifications([n]);
         return n;

@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { getDayAvailability } from "@/lib/reservations/availability";
 import { listAppEvents } from "@/lib/observability/app-event-store";
 import { getStore, resetStoreCache } from "@/lib/reservations/store";
+import { listTenantNotifications } from "@/lib/reservations/notification-store";
 import { getTenantStore, resetTenantStore } from "@/lib/reservations/tenant-store";
 import { hashPassword, templateSettings } from "@/lib/reservations/tenant";
 import { getPool, resetPool } from "@/lib/reservations/mysql-pool";
@@ -22,6 +23,9 @@ let tenantId: string;
 const restaurantUuid = "11111111-1111-4111-8111-111111111111";
 const reservationUuid = "22222222-2222-4222-8222-222222222222";
 let externalPartySize = 2;
+let externalStatus: "RECORDED" | "CANCELED" | "NO_SHOW" | "REQUESTED" | "REFUSED" = "RECORDED";
+let externalMealStatus: "PARTIALLY_ARRIVED" | "ARRIVED" | "SEATED" | "BILL" | "LEFT" | null = null;
+let customerAvailable = true;
 let webhookToken = "";
 
 function json(data: unknown, status = 200) {
@@ -53,6 +57,9 @@ beforeEach(async () => {
   clearTheForkTokenCache();
   tenantId = randomUUID();
   externalPartySize = 2;
+  externalStatus = "RECORDED";
+  externalMealStatus = null;
+  customerAvailable = true;
   await getTenantStore().create({
     id: tenantId,
     slug: `thefork-${tenantId.slice(0, 8)}`,
@@ -90,9 +97,9 @@ beforeEach(async () => {
         reservationUuid,
         restaurantUuid,
         mealDate: "2026-07-10T12:30:00Z",
-        mealStatus: null,
+        mealStatus: externalMealStatus,
         partySize: externalPartySize,
-        status: "RECORDED",
+        status: externalStatus,
         customerUuid: "tf-customer-1",
         customerNote: "Window if possible",
         customFields: { dietary: "No garlic" },
@@ -101,6 +108,7 @@ beforeEach(async () => {
       });
     }
     if (url.endsWith("/manager/v1/customers/tf-customer-1")) {
+      if (!customerAvailable) return json({ error: "not found" }, 404);
       return json({
         customerUuid: "tf-customer-1",
         firstName: "Ada",
@@ -215,6 +223,88 @@ describe("TheFork one-way sync", () => {
     const webhookEvents = await listAppEvents({ tenantId, event: "external_sync.webhook_processed", limit: 10 });
     expect(webhookEvents[0]).toMatchObject({ level: "info", tenantId });
     expect(webhookEvents[0].metadata).toMatchObject({ provider: "thefork", externalId: reservationUuid, outcome: "created" });
+  });
+
+  it("keeps one refreshed TheFork notification across webhook status changes", async () => {
+    const ctx = { params: Promise.resolve({ tenantId }) };
+    const request = (eventType: string) => new NextRequest(`http://localhost/api/integrations/thefork/webhook/${tenantId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        entityType: "reservation",
+        eventType,
+        uuid: reservationUuid,
+        restaurantUuid,
+      }),
+      headers: { "content-type": "application/json", authorization: `Bearer ${webhookToken}` },
+    });
+
+    expect((await webhookRoute.POST(request("reservationCreated"), ctx)).status).toBe(200);
+    let notifications = await listTenantNotifications(tenantId);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({
+      type: "reservation.created",
+      title: "New TheFork reservation",
+      source: "thefork",
+      dedupeKey: expect.stringMatching(/^reservation\.external:thefork:/),
+    });
+    expect(notifications[0].metadata).toMatchObject({
+      reservation: {
+        name: "Ada Lovelace",
+        status: "confirmed",
+        source: "thefork",
+      },
+    });
+
+    externalStatus = "CANCELED";
+    expect((await webhookRoute.POST(request("reservationUpdated"), ctx)).status).toBe(200);
+
+    notifications = await listTenantNotifications(tenantId);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({
+      type: "reservation.updated",
+      title: "TheFork reservation cancelled",
+      body: "Ada Lovelace - 2 guests - 2026-07-10 12:30 - Status: Cancelled",
+      source: "thefork",
+    });
+    expect(notifications[0].metadata).toMatchObject({
+      reservation: {
+        name: "Ada Lovelace",
+        status: "cancelled",
+        source: "thefork",
+      },
+    });
+  });
+
+  it("preserves TheFork guest identity on webhook updates when the customer API is unavailable", async () => {
+    await syncTheForkReservations(tenantId, {
+      startDate: "2026-07-10",
+      endDate: "2026-07-10",
+      filterBy: "mealDate",
+    });
+
+    customerAvailable = false;
+    externalStatus = "CANCELED";
+    const req = new NextRequest(`http://localhost/api/integrations/thefork/webhook/${tenantId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        entityType: "reservation",
+        eventType: "reservationUpdated",
+        uuid: reservationUuid,
+        restaurantUuid,
+      }),
+      headers: { "content-type": "application/json", authorization: `Bearer ${webhookToken}` },
+    });
+
+    expect((await webhookRoute.POST(req, { params: Promise.resolve({ tenantId }) })).status).toBe(200);
+    const reservations = await getStore().forTenant(tenantId).listReservations({ date: "2026-07-10" });
+    expect(reservations).toHaveLength(1);
+    expect(reservations[0]).toMatchObject({
+      source: "thefork",
+      name: "Ada Lovelace",
+      email: "ada@example.com",
+      phone: "+39 333 123 4567",
+      status: "cancelled",
+    });
   });
 
   it("can backfill without emitting staff notification events", async () => {

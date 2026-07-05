@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { adminJson, toast } = vi.hoisted(() => ({
@@ -9,6 +9,7 @@ const { adminJson, toast } = vi.hoisted(() => ({
   toast: vi.fn(),
 }));
 const searchParams = vi.hoisted(() => ({ value: "date=2099-07-04" }));
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
 
 vi.mock("@/components/admin/api", () => ({
   adminJson,
@@ -17,6 +18,8 @@ vi.mock("@/components/admin/api", () => ({
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ slug: "acme" }),
+  usePathname: () => "/admin/acme/reservations",
+  useRouter: () => router,
   useSearchParams: () => new URLSearchParams(searchParams.value),
 }));
 
@@ -55,6 +58,7 @@ let slotAvailable = true;
 beforeEach(() => {
   adminJson.mockReset();
   toast.mockReset();
+  router.replace.mockReset();
   searchParams.value = "date=2099-07-04";
   slotAvailable = true;
   adminJson.mockImplementation((url: string, init?: RequestInit) => {
@@ -122,6 +126,15 @@ describe("ReservationsPage floor opening", () => {
       configurable: true,
       value: scrollIntoView,
     });
+    const realSetTimeout = window.setTimeout;
+    let finishPulse: (() => void) | undefined;
+    const timeoutSpy = vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout === 2200 && typeof handler === "function") {
+        finishPulse = () => handler(...args);
+        return 1;
+      }
+      return realSetTimeout(handler, timeout, ...args);
+    }) as typeof window.setTimeout);
     searchParams.value = "date=2099-07-04&reservation=res-1";
 
     const { container } = render(<ReservationsPage />);
@@ -129,6 +142,15 @@ describe("ReservationsPage floor opening", () => {
     await screen.findAllByText("Jane");
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" }));
     expect(container.querySelector('[data-reservation-id="res-1"]')).toHaveClass("reservation-row-ping");
+    expect(router.replace).not.toHaveBeenCalled();
+
+    act(() => {
+      finishPulse?.();
+    });
+
+    expect(container.querySelector('[data-reservation-id="res-1"]')).not.toHaveClass("reservation-row-ping");
+    expect(router.replace).toHaveBeenCalledWith("/admin/acme/reservations?date=2099-07-04", { scroll: false });
+    timeoutSpy.mockRestore();
   });
 
   it("opens the floor modal from the date-row reservations metric", async () => {

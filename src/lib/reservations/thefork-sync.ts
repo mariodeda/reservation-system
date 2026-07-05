@@ -115,9 +115,11 @@ export async function importTheForkReservation(
   if (!local) return "skipped";
   const { date, time } = local;
   const status = mapStatus(detail);
+  const existingId = await findExternalReservation(integration.tenantId, "thefork", externalId);
+  const existing = existingId ? await store.getReservation(existingId) : null;
   const firstName = safeText(customer?.firstName, 120);
   const lastName = safeText(customer?.lastName, 120);
-  const name = `${firstName} ${lastName}`.trim() || "TheFork guest";
+  const name = `${firstName} ${lastName}`.trim() || existing?.name || "TheFork guest";
   const notes = joinNotes([
     "External source: TheFork",
     `TheFork reservation: ${externalId}`,
@@ -138,18 +140,16 @@ export async function importTheForkReservation(
     service: inferService(config, date, time),
     partySize: Math.max(1, Math.trunc(Number(detail.partySize)) || 1),
     name,
-    email: safeText(customer?.email, 254),
-    phone: safeText(customer?.phone, 80),
+    email: safeText(customer?.email, 254) || existing?.email || "",
+    phone: safeText(customer?.phone, 80) || existing?.phone || "",
     notes,
     status,
     source: "thefork",
   };
 
-  const existingId = await findExternalReservation(integration.tenantId, "thefork", externalId);
   let reservation: Reservation;
   let outcome: "created" | "updated" | "skipped";
   if (existingId) {
-    const existing = await store.getReservation(existingId);
     if (!existing) {
       reservation = await store.createReservation({
         date,

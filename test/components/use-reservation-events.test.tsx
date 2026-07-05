@@ -141,7 +141,7 @@ describe("useReservationEvents", () => {
         "notification.created",
         notificationPayload(
           { type: "reservation.updated", source: "thefork" },
-          { id: "reservation.updated:thefork:res-1:2026-07-01:20:00:2" },
+          { id: "reservation.external:thefork:res-1" },
         ),
       );
     });
@@ -153,7 +153,7 @@ describe("useReservationEvents", () => {
       type: "reservation.updated",
       read: false,
     });
-    expect(result.current.notifications[0].notificationId).toMatch(/^reservation\.updated:thefork:res-1:/);
+    expect(result.current.notifications[0].notificationId).toBe("reservation.external:thefork:res-1");
     expect(dispatched).not.toHaveBeenCalled();
 
     window.removeEventListener("reservation:new", dispatched);
@@ -192,6 +192,35 @@ describe("useReservationEvents", () => {
       status: "cancelled",
       read: false,
     });
+  });
+
+  it.each(["thefork", "dish"] as const)("collapses duplicate %s notifications for the same provider reservation", async (source) => {
+    api.adminJson.mockResolvedValueOnce({
+      notifications: [
+        notificationPayload(
+          { type: "reservation.updated", source, name: "Ada Lovelace", status: "cancelled" },
+          { id: `reservation.external:${source}:res-1`, createdAt: "2026-07-01T18:01:00.000Z" },
+        ),
+        notificationPayload(
+          { type: "reservation.created", source, name: "Lovelace, Ada", status: "confirmed" },
+          { id: "reservation.created:res-1", createdAt: "2026-07-01T18:00:00.000Z" },
+        ),
+      ],
+      unreadCount: 2,
+    });
+
+    const { result } = renderHook(() => useReservationEvents());
+
+    await waitFor(() => {
+      expect(result.current.notifications).toHaveLength(1);
+    });
+    expect(result.current.notifications[0]).toMatchObject({
+      notificationId: `reservation.external:${source}:res-1`,
+      source,
+      name: "Ada Lovelace",
+      status: "cancelled",
+    });
+    expect(result.current.unreadCount).toBe(1);
   });
 
   it("loads unread durable notifications when the hook mounts", async () => {

@@ -27,10 +27,10 @@ function emit(notification: TenantNotification) {
 
 export async function createAndEmitTenantNotification(
   input: CreateTenantNotificationInput,
-  opts: { emit?: boolean } = {},
+  opts: { emit?: boolean; emitOnUpdate?: boolean } = {},
 ): Promise<TenantNotification> {
   const { notification, created } = await createTenantNotification(input);
-  if (opts.emit !== false && created) emit(notification);
+  if (opts.emit !== false && (created || opts.emitOnUpdate)) emit(notification);
   return notification;
 }
 
@@ -52,15 +52,21 @@ function reservationTitle(event: ReservationEvent): string {
   if (isExternalReservationSource(event.source) && event.status === "no_show") {
     return `${sourceLabel(event.source)} reservation marked no-show`;
   }
+  if (isExternalReservationSource(event.source) && event.status === "completed") {
+    return `${sourceLabel(event.source)} reservation completed`;
+  }
   if (isExternalReservationSource(event.source)) return `${sourceLabel(event.source)} reservation updated`;
   return "Reservation updated";
 }
 
+function statusLabel(status: ReservationEvent["status"]): string {
+  if (status === "no_show") return "No-show";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 function reservationBody(event: ReservationEvent): string {
   const base = `${event.name} - ${event.partySize} guest${event.partySize === 1 ? "" : "s"} - ${event.date} ${event.time}`;
-  if (event.status === "cancelled") return `${base} - Cancelled`;
-  if (event.status === "no_show") return `${base} - No-show`;
-  return base;
+  return `${base} - Status: ${statusLabel(event.status)}`;
 }
 
 export async function notifyReservationEvent(
@@ -72,7 +78,9 @@ export async function notifyReservationEvent(
     return null;
   }
   const dedupeKey = opts.dedupeKey ??
-    (event.type === "reservation.created"
+    (external
+      ? `reservation.external:${event.source}:${event.id}`
+      : event.type === "reservation.created"
       ? `${event.type}:${event.id}`
       : `${event.type}:${event.source}:${event.id}:${event.date}:${event.time}:${event.partySize}:${event.status}`);
   return createAndEmitTenantNotification({
@@ -97,5 +105,6 @@ export async function notifyReservationEvent(
         source: event.source,
       },
     },
-  }, opts);
+    refreshOnDuplicate: external,
+  }, { ...opts, emitOnUpdate: external });
 }

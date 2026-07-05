@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type AdminReservation, formatDateLong, todayInTz } from "@/components/admin/shared";
 import { am } from "@/i18n";
 import ReservationRow from "@/components/admin/ReservationRow";
@@ -38,7 +38,10 @@ const NAVBTN =
 
 export default function ReservationsPage() {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamString = searchParams.toString();
   const linkedDate = searchParams.get("date");
   const linkedReservation = searchParams.get("reservation");
   const initialLinkedDate = linkedDate && /^\d{4}-\d{2}-\d{2}$/.test(linkedDate) ? linkedDate : null;
@@ -208,9 +211,13 @@ export default function ReservationsPage() {
     setPingReservationId(targetReservationId);
     const timeout = window.setTimeout(() => {
       setPingReservationId((current) => current === targetReservationId ? null : current);
+      const params = new URLSearchParams(searchParamString);
+      params.delete("reservation");
+      const nextQuery = params.toString();
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }, 2200);
     return () => window.clearTimeout(timeout);
-  }, [loading, targetReservationId, visible]);
+  }, [loading, pathname, router, searchParamString, targetReservationId, visible]);
 
   function exportCsv() {
     const offeringLabel = (id?: string) =>

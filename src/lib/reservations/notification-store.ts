@@ -37,6 +37,7 @@ export interface CreateTenantNotificationInput {
   dedupeKey: string;
   metadata?: Record<string, unknown>;
   expiresAt?: string;
+  refreshOnDuplicate?: boolean;
 }
 
 interface NotificationRow extends RowDataPacket {
@@ -123,6 +124,7 @@ export async function createTenantNotification(
   const body = cleanText(input.body, 500) ?? null;
   const reference = cleanText(input.reference, 16) ?? null;
   const dedupeKey = cleanText(input.dedupeKey, 191);
+  const refreshOnDuplicate = input.refreshOnDuplicate ? 1 : 0;
   if (!dedupeKey) throw new Error("Notification dedupe key is required.");
   const metadata = input.metadata ? JSON.stringify(input.metadata) : null;
 
@@ -131,6 +133,7 @@ export async function createTenantNotification(
       (id, tenant_id, type, severity, title, body, source, reservation_id, reference, dedupe_key, metadata, created_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
+      type = VALUES(type),
       title = VALUES(title),
       body = VALUES(body),
       severity = VALUES(severity),
@@ -138,7 +141,10 @@ export async function createTenantNotification(
       reservation_id = VALUES(reservation_id),
       reference = VALUES(reference),
       metadata = VALUES(metadata),
-      expires_at = VALUES(expires_at)`,
+      expires_at = VALUES(expires_at),
+      created_at = IF(? = 1, VALUES(created_at), created_at),
+      read_at = IF(? = 1, NULL, read_at),
+      dismissed_at = IF(? = 1, NULL, dismissed_at)`,
     [
       id,
       input.tenantId,
@@ -153,6 +159,9 @@ export async function createTenantNotification(
       metadata,
       createdAt,
       input.expiresAt ?? null,
+      refreshOnDuplicate,
+      refreshOnDuplicate,
+      refreshOnDuplicate,
     ],
   );
   const [rows] = await getPool().query<NotificationRow[]>(

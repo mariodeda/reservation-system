@@ -57,12 +57,19 @@ function sourceLabel(source: ReservationNotification["source"]) {
 }
 
 function eventLabel(n: ReservationNotification) {
-  if ((n.source === "thefork" || n.source === "dish") && n.type === "reservation.updated") {
-    if (n.status === "cancelled") return am.notifications.externalCancelled;
-    if (n.status === "no_show") return am.notifications.externalNoShow;
-    return am.notifications.externalUpdated;
-  }
   return sourceLabel(n.source);
+}
+
+function statusLabel(status: ReservationNotification["status"] | undefined) {
+  return am.status[status ?? "confirmed"];
+}
+
+function statusBadgeClass(status: ReservationNotification["status"] | undefined) {
+  if (status === "cancelled" || status === "no_show") return "bg-error/15 text-error";
+  if (status === "completed") return "bg-emerald-400/15 text-on-surface";
+  if (status === "seated") return "bg-sky-400/15 text-on-surface";
+  if (status === "pending") return "bg-amber-400/15 text-on-surface";
+  return "bg-surface-container-high text-on-surface-variant";
 }
 
 function reservationHref(slug: string, n: ReservationNotification) {
@@ -133,6 +140,9 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
                 {eventLabel(n)}
+              </span>
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusBadgeClass(n.status)}`}>
+                {statusLabel(n.status)}
               </span>
               <button
                 onClick={() => { setVisible(false); setTimeout(onDismiss, 350); }}
@@ -338,6 +348,9 @@ export function NotificationBell({
                       <div className="flex items-center gap-1.5 mt-1">
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
                           {eventLabel(n)}
+                        </span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusBadgeClass(n.status)}`}>
+                          {statusLabel(n.status)}
                         </span>
                         <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-on-surface-variant">
                           {formatNotificationDate(n.date)}

@@ -176,6 +176,22 @@ describe("DISH HTML sync", () => {
     expect(parseDishReservationDetail(detail, "dish-res-2").name).toBe("Bonino Dragonetti");
   });
 
+  it("normalizes DISH comma-separated guest names to first name then last name", () => {
+    const html = `
+      <html><body>
+        <div data-reservation-id="dish-res-4"
+          data-reservation-status="CONFIRMED"
+          data-reservation-origin="DISH"
+          data-reservation-start-date="2026-07-10T20:00:00Z"
+          data-edit-url="/reservation/dish-res-4">
+          8:00 PM Lovelace, Ada 2 guest(s)
+        </div>
+      </body></html>
+    `;
+
+    expect(parseDishReservationList(html)[0].name).toBe("Ada Lovelace");
+  });
+
   it("builds the DISH SSO email login body like the browser form submit", () => {
     const html = `
       <form>

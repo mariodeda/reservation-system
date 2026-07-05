@@ -161,16 +161,63 @@ describe("tenant notifications", () => {
       type: "reservation.updated",
       severity: "warning",
       title: "TheFork reservation cancelled",
-      body: "Jane - 2 guests - 2026-07-10 20:00 - Cancelled",
+      body: "Jane - 2 guests - 2026-07-10 20:00 - Status: Cancelled",
       source: "thefork",
       reservationId: "res-cancelled",
-      dedupeKey: "reservation.updated:thefork:res-cancelled:2026-07-10:20:00:2:cancelled",
+      dedupeKey: "reservation.external:thefork:res-cancelled",
     });
     expect(notice?.metadata).toMatchObject({
       reservation: {
         id: "res-cancelled",
         status: "cancelled",
         source: "thefork",
+      },
+    });
+  });
+
+  it("keeps one refreshed notification per external reservation", async () => {
+    await notifications.notifyReservationEvent({
+      type: "reservation.created",
+      tenantId: "tenant-a",
+      id: "res-dish",
+      name: "Lovelace, Ada",
+      partySize: 2,
+      date: "2026-07-10",
+      time: "20:00",
+      service: "dinner",
+      offering: "main",
+      status: "confirmed",
+      source: "dish",
+    });
+    const updated = await notifications.notifyReservationEvent({
+      type: "reservation.updated",
+      tenantId: "tenant-a",
+      id: "res-dish",
+      name: "Ada Lovelace",
+      partySize: 2,
+      date: "2026-07-10",
+      time: "20:00",
+      service: "dinner",
+      offering: "main",
+      status: "completed",
+      source: "dish",
+    });
+
+    const rows = await store.listTenantNotifications("tenant-a");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(updated?.id);
+    expect(rows[0]).toMatchObject({
+      type: "reservation.updated",
+      title: "DISH reservation completed",
+      body: "Ada Lovelace - 2 guests - 2026-07-10 20:00 - Status: Completed",
+      source: "dish",
+      reservationId: "res-dish",
+      dedupeKey: "reservation.external:dish:res-dish",
+    });
+    expect(rows[0].metadata).toMatchObject({
+      reservation: {
+        name: "Ada Lovelace",
+        status: "completed",
       },
     });
   });
