@@ -37,7 +37,7 @@ export default function ReservationRow({
   const multiOffering = offerings.length > 1;
   const offeringLabel = offerings.find((o) => o.id === (r.offering || "main"))?.label;
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(r.status !== "completed");
+  const [open, setOpen] = useState(r.status !== "completed" && r.status !== "cancelled");
   const [editing, setEditing] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(!!r.feedbackSentAt);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
@@ -96,16 +96,23 @@ export default function ReservationRow({
     }
   }
 
-  const dimmed = r.status === "cancelled" || r.status === "no_show";
+  const dimmed = r.status === "no_show";
   const completed = r.status === "completed";
+  const cancelled = r.status === "cancelled";
+  const subdued = completed || cancelled;
+  const cardTone = completed
+    ? "border-emerald-400/30 bg-emerald-400/10"
+    : cancelled
+      ? "border-rose-400/30 bg-rose-400/10"
+      : "border-outline-variant/30 bg-surface-container";
   const quickActions = QUICK_ACTIONS[r.status];
 
   useEffect(() => {
-    if (r.status === "completed") setOpen(false);
+    if (r.status === "completed" || r.status === "cancelled") setOpen(false);
   }, [r.status]);
 
   return (
-    <div className={`rounded-xl border p-3 sm:p-4 ${completed ? "border-emerald-400/30 bg-emerald-400/10" : "border-outline-variant/30 bg-surface-container"} ${dimmed ? "opacity-60" : ""}`}>
+    <div className={`rounded-xl border p-3 sm:p-4 ${cardTone} ${dimmed ? "opacity-60" : ""}`}>
       <div className="flex flex-col items-stretch gap-3 md:flex-row">
         {/* Time / service col */}
         <div className={`flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-left md:block md:text-center ${showDate ? "md:w-24" : "md:w-20"}`}>
@@ -116,11 +123,13 @@ export default function ReservationRow({
           )}
           <div className="flex items-center gap-2 md:block">
             <div className="text-lg font-semibold text-primary tabular-nums">{r.time}</div>
-            <div className="text-[10px] uppercase tracking-widest text-on-surface-variant md:mt-0">{r.service}</div>
+            {!externalPlatform && (
+              <div className="text-[10px] uppercase tracking-widest text-on-surface-variant md:mt-0">{r.service}</div>
+            )}
           </div>
           {externalPlatform && (
             <Tooltip content={externalReservationHint(externalPlatform)}>
-              <span className="inline-flex max-w-[150px] items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300 md:mt-1 md:max-w-full">
+              <span className="inline-flex max-w-[150px] items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300 md:mt-0 md:max-w-full">
                 <img
                   src={externalLogoSrc(externalPlatform.provider)}
                   alt=""
@@ -192,7 +201,7 @@ export default function ReservationRow({
           </div>
 
           {/* Table assignment — full-width, always visible */}
-          {!editing && (!completed || open) && (
+          {!editing && (!subdued || open) && (
             <div className="flex flex-col lg:flex-row lg:items-center gap-2">
               <div className="min-w-0 flex-1">
                 <TableAssign

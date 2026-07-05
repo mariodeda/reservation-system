@@ -140,6 +140,23 @@ describe("ReservationRow", () => {
     expect(screen.getByRole("button", { name: "Delete reservation" })).toBeDisabled();
   });
 
+  it("shows cancelled reservations collapsed by default with a light red card treatment", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ReservationRow r={row({ status: "cancelled", tableLabel: "Patio 2" })} onChanged={() => {}} />);
+
+    expect(container.firstElementChild).toHaveClass("border-rose-400/30", "bg-rose-400/10");
+    expect(container.firstElementChild).not.toHaveClass("opacity-60");
+    expect(screen.getByText("Cancelled")).toBeInTheDocument();
+    expect(screen.queryByText("Table: Patio 2")).not.toBeInTheDocument();
+    expect(screen.queryByText("555")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reinstate" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Expand/ }));
+    expect(screen.getByRole("button", { name: "Edit reservation" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Delete reservation" })).toBeEnabled();
+  });
+
   it("shows a 'manual' badge for admin-sourced bookings and a Reinstate action when cancelled", async () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row({ source: "admin", status: "cancelled" })} onChanged={() => {}} />);
@@ -155,6 +172,7 @@ describe("ReservationRow", () => {
       <ReservationRow
         r={row({
           source: "thefork",
+          service: "Dinner",
           status: "confirmed",
           external: { provider: "thefork", label: "TheFork", externalId: "tf-res-1", externalStatus: "RECORDED" },
         })}
@@ -164,6 +182,7 @@ describe("ReservationRow", () => {
     );
 
     expect(screen.getByText("TheFork")).toBeInTheDocument();
+    expect(screen.queryByText("Dinner")).not.toBeInTheDocument();
     expect(screen.queryByText("External - TheFork")).not.toBeInTheDocument();
     expect(container.querySelector('img[src="/integrations/thefork_logo.png"]')).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toBeInTheDocument();
@@ -178,6 +197,7 @@ describe("ReservationRow", () => {
       <ReservationRow
         r={row({
           source: "dish",
+          service: "Dinner",
           status: "confirmed",
           external: { provider: "dish", label: "DISH", externalId: "dish-res-1", externalStatus: "CONFIRMED" },
         })}
@@ -187,6 +207,7 @@ describe("ReservationRow", () => {
     );
 
     expect(screen.getByText("DISH")).toBeInTheDocument();
+    expect(screen.queryByText("Dinner")).not.toBeInTheDocument();
     expect(screen.queryByText("External - DISH")).not.toBeInTheDocument();
     expect(container.querySelector('img[src="/integrations/dish_co.png"]')).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toBeInTheDocument();
