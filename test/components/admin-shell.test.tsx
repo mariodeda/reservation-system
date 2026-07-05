@@ -255,7 +255,7 @@ describe("AdminShell", () => {
     await user.click(screen.getByRole("button", { name: /Jane/ }));
 
     expect(reservationEvents.markRead).toHaveBeenCalledWith("reservation.created:res-1:1:0");
-    expect(push).toHaveBeenCalledWith("/admin/acme/reservations?date=2026-07-01");
+    expect(push).toHaveBeenCalledWith("/admin/acme/reservations?date=2026-07-01&reservation=res-1");
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(screen.queryByText("Jane")).not.toBeInTheDocument();
     expect(screen.getByText("No unread notifications")).toBeInTheDocument();
@@ -281,6 +281,30 @@ describe("AdminShell", () => {
 
     await user.click(screen.getByRole("button", { name: /notifications/i }));
     expect(screen.getAllByText("External update").length).toBeGreaterThan(0);
+  });
+
+  it("formats notification reservation dates in a readable long form", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
+      date: "2026-06-12",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+
+    const date = screen.getByText("June 12, 2026");
+    expect(date).toHaveClass("text-on-surface-variant");
+    expect(date).toHaveClass("font-medium");
   });
 
   it("caps the notification popup width for small viewports", async () => {

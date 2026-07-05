@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { DayAvailability } from "@/lib/reservations/types";
 
@@ -39,10 +39,10 @@ describe("DayOccupancy", () => {
     render(<DayOccupancy date="2099-06-12" />);
     expect(adminJson).toHaveBeenCalledWith("/api/admin/availability?date=2099-06-12");
     expect(await screen.findByText("Lunch")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /12:00.*4\/10 covers booked.*6 left.*healthy availability/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /12:30.*8\/10 covers booked.*2 left.*low availability/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /13:00.*10\/10 covers booked.*0 left.*fully booked/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /13:30.*5\/10 covers booked.*5 left.*time blocked/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /12:00.*4\/10 covers in turn window.*6 left online.*healthy availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /12:30.*8\/10 covers in turn window.*2 left online.*low availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /13:00.*10\/10 covers in turn window.*0 left online.*fully booked/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /13:30.*5\/10 covers in turn window.*5 left online.*time blocked/i })).toBeInTheDocument();
     // a tile per slot, coloured per fullness (open/amber/full/blocked)
     for (const t of ["12:00", "12:30", "13:00", "13:30"]) {
       expect(screen.getByRole("button", { name: new RegExp(t) })).toBeInTheDocument();
@@ -87,8 +87,26 @@ describe("DayOccupancy", () => {
     adminJson.mockResolvedValue(day());
     const onOpenFloor = vi.fn();
     render(<DayOccupancy date="2026-06-12" onOpenFloor={onOpenFloor} />);
-    await user.click(await screen.findByRole("button", { name: /lunch.*27\/40 covers/i }));
+    await user.click(await screen.findByRole("button", { name: /lunch.*27\/40 in turn window/i }));
     expect(onOpenFloor).toHaveBeenCalled();
+  });
+
+  it("explains why slot capacity counts overlapping table-duration windows", async () => {
+    const user = userEvent.setup();
+    adminJson.mockResolvedValue(day());
+    render(<DayOccupancy date="2099-06-12" />);
+
+    await user.click(await screen.findByRole("button", { name: /how slot capacity is calculated/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /how slot capacity is calculated/i });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText(/new booking's table-duration window/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/18:30-20:30/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /got it/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /how slot capacity is calculated/i })).not.toBeInTheDocument(),
+    );
   });
 
   it("disables slot buttons when no onPickSlot is given", async () => {
@@ -122,9 +140,9 @@ describe("DayOccupancy", () => {
     }));
     render(<DayOccupancy date="2099-06-12" />);
 
-    expect(await screen.findByRole("button", { name: /12:00.*40\/100 covers booked.*60 left.*healthy availability/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /13:00.*75\/100 covers booked.*25 left.*low availability/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /14:00.*96\/100 covers booked.*4 left.*critical availability/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /12:00.*40\/100 covers in turn window.*60 left online.*healthy availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /13:00.*75\/100 covers in turn window.*25 left online.*low availability/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /14:00.*96\/100 covers in turn window.*4 left online.*critical availability/i })).toBeInTheDocument();
   });
 
   it("shows a clear overbooking warning when booked covers exceed capacity", async () => {
@@ -141,7 +159,7 @@ describe("DayOccupancy", () => {
     }));
     render(<DayOccupancy date="2099-06-12" onPickSlot={() => {}} />);
 
-    const slot = await screen.findByRole("button", { name: /20:00.*13\/10 covers booked.*3 over capacity.*overbooked by 3 covers/i });
+    const slot = await screen.findByRole("button", { name: /20:00.*13\/10 covers in turn window.*3 over capacity.*overbooked by 3 covers/i });
     expect(slot).toBeInTheDocument();
     expect(screen.getByText("Over by 3")).toBeInTheDocument();
 
@@ -168,8 +186,8 @@ describe("DayOccupancy", () => {
     }));
     render(<DayOccupancy date="2099-06-12" />);
 
-    expect(await screen.findByRole("button", { name: /18:30.*7\/20 covers booked.*13 left.*healthy availability/i })).toBeInTheDocument();
-    expect(screen.getAllByText("7/20 covers")).toHaveLength(1);
+    expect(await screen.findByRole("button", { name: /18:30.*7\/20 covers in turn window.*13 left online.*healthy availability/i })).toBeInTheDocument();
+    expect(screen.getAllByText("7/20 in turn window")).toHaveLength(1);
   });
 
   it("hides the availability icon and mutes the recap after the service turn has ended", async () => {
@@ -188,7 +206,7 @@ describe("DayOccupancy", () => {
     }));
     render(<DayOccupancy date={today} />);
 
-    expect(await screen.findByRole("button", { name: /00:00.*4\/20 covers booked.*16 left.*service ended/i })).toHaveClass("text-on-surface-variant/70");
+    expect(await screen.findByRole("button", { name: /00:00.*4\/20 covers in turn window.*16 left online.*service ended/i })).toHaveClass("text-on-surface-variant/70");
     expect(screen.queryByText("Open")).not.toBeInTheDocument();
   });
 
@@ -220,7 +238,7 @@ describe("DayOccupancy", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: /12:00.*4\/10 covers booked/i }));
+    await user.click(await screen.findByRole("button", { name: /12:00.*4\/10 covers in turn window/i }));
     expect(screen.getByRole("dialog", { name: "Slot actions" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^Stop online bookings for 12:00/i }));
 

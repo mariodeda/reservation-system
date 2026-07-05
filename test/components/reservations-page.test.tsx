@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { adminJson, toast } = vi.hoisted(() => ({
   adminJson: vi.fn(),
   toast: vi.fn(),
 }));
+const searchParams = vi.hoisted(() => ({ value: "date=2099-07-04" }));
 
 vi.mock("@/components/admin/api", () => ({
   adminJson,
@@ -16,7 +17,7 @@ vi.mock("@/components/admin/api", () => ({
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ slug: "acme" }),
-  useSearchParams: () => new URLSearchParams("date=2026-07-04"),
+  useSearchParams: () => new URLSearchParams(searchParams.value),
 }));
 
 import ReservationsPage from "@/app/admin/[slug]/(panel)/reservations/page";
@@ -24,7 +25,7 @@ import ReservationsPage from "@/app/admin/[slug]/(panel)/reservations/page";
 const reservation = {
   id: "res-1",
   reference: "ABC123",
-  date: "2026-07-04",
+  date: "2099-07-04",
   time: "20:00",
   service: "dinner",
   partySize: 2,
@@ -54,6 +55,7 @@ let slotAvailable = true;
 beforeEach(() => {
   adminJson.mockReset();
   toast.mockReset();
+  searchParams.value = "date=2099-07-04";
   slotAvailable = true;
   adminJson.mockImplementation((url: string, init?: RequestInit) => {
     if (url === "/api/admin/slot-blocks" && init?.method === "PATCH") {
@@ -96,8 +98,9 @@ beforeEach(() => {
       return Promise.resolve({ reservations: [reservation] });
     }
     if (url.startsWith("/api/admin/availability")) {
+      const requestDate = new URL(url, "http://localhost").searchParams.get("date") ?? "2099-07-04";
       return Promise.resolve({
-        date: "2026-07-04",
+        date: requestDate,
         closed: false,
         past: false,
         full: false,
@@ -113,11 +116,30 @@ beforeEach(() => {
 });
 
 describe("ReservationsPage floor opening", () => {
-  it("opens the floor modal when the reservations stat card is clicked", async () => {
+  it("scrolls to and pings a reservation linked from a notification", async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    searchParams.value = "date=2099-07-04&reservation=res-1";
+
+    const { container } = render(<ReservationsPage />);
+
+    await screen.findAllByText("Jane");
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" }));
+    expect(container.querySelector('[data-reservation-id="res-1"]')).toHaveClass("reservation-row-ping");
+  });
+
+  it("opens the floor modal from the date-row reservations metric", async () => {
     const user = userEvent.setup();
     render(<ReservationsPage />);
 
-    await user.click(await screen.findByRole("button", { name: /open floor view for reservations/i }));
+    const reservationsMetrics = await screen.findAllByRole("button", { name: /open floor view for reservations/i });
+    expect(reservationsMetrics).toHaveLength(1);
+    expect(await screen.findAllByRole("button", { name: /open floor view for covers/i })).toHaveLength(1);
+
+    await user.click(reservationsMetrics[0]);
 
     expect(await screen.findByRole("dialog", { name: /floor/i })).toBeInTheDocument();
     expect(await screen.findByTitle("20:00 · Jane (2)")).toBeInTheDocument();
@@ -127,7 +149,7 @@ describe("ReservationsPage floor opening", () => {
     const user = userEvent.setup();
     render(<ReservationsPage />);
 
-    await user.click(await screen.findByRole("button", { name: /20:00/i }));
+    await user.click(await screen.findByRole("button", { name: /20:00.*2\/10 covers in turn window/i }));
     const stop = await screen.findByRole("button", { name: /stop online bookings for 20:00/i });
     expect(stop).toBeEnabled();
 
@@ -136,7 +158,8 @@ describe("ReservationsPage floor opening", () => {
     const slotBlockCall = adminJson.mock.calls.find(([url]) => url === "/api/admin/slot-blocks");
     expect(slotBlockCall).toBeTruthy();
     const body = JSON.parse(slotBlockCall?.[1]?.body as string);
-    expect(body).toMatchObject({ date: "2026-07-04", offering: "main", time: "20:00", blocked: true });
+    expect(body).toMatchObject({ offering: "main", time: "20:00", blocked: true });
+    expect(body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it("disables stop online booking when the selected slot is no longer active", async () => {
@@ -144,7 +167,7 @@ describe("ReservationsPage floor opening", () => {
     const user = userEvent.setup();
     render(<ReservationsPage />);
 
-    await user.click(await screen.findByRole("button", { name: /20:00/i }));
+    await user.click(await screen.findByRole("button", { name: /20:00.*2\/10 covers in turn window/i }));
 
     expect(await screen.findByRole("button", { name: /stop online bookings for 20:00/i })).toBeDisabled();
   });

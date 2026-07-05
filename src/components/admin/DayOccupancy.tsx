@@ -51,6 +51,7 @@ export default function DayOccupancy({
   const [error, setError] = useState(false);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const loadDay = useCallback((cancelled: () => boolean = () => false) => {
     setError(false);
@@ -120,7 +121,22 @@ export default function DayOccupancy({
 
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 space-y-3">
-      {Heading}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {Heading}
+          <p className="text-[11px] leading-snug text-on-surface-variant">
+            {am.availability.slotCapacityHelpIntro}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-outline-variant/40 text-sm font-semibold text-on-surface-variant transition hover:border-primary/50 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+          aria-label={am.availability.slotCapacityHelpTitle}
+        >
+          ?
+        </button>
+      </div>
       {day.services.map((svc) => {
         const ended = serviceHasEnded(day.date, svc.slots.at(-1)?.time, svc.turnMinutes);
         const booked = svc.slots.reduce((sum, slot) => sum + slot.booked, 0);
@@ -198,6 +214,9 @@ export default function DayOccupancy({
           </div>
         );
       })}
+      {helpOpen && (
+        <SlotCapacityHelpModal onClose={() => setHelpOpen(false)} />
+      )}
       {selectedSlot && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={am.availability.slotActionsTitle}>
           <div className="w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
@@ -328,6 +347,56 @@ export default function DayOccupancy({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SlotCapacityHelpModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="slot-capacity-help-title"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container px-4 py-3">
+          <h2 id="slot-capacity-help-title" className="text-sm font-semibold text-on-surface">
+            {am.availability.slotCapacityHelpTitle}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={am.reservations.close}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="space-y-3 px-4 py-4 text-sm leading-relaxed text-on-surface-variant">
+          <p>{am.availability.slotCapacityHelpIntro}</p>
+          <p>{am.availability.slotCapacityHelpExample}</p>
+          <p>{am.availability.slotCapacityHelpReason}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-2 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary transition hover:brightness-105"
+          >
+            {am.availability.slotCapacityHelpClose}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

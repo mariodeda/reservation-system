@@ -505,11 +505,16 @@ export const am = {
     overbookedTitle: (n: number) => `Overbooked by ${n} ${n === 1 ? "cover" : "covers"}`,
     overbookedByLabel: (n: number) => `${n} over configured capacity`,
     overbookedHint: "External or staff bookings have exceeded the configured table capacity. Public availability is closed for this slot, but staff should rebalance tables or contact guests if needed.",
+    slotCapacityHelpTitle: "How slot capacity is calculated",
+    slotCapacityHelpIntro: "Each slot shows covers already using capacity during a new booking's table-duration window, not only reservations that start at that exact time.",
+    slotCapacityHelpExample: "Example: with a 2-hour table duration, a new 18:30 booking uses 18:30-20:30. It overlaps existing 19:00 and 20:00 reservations, so both count in the 18:30 slot.",
+    slotCapacityHelpReason: "This prevents accepting bookings that would fit at the start time but collide before the table would be free.",
+    slotCapacityHelpClose: "Got it",
     slotStatus: (booked: number, capacity: number, remaining: number) =>
-      `${booked}/${capacity} covers booked · ${remaining} left`,
+      `${booked}/${capacity} covers in turn window · ${remaining} left online`,
     slotOverbookedStatus: (booked: number, capacity: number, overbookedBy: number) =>
-      `${booked}/${capacity} covers booked - ${overbookedBy} over capacity`,
-    covers: (booked: number, capacity: number) => `${booked}/${capacity} covers`,
+      `${booked}/${capacity} covers in turn window - ${overbookedBy} over capacity`,
+    covers: (booked: number, capacity: number) => `${booked}/${capacity} in turn window`,
     coverSummaryHint: (booked: number, capacity: number) =>
       `${booked}/${capacity} shows the peak booked covers during this service compared with active table seats. Time slots count overlapping reservations using the configured table duration.`,
     coversAvailable: (available: number, capacity: number, pct: number) =>
@@ -745,4 +750,3 @@ export const am = {
     reliability: "Reliability",
   },
 };
-

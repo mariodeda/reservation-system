@@ -40,8 +40,14 @@ export default function ReservationsPage() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
   const linkedDate = searchParams.get("date");
-  const initialDate = useRef(linkedDate && /^\d{4}-\d{2}-\d{2}$/.test(linkedDate) ? linkedDate : todayInTz());
+  const linkedReservation = searchParams.get("reservation");
+  const initialLinkedDate = linkedDate && /^\d{4}-\d{2}-\d{2}$/.test(linkedDate) ? linkedDate : null;
+  const initialDate = useRef(initialLinkedDate ?? todayInTz());
+  const hasInitialLinkedDate = useRef(Boolean(initialLinkedDate));
+  const lastAppliedLinkedDate = useRef(initialLinkedDate);
   const [date, setDate] = useState(initialDate.current);
+  const [targetReservationId, setTargetReservationId] = useState(linkedReservation || null);
+  const [pingReservationId, setPingReservationId] = useState<string | null>(null);
   const [items, setItems] = useState<AdminReservation[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [offeringFilter, setOfferingFilter] = useState<string | "all">("all");
@@ -57,6 +63,8 @@ export default function ReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<AdminReservation[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const reservationRowRefs = useRef(new Map<string, HTMLDivElement>());
+  const lastScrolledTarget = useRef<string | null>(null);
 
   const tz = config?.timezone ?? "Europe/Rome";
   const searching = query.trim().length >= 2;
@@ -65,6 +73,23 @@ export default function ReservationsPage() {
   const dateShortcutLabel = date === today ? am.reservations.goToTomorrow : am.reservations.goToToday;
 
   const initialLoad = useRef(true);
+
+  useEffect(() => {
+    if (!initialLinkedDate || lastAppliedLinkedDate.current === initialLinkedDate) return;
+    lastAppliedLinkedDate.current = initialLinkedDate;
+    setDate(initialLinkedDate);
+  }, [initialLinkedDate]);
+
+  useEffect(() => {
+    const next = linkedReservation || null;
+    setTargetReservationId(next);
+    if (next) {
+      setQuery("");
+      setStatusFilter("all");
+      setOfferingFilter("all");
+      lastScrolledTarget.current = null;
+    }
+  }, [linkedReservation]);
 
   const load = useCallback(async () => {
     if (initialLoad.current) setLoading(true);
@@ -105,6 +130,7 @@ export default function ReservationsPage() {
         setConfig(d.config);
         // Correct the initial date if user hasn't navigated away and timezone matters
         setDate((current) => {
+          if (hasInitialLinkedDate.current) return current;
           if (current === initialDate.current) return todayInTz(d.config.timezone);
           return current;
         });
@@ -171,6 +197,20 @@ export default function ReservationsPage() {
     () => items.filter((r) => r.status !== "cancelled" && r.status !== "no_show").length,
     [items],
   );
+
+  useEffect(() => {
+    if (loading || !targetReservationId || lastScrolledTarget.current === targetReservationId) return;
+    if (!visible.some((r) => r.id === targetReservationId)) return;
+    const node = reservationRowRefs.current.get(targetReservationId);
+    if (!node) return;
+    lastScrolledTarget.current = targetReservationId;
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    setPingReservationId(targetReservationId);
+    const timeout = window.setTimeout(() => {
+      setPingReservationId((current) => current === targetReservationId ? null : current);
+    }, 2200);
+    return () => window.clearTimeout(timeout);
+  }, [loading, targetReservationId, visible]);
 
   function exportCsv() {
     const offeringLabel = (id?: string) =>
@@ -256,11 +296,13 @@ export default function ReservationsPage() {
                 icon={<ReservationsIcon />}
                 value={activeReservationCount}
                 label={am.reservations.title.toLowerCase()}
+                onClick={hasTables ? () => setFloorOpen(true) : undefined}
               />
               <DayMetric
                 icon={<CoversIcon />}
                 value={activeCovers}
                 label={am.reservations.covers}
+                onClick={hasTables ? () => setFloorOpen(true) : undefined}
               />
             </div>
             <div className="col-span-3 flex gap-2 sm:ml-auto">
@@ -293,21 +335,6 @@ export default function ReservationsPage() {
               </button>
             </div>
           </div>
-
-          {hasTables && (
-            <div className="grid grid-cols-2 gap-2">
-              <FloorOpenCard
-                label={am.dashboard.stats.reservations}
-                value={visible.length}
-                onClick={() => setFloorOpen(true)}
-              />
-              <FloorOpenCard
-                label={am.dashboard.stats.covers}
-                value={activeCovers}
-                onClick={() => setFloorOpen(true)}
-              />
-            </div>
-          )}
 
           {/* capacity overview — one per offering; click a slot to start a booking there */}
           <div className="space-y-2">
@@ -437,7 +464,17 @@ export default function ReservationsPage() {
       ) : (
         <div className="space-y-2">
           {visible.map((r) => (
-            <ReservationRow key={r.id} r={r} onChanged={load} offerings={offerings} tables={tables} />
+            <div
+              key={r.id}
+              ref={(node) => {
+                if (node) reservationRowRefs.current.set(r.id, node);
+                else reservationRowRefs.current.delete(r.id);
+              }}
+              data-reservation-id={r.id}
+              className={pingReservationId === r.id ? "reservation-row-ping rounded-xl" : "rounded-xl"}
+            >
+              <ReservationRow r={r} onChanged={load} offerings={offerings} tables={tables} />
+            </div>
           ))}
         </div>
       )}
@@ -675,14 +712,32 @@ function WalkInForm({
   );
 }
 
-function DayMetric({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {
-  return (
-    <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-outline-variant/35 bg-surface-container-high px-3 text-on-surface shadow-sm">
+function DayMetric({ icon, value, label, onClick }: { icon: ReactNode; value: number; label: string; onClick?: () => void }) {
+  const content = (
+    <>
       <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/15 text-primary">
         {icon}
       </span>
       <span className="text-lg font-semibold leading-none tabular-nums">{value}</span>
       <span className="text-xs font-medium text-on-surface-variant">{label}</span>
+    </>
+  );
+  const className = "inline-flex h-9 items-center gap-2 rounded-lg border border-outline-variant/35 bg-surface-container-high px-3 text-on-surface shadow-sm";
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`Open floor view for ${label}`}
+        className={`${className} transition hover:border-primary/50 hover:bg-surface-container-high hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/40`}
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span className={className}>
+      {content}
     </span>
   );
 }
@@ -732,20 +787,6 @@ function WalkInIcon() {
       <path d="M11 5.5 15.5 10 11 14.5" />
       <path d="M15.5 10H7" />
     </svg>
-  );
-}
-
-function FloorOpenCard({ label, value, onClick }: { label: string; value: number; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Open floor view for ${label.toLowerCase()}`}
-      className="rounded-xl border border-outline-variant/30 bg-surface-container p-3 text-left transition hover:border-primary/50 hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/40"
-    >
-      <div className="text-2xl font-semibold tabular-nums">{value}</div>
-      <div className="mt-0.5 text-xs uppercase tracking-widest text-on-surface-variant">{label}</div>
-    </button>
   );
 }
 

@@ -24,6 +24,17 @@ function formatTime(t: string) {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+function formatNotificationDate(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return date;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 function sourceBadgeClass(source: ReservationNotification["source"]) {
   if (source === "web") return "bg-emerald-400/15 text-on-surface";
   if (source === "thefork") return "bg-amber-400/15 text-on-surface";
@@ -48,6 +59,11 @@ function sourceLabel(source: ReservationNotification["source"]) {
 function eventLabel(n: ReservationNotification) {
   if ((n.source === "thefork" || n.source === "dish") && n.type === "reservation.updated") return am.notifications.externalUpdated;
   return sourceLabel(n.source);
+}
+
+function reservationHref(slug: string, n: ReservationNotification) {
+  const params = new URLSearchParams({ date: n.date, reservation: n.id });
+  return `/admin/${slug}/reservations?${params.toString()}`;
 }
 
 // ── rich toast ────────────────────────────────────────────────────────────────
@@ -77,7 +93,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
   }, [onDismiss]);
 
   function view() {
-    router.push(`/admin/${slug}/reservations?date=${n.date}`);
+    router.push(reservationHref(slug, n));
     setVisible(false);
     setTimeout(onDismiss, 350);
   }
@@ -226,7 +242,7 @@ export function NotificationBell({
   function goTo(n: ReservationNotification) {
     markReadNow(n.notificationId);
     setOpen(false);
-    router.push(`/admin/${slug}/reservations?date=${n.date}`);
+    router.push(reservationHref(slug, n));
   }
 
   function markReadNow(notificationId: string) {
@@ -319,7 +335,9 @@ export function NotificationBell({
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
                           {eventLabel(n)}
                         </span>
-                        <span className="text-[10px] text-on-surface-variant/40">{n.date}</span>
+                        <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-on-surface-variant">
+                          {formatNotificationDate(n.date)}
+                        </span>
                       </div>
                     </div>
                   </div>

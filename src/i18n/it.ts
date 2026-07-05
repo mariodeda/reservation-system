@@ -499,11 +499,16 @@ export const it = {
     overbookedTitle: (n: number) => `Overbooking di ${n} copert${n === 1 ? "o" : "i"}`,
     overbookedByLabel: (n: number) => `${n} oltre la capacita configurata`,
     overbookedHint: "Prenotazioni esterne o inserite dallo staff hanno superato la capacita configurata dei tavoli. La disponibilita pubblica e chiusa per questo orario, ma lo staff deve riequilibrare i tavoli o contattare gli ospiti se necessario.",
+    slotCapacityHelpTitle: "Come viene calcolata la capacita degli slot",
+    slotCapacityHelpIntro: "Ogni slot mostra i coperti che usano capacita durante la finestra di durata al tavolo di una nuova prenotazione, non solo le prenotazioni che iniziano esattamente a quell'orario.",
+    slotCapacityHelpExample: "Esempio: con durata tavolo di 2 ore, una nuova prenotazione alle 18:30 usa 18:30-20:30. Si sovrappone a prenotazioni esistenti delle 19:00 e delle 20:00, quindi entrambe contano nello slot 18:30.",
+    slotCapacityHelpReason: "Questo evita di accettare prenotazioni che sembrano possibili all'inizio ma entrano in conflitto prima che il tavolo sia libero.",
+    slotCapacityHelpClose: "Ho capito",
     slotStatus: (booked: number, capacity: number, remaining: number) =>
-      `${booked}/${capacity} coperti prenotati · ${remaining} rimanenti`,
+      `${booked}/${capacity} coperti nella finestra tavolo · ${remaining} disponibili online`,
     slotOverbookedStatus: (booked: number, capacity: number, overbookedBy: number) =>
-      `${booked}/${capacity} coperti prenotati - ${overbookedBy} oltre capacita`,
-    covers: (booked: number, capacity: number) => `${booked}/${capacity} coperti`,
+      `${booked}/${capacity} coperti nella finestra tavolo - ${overbookedBy} oltre capacita`,
+    covers: (booked: number, capacity: number) => `${booked}/${capacity} nella finestra tavolo`,
     coverSummaryHint: (booked: number, capacity: number) =>
       `${booked}/${capacity} mostra il picco di coperti prenotati durante questo servizio rispetto ai posti dei tavoli attivi. Gli slot considerano le prenotazioni sovrapposte in base alla durata al tavolo configurata.`,
     coversAvailable: (available: number, capacity: number, pct: number) =>
@@ -726,4 +731,3 @@ export const it = {
     reliability: "Affidabilità",
   },
 };
-
