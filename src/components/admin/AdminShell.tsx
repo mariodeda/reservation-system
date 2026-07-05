@@ -138,8 +138,10 @@ export default function AdminShell({
               className="shrink-0 min-w-0 flex items-center hover:opacity-80 transition"
             >
               {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
+                <span className="inline-flex h-9 max-w-[176px] shrink-0 items-center rounded-lg border border-outline-variant/30 bg-surface-container-high px-2 shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
+                </span>
               ) : (
                 <div className="flex items-center gap-2 min-w-0">
                   <SystemLogo className="h-7 w-7 text-primary shrink-0" />

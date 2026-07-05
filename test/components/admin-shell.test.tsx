@@ -16,6 +16,7 @@ const reservationEvents = vi.hoisted(() => ({
     partySize: number;
     name: string;
     type?: "reservation.created" | "reservation.updated";
+    status?: "pending" | "confirmed" | "seated" | "completed" | "cancelled" | "no_show";
     source: "web" | "admin" | "thefork" | "dish";
     receivedAt: number;
     read: boolean;
@@ -160,6 +161,8 @@ describe("AdminShell", () => {
     render(<AdminShell slug="acme" brandName="Osteria" logoUrl="https://cdn.example/acme.png"><span /></AdminShell>);
     const img = screen.getByRole("img", { name: "Osteria" });
     expect(img.getAttribute("src")).toBe("https://cdn.example/acme.png");
+    expect(img.parentElement).toHaveClass("bg-surface-container-high");
+    expect(img.parentElement).toHaveClass("border-outline-variant/30");
   });
 
   it("marks the active route (prefix match, with dashboard exact)", () => {
@@ -281,6 +284,29 @@ describe("AdminShell", () => {
 
     await user.click(screen.getByRole("button", { name: /notifications/i }));
     expect(screen.getAllByText("External update").length).toBeGreaterThan(0);
+  });
+
+  it("labels external cancellation notifications clearly", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.updated:res-1:1:0",
+      type: "reservation.updated",
+      status: "cancelled",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "thefork",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    expect(screen.getAllByText("External cancellation").length).toBeGreaterThan(0);
   });
 
   it("formats notification reservation dates in a readable long form", async () => {

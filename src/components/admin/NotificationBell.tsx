@@ -57,7 +57,11 @@ function sourceLabel(source: ReservationNotification["source"]) {
 }
 
 function eventLabel(n: ReservationNotification) {
-  if ((n.source === "thefork" || n.source === "dish") && n.type === "reservation.updated") return am.notifications.externalUpdated;
+  if ((n.source === "thefork" || n.source === "dish") && n.type === "reservation.updated") {
+    if (n.status === "cancelled") return am.notifications.externalCancelled;
+    if (n.status === "no_show") return am.notifications.externalNoShow;
+    return am.notifications.externalUpdated;
+  }
   return sourceLabel(n.source);
 }
 

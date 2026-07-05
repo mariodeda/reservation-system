@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReservationEvent } from "@/lib/reservations/events";
+import { RESERVATION_STATUSES, type ReservationStatus } from "@/lib/reservations/types";
 import { adminFetch, adminJson } from "./api";
 
 interface TenantNotificationPayload {
@@ -32,6 +33,10 @@ export interface ReservationNotification extends ReservationEvent {
 
 const MAX = 30;
 
+function reservationStatus(value: unknown): ReservationStatus {
+  return RESERVATION_STATUSES.includes(value as ReservationStatus) ? (value as ReservationStatus) : "confirmed";
+}
+
 function fromTenantNotification(n: TenantNotificationPayload, live = false): ReservationNotification | null {
   const reservation = n.metadata?.reservation;
   if (!reservation || !n.reservationId) return null;
@@ -47,6 +52,7 @@ function fromTenantNotification(n: TenantNotificationPayload, live = false): Res
     time: String(reservation.time ?? "00:00"),
     service: String(reservation.service ?? ""),
     offering: String(reservation.offering ?? "main"),
+    status: reservationStatus(reservation.status),
     source,
     notificationId: n.id,
     receivedAt: Date.parse(n.createdAt) || Date.now(),

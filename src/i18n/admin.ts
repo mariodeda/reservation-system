@@ -188,6 +188,8 @@ export const am = {
     theFork: "TheFork",
     dish: "DISH",
     externalUpdated: "External update",
+    externalCancelled: "External cancellation",
+    externalNoShow: "External no-show",
     guests: (n: number) => `${n} ${n === 1 ? "guest" : "guests"}`,
     justNow: "just now",
     secondsAgo: (n: number) => `${n}s ago`,

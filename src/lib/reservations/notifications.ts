@@ -46,12 +46,21 @@ function reservationTitle(event: ReservationEvent): string {
     if (isExternalReservationSource(event.source)) return `New ${sourceLabel(event.source)} reservation`;
     return event.source === "admin" ? "New staff reservation" : "New online reservation";
   }
+  if (isExternalReservationSource(event.source) && event.status === "cancelled") {
+    return `${sourceLabel(event.source)} reservation cancelled`;
+  }
+  if (isExternalReservationSource(event.source) && event.status === "no_show") {
+    return `${sourceLabel(event.source)} reservation marked no-show`;
+  }
   if (isExternalReservationSource(event.source)) return `${sourceLabel(event.source)} reservation updated`;
   return "Reservation updated";
 }
 
 function reservationBody(event: ReservationEvent): string {
-  return `${event.name} - ${event.partySize} guest${event.partySize === 1 ? "" : "s"} - ${event.date} ${event.time}`;
+  const base = `${event.name} - ${event.partySize} guest${event.partySize === 1 ? "" : "s"} - ${event.date} ${event.time}`;
+  if (event.status === "cancelled") return `${base} - Cancelled`;
+  if (event.status === "no_show") return `${base} - No-show`;
+  return base;
 }
 
 export async function notifyReservationEvent(
@@ -65,7 +74,7 @@ export async function notifyReservationEvent(
   const dedupeKey = opts.dedupeKey ??
     (event.type === "reservation.created"
       ? `${event.type}:${event.id}`
-      : `${event.type}:${event.source}:${event.id}:${event.date}:${event.time}:${event.partySize}`);
+      : `${event.type}:${event.source}:${event.id}:${event.date}:${event.time}:${event.partySize}:${event.status}`);
   return createAndEmitTenantNotification({
     tenantId: event.tenantId,
     type: event.type,
@@ -84,6 +93,7 @@ export async function notifyReservationEvent(
         time: event.time,
         service: event.service,
         offering: event.offering,
+        status: event.status,
         source: event.source,
       },
     },

@@ -21,6 +21,15 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("AdminLoginPage", () => {
+  it("renders uploaded logos on a theme-safe plate", () => {
+    render(<LoginForm slug="acme" brandName="Acme" logoUrl="https://cdn.example/acme-white.png" />);
+
+    const img = screen.getByRole("img", { name: "Acme" });
+    expect(img).toHaveAttribute("src", "https://cdn.example/acme-white.png");
+    expect(img.parentElement).toHaveClass("bg-surface-container-high");
+    expect(img.parentElement).toHaveClass("border-outline-variant/30");
+  });
+
   it("submits credentials and redirects to the `next` target on success", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (_url?: string, _init?: RequestInit) => ({ ok: true, json: async () => ({ ok: true }) }));

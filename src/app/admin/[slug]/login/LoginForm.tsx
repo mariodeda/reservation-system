@@ -104,8 +104,10 @@ function Inner({
       >
         <div className="text-center mb-2">
           {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt={brandName} className="mx-auto h-12 w-auto max-w-[220px] object-contain" />
+            <span className="mx-auto inline-flex min-h-16 max-w-[260px] items-center rounded-xl border border-outline-variant/30 bg-surface-container-high px-4 py-2 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt={brandName} className="h-12 w-auto max-w-[220px] object-contain" />
+            </span>
           ) : (
             <div style={themePrimary ? { color: themePrimary } : undefined}>
               <SystemLogo className="mx-auto h-14 w-14 text-primary" />

@@ -143,6 +143,7 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
     time: reservation.time,
     service: reservation.service,
     offering: reservation.offering ?? "main",
+    status: reservation.status,
     source: externalLocalTablePatch ? "admin" : reservation.source,
   });
 
@@ -194,6 +195,7 @@ async function deleteReservation(req: NextRequest, ctx: { params: Promise<{ id: 
       time: existing.time,
       service: existing.service,
       offering: existing.offering ?? "main",
+      status: "cancelled",
       source: existing.source,
     });
     await recordAppEvent(eventFromRequest(obs, {

@@ -187,6 +187,8 @@ export const it = {
     theFork: "TheFork",
     dish: "DISH",
     externalUpdated: "Aggiornamento esterno",
+    externalCancelled: "Cancellazione esterna",
+    externalNoShow: "No-show esterno",
     guests: (n: number) => `${n} ospit${n === 1 ? "e" : "i"}`,
     justNow: "ora",
     secondsAgo: (n: number) => `${n}s fa`,

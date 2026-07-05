@@ -53,6 +53,7 @@ function event(over: Partial<ReservationEvent> = {}): ReservationEvent {
     time: "20:00",
     service: "dinner",
     offering: "main",
+    status: "confirmed",
     source: "web",
     ...over,
   };
@@ -171,6 +172,24 @@ describe("useReservationEvents", () => {
       id: "res-1",
       source: "dish",
       type: "reservation.updated",
+      read: false,
+    });
+  });
+
+  it("preserves external cancellation status from durable notifications", () => {
+    const { result } = renderHook(() => useReservationEvents());
+    const source = FakeEventSource.instances[0];
+
+    act(() => {
+      source.emit("notification.created", notificationPayload({ type: "reservation.updated", source: "thefork", status: "cancelled" }));
+    });
+
+    expect(result.current.notifications).toHaveLength(1);
+    expect(result.current.notifications[0]).toMatchObject({
+      id: "res-1",
+      source: "thefork",
+      type: "reservation.updated",
+      status: "cancelled",
       read: false,
     });
   });

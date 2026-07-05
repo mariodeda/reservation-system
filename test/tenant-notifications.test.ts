@@ -140,4 +140,38 @@ describe("tenant notifications", () => {
       notification: { reservationId: "res-1" },
     });
   });
+
+  it("creates explicit external cancellation reservation notifications", async () => {
+    const notice = await notifications.notifyReservationEvent({
+      type: "reservation.updated",
+      tenantId: "tenant-a",
+      id: "res-cancelled",
+      name: "Jane",
+      partySize: 2,
+      date: "2026-07-10",
+      time: "20:00",
+      service: "dinner",
+      offering: "main",
+      status: "cancelled",
+      source: "thefork",
+    });
+
+    expect(notice).toMatchObject({
+      tenantId: "tenant-a",
+      type: "reservation.updated",
+      severity: "warning",
+      title: "TheFork reservation cancelled",
+      body: "Jane - 2 guests - 2026-07-10 20:00 - Cancelled",
+      source: "thefork",
+      reservationId: "res-cancelled",
+      dedupeKey: "reservation.updated:thefork:res-cancelled:2026-07-10:20:00:2:cancelled",
+    });
+    expect(notice?.metadata).toMatchObject({
+      reservation: {
+        id: "res-cancelled",
+        status: "cancelled",
+        source: "thefork",
+      },
+    });
+  });
 });

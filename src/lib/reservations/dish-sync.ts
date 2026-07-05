@@ -223,6 +223,7 @@ async function importDishItem(
       time: reservation.time,
       service: reservation.service,
       offering: reservation.offering,
+      status: reservation.status,
       source: "dish",
     });
   }

@@ -135,6 +135,7 @@ async function createReservation(req: NextRequest) {
     time: reservation.time,
     service: reservation.service,
     offering: reservation.offering ?? "main",
+    status: reservation.status,
     source: "admin",
   });
 

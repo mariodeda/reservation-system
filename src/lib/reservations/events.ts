@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { notifyReservationEvent } from "./notifications";
+import type { ReservationStatus } from "./types";
 
 export interface ReservationEvent {
   type: "reservation.created" | "reservation.updated";
@@ -11,6 +12,7 @@ export interface ReservationEvent {
   time: string;
   service: string;
   offering: string;
+  status: ReservationStatus;
   source: "web" | "admin" | "thefork" | "dish";
 }
 

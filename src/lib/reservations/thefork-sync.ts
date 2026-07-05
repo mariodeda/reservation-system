@@ -213,6 +213,7 @@ export async function importTheForkReservation(
       time: reservation.time,
       service: reservation.service,
       offering: reservation.offering,
+      status: reservation.status,
       source: "thefork",
     });
   }

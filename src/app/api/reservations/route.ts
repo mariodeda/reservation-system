@@ -252,6 +252,7 @@ async function handle(req: NextRequest) {
       time: result.reservation.time,
       service: result.reservation.service,
       offering: result.reservation.offering ?? "main",
+      status: result.reservation.status,
       source: "web",
     });
 
