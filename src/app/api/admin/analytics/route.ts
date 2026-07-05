@@ -64,6 +64,17 @@ async function getAnalytics(req: NextRequest) {
       [tid, from, to],
     );
 
+    const [dayServiceRows] = await pool.query<RowDataPacket[]>(
+      `SELECT \`date\`, COALESCE(NULLIF(offering,''),'main') AS offering, service,
+              COUNT(*) AS reservations, SUM(party_size) AS covers
+       FROM reservations
+       WHERE tenant_id = ? AND \`date\` >= ? AND \`date\` <= ?
+         AND status NOT IN ('cancelled','no_show')
+       GROUP BY \`date\`, COALESCE(NULLIF(offering,''),'main'), service
+       ORDER BY \`date\`, offering, service`,
+      [tid, from, to],
+    );
+
     // Status breakdown
     const [statusRows] = await pool.query<RowDataPacket[]>(
       `SELECT status, COUNT(*) AS cnt FROM reservations
@@ -278,6 +289,13 @@ async function getAnalytics(req: NextRequest) {
       to,
       byDay: dayRows.map((r) => ({
         date: r.date as string,
+        reservations: Number(r.reservations),
+        covers: Number(r.covers),
+      })),
+      byDayService: dayServiceRows.map((r) => ({
+        date: r.date as string,
+        offering: (r.offering as string) || "main",
+        service: r.service as string,
         reservations: Number(r.reservations),
         covers: Number(r.covers),
       })),

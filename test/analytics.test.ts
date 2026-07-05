@@ -122,6 +122,7 @@ describe("GET /api/admin/analytics", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.byDay).toEqual([]);
+    expect(json.byDayService).toEqual([]);
     expect(json.byStatus).toEqual({});
     expect(json.avgPartySize).toBe(0);
     expect(json.newVsReturning).toEqual({ new: 0, returning: 0 });
@@ -154,6 +155,20 @@ describe("GET /api/admin/analytics", () => {
     expect(day12?.covers).toBe(5);
     expect(day11?.reservations).toBe(1);
     expect(day11?.covers).toBe(5);
+  });
+
+  it("returns daily service buckets for stacked day bars", async () => {
+    await seed([
+      { date: "2026-06-12", service: "lunch", partySize: 2, status: "confirmed" },
+      { date: "2026-06-12", service: "dinner", partySize: 5, status: "confirmed" },
+      { date: "2026-06-12", service: "dinner", partySize: 3, status: "cancelled" },
+    ]);
+    const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=30d"));
+    const { byDayService } = await res.json();
+    const lunch = byDayService.find((d: { date: string; service: string }) => d.date === "2026-06-12" && d.service === "lunch");
+    const dinner = byDayService.find((d: { date: string; service: string }) => d.date === "2026-06-12" && d.service === "dinner");
+    expect(lunch).toMatchObject({ offering: "main", reservations: 1, covers: 2 });
+    expect(dinner).toMatchObject({ offering: "main", reservations: 1, covers: 5 });
   });
 
   it("builds byStatus breakdown including all statuses", async () => {

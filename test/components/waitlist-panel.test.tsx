@@ -43,6 +43,8 @@ describe("WaitlistPanel", () => {
   it("loads and lists the day's active queue", async () => {
     renderPanel();
     expect(await screen.findByText("Rossi")).toBeInTheDocument();
+    expect(screen.getByText(/same-day queue/i)).toBeInTheDocument();
+    expect(screen.getByText("Active queue")).toBeInTheDocument();
     expect(adminJson).toHaveBeenCalledWith("/api/admin/waitlist?date=2026-06-12&active=1");
   });
 
@@ -50,7 +52,7 @@ describe("WaitlistPanel", () => {
     const user = userEvent.setup();
     renderPanel();
     await screen.findByText("Rossi");
-    await user.click(screen.getByRole("button", { name: "Notify" }));
+    await user.click(screen.getByRole("button", { name: "Mark notified" }));
     expect(adminFetch).toHaveBeenCalledWith(
       "/api/admin/waitlist/w1",
       expect.objectContaining({ method: "PATCH" }),
@@ -63,7 +65,8 @@ describe("WaitlistPanel", () => {
     const user = userEvent.setup();
     renderPanel();
     await screen.findByText("Rossi");
-    await user.click(screen.getByRole("button", { name: "Seat" }));
+    await user.click(screen.getByRole("button", { name: "Seat now" }));
+    expect(screen.getByText("Create reservation from waitlist")).toBeInTheDocument();
     // SeatForm appears with a Confirm button
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() =>

@@ -84,6 +84,14 @@ export default function WaitlistPanel({
 
       {open && (
         <div className="px-3 pb-3 space-y-2 sm:px-4 sm:pb-4">
+          <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/50 p-3 text-xs text-on-surface-variant">
+            <p className="font-medium text-on-surface">{am.waitlist.subtitle}</p>
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+              <span><strong className="text-on-surface">{am.waitlist.flowTitle}:</strong> {am.waitlist.flowAdd}</span>
+              <span>{am.waitlist.flowNotify}</span>
+              <span>{am.waitlist.flowSeat}</span>
+            </div>
+          </div>
           {adding && (
             <AddForm
               date={date}
@@ -94,18 +102,23 @@ export default function WaitlistPanel({
           {entries.length === 0 ? (
             <p className="text-sm text-on-surface-variant py-1 text-center sm:py-3">{am.waitlist.none}</p>
           ) : (
-            entries.map((e) => (
-              <WaitRow
-                key={e.id}
-                entry={e}
-                offerings={offerings}
-                tables={tables}
-                tz={tz}
-                tick={tick}
-                onChanged={refresh}
-                onSeated={() => { refresh(); onSeated(); }}
-              />
-            ))
+            <div className="space-y-2">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                {am.waitlist.activeQueue}
+              </div>
+              {entries.map((e) => (
+                <WaitRow
+                  key={e.id}
+                  entry={e}
+                  offerings={offerings}
+                  tables={tables}
+                  tz={tz}
+                  tick={tick}
+                  onChanged={refresh}
+                  onSeated={() => { refresh(); onSeated(); }}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -235,15 +248,16 @@ function WaitRow({
             onClick={() => setSeating(true)}
             disabled={busy}
             className="text-xs px-2.5 py-1.5 rounded-lg border bg-emerald-400/15 text-emerald-300 border-emerald-400/30 hover:brightness-125 disabled:opacity-50"
+            title={am.waitlist.seatHint}
           >
             {am.waitlist.seat}
           </button>
           {entry.status !== "notified" && (
-            <button onClick={() => patch({ status: "notified" }, am.waitlist.notified)} disabled={busy} className="text-xs text-sky-400 hover:text-sky-300 disabled:opacity-50">
+            <button onClick={() => patch({ status: "notified" }, am.waitlist.notified)} disabled={busy} title={am.waitlist.notifyHint} className="text-xs text-sky-400 hover:text-sky-300 disabled:opacity-50">
               {am.waitlist.notify}
             </button>
           )}
-          <button onClick={() => patch({ status: "left" }, am.waitlist.markedLeft)} disabled={busy} className="text-xs text-on-surface-variant hover:text-on-surface disabled:opacity-50">
+          <button onClick={() => patch({ status: "left" }, am.waitlist.markedLeft)} disabled={busy} title={am.waitlist.leftHint} className="text-xs text-on-surface-variant hover:text-on-surface disabled:opacity-50">
             {am.waitlist.left}
           </button>
           <button onClick={remove} disabled={busy} className="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-50 ml-auto">
@@ -316,7 +330,10 @@ function SeatForm({
   }
 
   return (
-    <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg border border-emerald-400/25 bg-emerald-400/10 p-2">
+      <div className="col-span-2 sm:col-span-4 text-xs font-semibold uppercase tracking-widest text-emerald-300">
+        {am.waitlist.seatFormTitle}
+      </div>
       <label className="space-y-1">
         <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">{am.waitlist.time}</span>
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={field} />

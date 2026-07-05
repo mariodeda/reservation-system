@@ -14,6 +14,13 @@ type ReservationWithDetail = Reservation & {
   feedback?: { sentAt: string } | null;
 };
 
+function displayCustomerName(name: string): string {
+  const trimmed = name.trim();
+  const comma = trimmed.match(/^([^,]+),\s*(.+)$/);
+  if (comma) return `${comma[2]} ${comma[1]}`.replace(/\s+/g, " ").trim();
+  return trimmed;
+}
+
 export default function CustomersPage() {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("lastVisit");
@@ -65,7 +72,7 @@ export default function CustomersPage() {
     };
     const lines = [cols.join(",")].concat(
       customers.map((c) =>
-        [c.name, c.email, c.phone, c.visitCount, c.totalCovers, c.noShowCount, c.cancelledCount, c.firstVisit ?? "", c.lastVisit ?? "", c.vip ? "Yes" : "No", c.dietaryNotes ?? ""]
+        [displayCustomerName(c.name), c.email, c.phone, c.visitCount, c.totalCovers, c.noShowCount, c.cancelledCount, c.firstVisit ?? "", c.lastVisit ?? "", c.vip ? "Yes" : "No", c.dietaryNotes ?? ""]
           .map(esc).join(","),
       ),
     );
@@ -210,7 +217,8 @@ function CustomerRow({
       .finally(() => setLoadingDetail(false));
   }, [expanded, customer.email, detail]);
 
-  const initials = customer.name
+  const displayName = displayCustomerName(customer.name);
+  const initials = displayName
     .split(" ")
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
@@ -240,8 +248,8 @@ function CustomerRow({
         {/* Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <Tooltip content={customer.name} className="min-w-0 max-w-full">
-              <span className="font-semibold truncate">{customer.name}</span>
+            <Tooltip content={displayName} className="min-w-0 max-w-full">
+              <span className="font-semibold truncate">{displayName}</span>
             </Tooltip>
             {customer.vip && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-widest shrink-0">
@@ -278,7 +286,7 @@ function CustomerRow({
             {customer.visitCount} {customer.visitCount === 1 ? "visit" : "visits"}
           </span>
           <span className="text-xs text-on-surface-variant">
-            {customer.lastVisit ? `Last: ${formatDateLong(customer.lastVisit).replace(/, \d{4}$/, "")}` : "Ã¢â‚¬â€"}
+            {customer.lastVisit ? `Last: ${formatDateLong(customer.lastVisit).replace(/, \d{4}$/, "")}` : "—"}
           </span>
         </div>
 
@@ -348,8 +356,8 @@ function ProfileView({
         {[
           { label: am.customers.totalVisits, value: profile.visitCount },
           { label: am.customers.totalCovers, value: profile.totalCovers },
-          { label: am.customers.firstVisit, value: profile.firstVisit ? formatDateLong(profile.firstVisit).replace(/, \d{4}$/, "") : "Ã¢â‚¬â€" },
-          { label: am.customers.lastVisit, value: profile.lastVisit ? formatDateLong(profile.lastVisit).replace(/, \d{4}$/, "") : "Ã¢â‚¬â€" },
+          { label: am.customers.firstVisit, value: profile.firstVisit ? formatDateLong(profile.firstVisit).replace(/, \d{4}$/, "") : "—" },
+          { label: am.customers.lastVisit, value: profile.lastVisit ? formatDateLong(profile.lastVisit).replace(/, \d{4}$/, "") : "—" },
         ].map((s) => (
           <div key={s.label} className="rounded-lg bg-surface-container p-3 text-center">
             <div className="text-lg font-semibold tabular-nums">{s.value}</div>
@@ -358,7 +366,7 @@ function ProfileView({
         ))}
       </div>
 
-      {/* Reliability strip Ã¢â‚¬â€ only show if there's something interesting */}
+      {/* Reliability strip — only show if there's something interesting */}
       {(profile.noShowCount > 0 || profile.cancelledCount > 0) && (
         <div className="flex items-center gap-4 flex-wrap text-xs rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-2">
           {reliabilityPct !== null && (
@@ -469,7 +477,7 @@ function ReservationTable({
                       {STATUS_META[r.status].label}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-on-surface-variant/70 hidden sm:table-cell">{r.occasion ?? "Ã¢â‚¬â€"}</td>
+                  <td className="px-3 py-2 text-on-surface-variant/70 hidden sm:table-cell">{r.occasion ?? "—"}</td>
                   <td className="px-3 py-2 font-mono text-xs text-on-surface-variant/60 hidden md:table-cell">
                     #{r.reference ?? ""}
                   </td>
@@ -651,4 +659,3 @@ function XIcon({ className = "h-4 w-4" }: { className?: string }) {
     </svg>
   );
 }
-

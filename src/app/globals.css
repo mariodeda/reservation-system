@@ -540,17 +540,23 @@ body:has([data-admin][data-theme="light"])::-webkit-scrollbar-thumb:hover {
 
 @keyframes reservationRowPing {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(var(--rs-primary), 0);
+    box-shadow: 0 0 0 0 rgb(var(--rs-primary) / 0);
+    transform: none;
   }
   18%, 58% {
     box-shadow:
-      0 0 0 3px rgba(var(--rs-primary), 0.55),
-      0 0 0 9px rgba(var(--rs-primary), 0.18);
+      0 0 0 3px rgb(var(--rs-primary) / 0.7),
+      0 0 0 11px rgb(var(--rs-primary) / 0.24),
+      0 10px 24px rgb(var(--rs-primary) / 0.16);
+    transform: scale(1.01);
   }
 }
 
 .reservation-row-ping {
-  animation: reservationRowPing 1.05s ease-in-out 2;
+  position: relative;
+  z-index: 1;
+  animation: reservationRowPing 0.9s ease-in-out 3;
+  border-radius: 0.75rem;
 }
 
 /* ============================================================

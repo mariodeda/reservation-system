@@ -30,6 +30,7 @@ interface AnalyticsData {
   from: string;
   to: string;
   byDay: { date: string; reservations: number; covers: number }[];
+  byDayService?: { date: string; offering?: string; service: string; reservations: number; covers: number }[];
   byStatus: Record<string, number>;
   bySource: Record<string, number>;
   sourceBreakdown?: SourceAnalytics[];
@@ -75,6 +76,17 @@ const SOURCE_COLORS: Record<string, string> = {
   dish: "#fb6a3a",
 };
 
+const SERVICE_COLORS = [
+  "#38bdf8",
+  "#fbbf24",
+  "#a78bfa",
+  "#34d399",
+  "#fb7185",
+  "#f97316",
+  "#22d3ee",
+  "#c084fc",
+];
+
 function sourceDisplayName(source: string, fallback?: string) {
   if (source === "web") return am.analytics.web;
   if (source === "admin") return am.analytics.admin;
@@ -116,8 +128,10 @@ function Tip({ tip }: { tip: NonNullable<TipState> }) {
 function BarChart({
   data,
   metric,
+  serviceData = [],
 }: {
   data: { date: string; reservations: number; covers: number }[];
+  serviceData?: { date: string; offering?: string; service: string; reservations: number; covers: number }[];
   metric: "covers" | "reservations";
 }) {
   const [tip, setTip] = useState<TipState>(null);
@@ -162,6 +176,17 @@ function BarChart({
   }
 
   const otherMetric = metric === "covers" ? "reservations" : "covers";
+  const serviceKeys = Array.from(
+    new Set(serviceData.map((row) => `${row.offering || "main"}:${row.service}`)),
+  ).sort();
+  const serviceColor = (key: string) => SERVICE_COLORS[Math.abs(hashString(key)) % SERVICE_COLORS.length];
+  const serviceLabel = (key: string) => key.split(":").slice(1).join(":") || key;
+  const byDate = serviceData.reduce<Map<string, typeof serviceData>>((acc, row) => {
+    const rows = acc.get(row.date) ?? [];
+    rows.push(row);
+    acc.set(row.date, rows);
+    return acc;
+  }, new Map());
 
   return (
     <div className="relative">
@@ -177,8 +202,12 @@ function BarChart({
           const h = Math.max(2, Math.round((v / max) * H));
           const x = i * (barW + gap);
           const y = H - h;
+          const segments = (byDate.get(d.date) ?? [])
+            .filter((row) => row[metric] > 0)
+            .sort((a, b) => serviceKeys.indexOf(`${a.offering || "main"}:${a.service}`) - serviceKeys.indexOf(`${b.offering || "main"}:${b.service}`));
           const isHovered = hoveredDate === d.date;
           const dimmed = hoveredDate !== null && !isHovered;
+          let usedH = 0;
 
           return (
             <g
@@ -192,6 +221,7 @@ function BarChart({
                   lines: [
                     `${v} ${metric}`,
                     `${otherV} ${otherMetric}`,
+                    ...segments.map((s) => `${serviceLabel(`${s.offering || "main"}:${s.service}`)}: ${s[metric]} ${metric}`),
                   ],
                 });
               }}
@@ -207,16 +237,38 @@ function BarChart({
                 height={H}
                 fill="transparent"
               />
-              {/* Actual bar */}
-              <rect
-                x={x}
-                y={y}
-                width={barW}
-                height={h}
-                rx="1"
-                className="fill-primary"
-                style={{ opacity: dimmed ? 0.3 : isHovered ? 1 : 0.8 }}
-              />
+              {/* Actual bar: stacked by service when available. */}
+              {segments.length > 0 ? segments.map((s, idx) => {
+                const isLast = idx === segments.length - 1;
+                const segmentH = isLast
+                  ? Math.max(1, h - usedH)
+                  : Math.max(1, Math.round((s[metric] / Math.max(v, 1)) * h));
+                const sy = H - usedH - segmentH;
+                usedH += segmentH;
+                const key = `${s.offering || "main"}:${s.service}`;
+                return (
+                  <rect
+                    key={key}
+                    x={x}
+                    y={sy}
+                    width={barW}
+                    height={segmentH}
+                    rx={idx === segments.length - 1 ? 1 : 0}
+                    fill={serviceColor(key)}
+                    style={{ opacity: dimmed ? 0.28 : isHovered ? 1 : 0.86 }}
+                  />
+                );
+              }) : (
+                <rect
+                  x={x}
+                  y={y}
+                  width={barW}
+                  height={h}
+                  rx="1"
+                  className="fill-primary"
+                  style={{ opacity: dimmed ? 0.3 : isHovered ? 1 : 0.8 }}
+                />
+              )}
               {/* Hover indicator line */}
               {isHovered && h > 2 && (
                 <line
@@ -245,9 +297,25 @@ function BarChart({
           );
         })}
       </svg>
+      {serviceKeys.length > 1 && (
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-on-surface-variant">
+          {serviceKeys.map((key) => (
+            <span key={key} className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: serviceColor(key) }} />
+              {serviceLabel(key)}
+            </span>
+          ))}
+        </div>
+      )}
       {tip && <Tip tip={tip} />}
     </div>
   );
+}
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) hash = (hash * 31 + input.charCodeAt(i)) | 0;
+  return hash;
 }
 
 // ── DonutChart ────────────────────────────────────────────────────────────────
@@ -994,7 +1062,7 @@ export default function AnalyticsPage() {
                 ))}
               </div>
             </div>
-            <BarChart data={data.byDay} metric={metric} />
+            <BarChart data={data.byDay} serviceData={data.byDayService} metric={metric} />
           </div>
 
           {/* Peak demand heatmap */}
