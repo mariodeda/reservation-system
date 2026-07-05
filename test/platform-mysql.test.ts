@@ -21,6 +21,7 @@ let dishRoute: typeof import("@/app/api/platform/tenants/[id]/dish/route");
 let DishClient: typeof import("@/lib/reservations/dish-client")["DishClient"];
 let analyticsRoute: typeof import("@/app/api/platform/analytics/route");
 let logsRoute: typeof import("@/app/api/platform/logs/route");
+let cronRunsRoute: typeof import("@/app/api/platform/cron-runs/route");
 let emailLogsRoute: typeof import("@/app/api/platform/email-logs/route");
 let adminPasswordRoute: typeof import("@/app/api/admin/settings/password/route");
 
@@ -56,6 +57,7 @@ beforeAll(async () => {
   ({ DishClient } = await import("@/lib/reservations/dish-client"));
   analyticsRoute = await import("@/app/api/platform/analytics/route");
   logsRoute = await import("@/app/api/platform/logs/route");
+  cronRunsRoute = await import("@/app/api/platform/cron-runs/route");
   emailLogsRoute = await import("@/app/api/platform/email-logs/route");
   adminPasswordRoute = await import("@/app/api/admin/settings/password/route");
   // Migration 3 seeds the default platform admin. Wipe it so this test file
@@ -606,6 +608,57 @@ describe("platform tenant CRUD via routes", () => {
     expect(created.events.some((event: { tenantId: string; event: string }) =>
       event.tenantId === id && event.event === "platform.tenant.created",
     )).toBe(true);
+  });
+
+  it("summarizes cron job runs for platform operators", async () => {
+    const { recordAppEvent } = await import("@/lib/observability/app-event-store");
+    await recordAppEvent({
+      level: "warn",
+      event: "platform.cron.completed",
+      surface: "system",
+      actorType: "system",
+      metadata: {
+        job: "dish-sync",
+        trigger: "external",
+        durationMs: 1234,
+        tenants: 2,
+        successful: 1,
+        failed: 1,
+        imported: 3,
+      },
+    });
+    await recordAppEvent({
+      level: "info",
+      event: "internal_scheduler.job_completed",
+      surface: "system",
+      actorType: "system",
+      metadata: {
+        job: "smtp-health",
+        durationMs: 250,
+      },
+    });
+
+    const res = await cronRunsRoute.GET(authed("/api/platform/cron-runs?job=dish-sync&limit=20"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.jobs.some((job: { name: string; lastRun?: { status: string } }) =>
+      job.name === "dish-sync" && job.lastRun?.status === "warning",
+    )).toBe(true);
+    expect(json.runs).toHaveLength(1);
+    expect(json.runs[0]).toMatchObject({
+      job: "dish-sync",
+      label: "DISH sync",
+      status: "warning",
+      trigger: "external",
+      event: "platform.cron.completed",
+      durationMs: 1234,
+      summary: {
+        tenants: 2,
+        successful: 1,
+        failed: 1,
+        imported: 3,
+      },
+    });
   });
 
   it("lists platform-visible email logs with tenant, type and status filters", async () => {

@@ -18,7 +18,7 @@ export default function PlatformShell({
   const router = useRouter();
   const pathname = usePathname();
   const currentPath = normalizePath(pathname);
-  const fullWidth = pathname?.startsWith("/platform/logs") || pathname?.startsWith("/platform/email-logs") || pathname?.startsWith("/platform/docs") || false;
+  const fullWidth = pathname?.startsWith("/platform/logs") || pathname?.startsWith("/platform/cron-runs") || pathname?.startsWith("/platform/email-logs") || pathname?.startsWith("/platform/docs") || false;
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [locale, setLocaleState] = useState<Locale>("it");
 
@@ -54,6 +54,7 @@ export default function PlatformShell({
             <nav className="hidden md:flex items-center gap-1 text-sm" aria-label="Platform">
               <NavLink href="/platform" active={isPlatformRestaurantsActive(currentPath)}>Restaurants</NavLink>
               <NavLink href="/platform/logs" active={isActivePath(currentPath, "/platform/logs")}>Logs</NavLink>
+              <NavLink href="/platform/cron-runs" active={isActivePath(currentPath, "/platform/cron-runs")}>Cron jobs</NavLink>
               <NavLink href="/platform/email-logs" active={isActivePath(currentPath, "/platform/email-logs")}>Email logs</NavLink>
               <NavLink href="/platform/docs" active={isActivePath(currentPath, "/platform/docs")}>Docs</NavLink>
             </nav>
@@ -98,6 +99,7 @@ export default function PlatformShell({
           <nav className={`${fullWidth ? "px-3" : "px-3 sm:px-4"} flex items-center gap-1 pb-2 overflow-x-auto scrollbar-none`} aria-label="Platform" style={{ WebkitOverflowScrolling: "touch" }}>
             <MobileNavLink href="/platform" active={isPlatformRestaurantsActive(currentPath)}>Restaurants</MobileNavLink>
             <MobileNavLink href="/platform/logs" active={isActivePath(currentPath, "/platform/logs")}>Logs</MobileNavLink>
+            <MobileNavLink href="/platform/cron-runs" active={isActivePath(currentPath, "/platform/cron-runs")}>Cron jobs</MobileNavLink>
             <MobileNavLink href="/platform/email-logs" active={isActivePath(currentPath, "/platform/email-logs")}>Email logs</MobileNavLink>
             <MobileNavLink href="/platform/docs" active={isActivePath(currentPath, "/platform/docs")}>Docs</MobileNavLink>
           </nav>

@@ -108,22 +108,27 @@ export default function ReservationRow({
     <div className={`rounded-xl border p-3 sm:p-4 ${completed ? "border-emerald-400/30 bg-emerald-400/10" : "border-outline-variant/30 bg-surface-container"} ${dimmed ? "opacity-60" : ""}`}>
       <div className="flex flex-col items-stretch gap-3 md:flex-row">
         {/* Time / service col */}
-        <div className={`flex shrink-0 items-center gap-3 text-left md:block md:text-center ${showDate ? "md:w-20" : "md:w-14"}`}>
+        <div className={`flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-left md:block md:text-center ${showDate ? "md:w-24" : "md:w-20"}`}>
           {showDate && (
             <div className="text-[10px] font-medium text-on-surface-variant">
               {formatDateLong(r.date).replace(/, \d{4}$/, "")}
             </div>
           )}
-          <div className="text-lg font-semibold text-primary tabular-nums">{r.time}</div>
-          <div className="text-[10px] uppercase tracking-widest text-on-surface-variant md:mt-0">{r.service}</div>
+          <div className="flex items-center gap-2 md:block">
+            <div className="text-lg font-semibold text-primary tabular-nums">{r.time}</div>
+            <div className="text-[10px] uppercase tracking-widest text-on-surface-variant md:mt-0">{r.service}</div>
+          </div>
           {externalPlatform && (
             <Tooltip content={externalReservationHint(externalPlatform)}>
-              <img
-                src={externalLogoSrc(externalPlatform.provider)}
-                alt={externalPlatform.label}
-                className="mx-auto mt-1 h-5 w-5 rounded-full object-contain"
-                loading="lazy"
-              />
+              <span className="inline-flex max-w-[150px] items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300 md:mt-1 md:max-w-full">
+                <img
+                  src={externalLogoSrc(externalPlatform.provider)}
+                  alt=""
+                  className="h-3.5 w-3.5 shrink-0 rounded-full object-contain"
+                  loading="lazy"
+                />
+                <span className="truncate">{externalPlatform.label}</span>
+              </span>
             </Tooltip>
           )}
         </div>
@@ -156,14 +161,6 @@ export default function ReservationRow({
             )}
             {r.source === "admin" && (
               <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.row.manual}</span>
-            )}
-            {externalPlatform && (
-              <Tooltip content={externalReservationHint(externalPlatform)}>
-                <span className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-400/15 text-amber-300 border border-amber-400/30 uppercase tracking-widest">
-                  <ExternalPlatformIcon provider={externalPlatform.provider} />
-                  {am.row.externalPlatform(externalPlatform.label)}
-                </span>
-              </Tooltip>
             )}
             {hasUnreachableEmail(r.emails) ? (
               <Tooltip content={unreachableEmailTitle(r.emails)}>

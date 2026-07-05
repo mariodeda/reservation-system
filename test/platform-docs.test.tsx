@@ -102,6 +102,9 @@ describe("platform documentation", () => {
     const docsLinks = screen.getAllByRole("link", { name: "Docs" });
     expect(docsLinks.length).toBeGreaterThanOrEqual(1);
     expect(docsLinks.every((link) => link.getAttribute("href") === "/platform/docs")).toBe(true);
+    const cronLinks = screen.getAllByRole("link", { name: "Cron jobs" });
+    expect(cronLinks.length).toBeGreaterThanOrEqual(1);
+    expect(cronLinks.every((link) => link.getAttribute("href") === "/platform/cron-runs")).toBe(true);
     expect(screen.getByTestId("language-flag-it")).toBeInTheDocument();
     expect(screen.getByTestId("language-flag-en")).toBeInTheDocument();
   });

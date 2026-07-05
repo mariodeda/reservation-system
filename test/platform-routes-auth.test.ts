@@ -25,6 +25,7 @@ let dishTest: typeof import("@/app/api/platform/tenants/[id]/dish/test/route");
 let dishSync: typeof import("@/app/api/platform/tenants/[id]/dish/sync/route");
 let logout: typeof import("@/app/api/platform/logout/route");
 let logs: typeof import("@/app/api/platform/logs/route");
+let cronRuns: typeof import("@/app/api/platform/cron-runs/route");
 let emailLogs: typeof import("@/app/api/platform/email-logs/route");
 let smtpManual: typeof import("@/app/api/platform/smtp-health/route");
 let smtpCron: typeof import("@/app/api/platform/cron/smtp-health/route");
@@ -48,6 +49,7 @@ beforeAll(async () => {
   dishSync = await import("@/app/api/platform/tenants/[id]/dish/sync/route");
   logout = await import("@/app/api/platform/logout/route");
   logs = await import("@/app/api/platform/logs/route");
+  cronRuns = await import("@/app/api/platform/cron-runs/route");
   emailLogs = await import("@/app/api/platform/email-logs/route");
   smtpManual = await import("@/app/api/platform/smtp-health/route");
   smtpCron = await import("@/app/api/platform/cron/smtp-health/route");
@@ -98,6 +100,9 @@ describe("platform routes reject unauthenticated callers (401)", () => {
   });
   it("logs GET", async () => {
     expect((await logs.GET(req("/api/platform/logs"))).status).toBe(401);
+  });
+  it("cron runs GET", async () => {
+    expect((await cronRuns.GET(req("/api/platform/cron-runs"))).status).toBe(401);
   });
   it("email logs GET", async () => {
     expect((await emailLogs.GET(req("/api/platform/email-logs"))).status).toBe(401);

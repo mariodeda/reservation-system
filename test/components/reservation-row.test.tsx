@@ -151,7 +151,7 @@ describe("ReservationRow", () => {
   });
 
   it("renders TheFork reservations as external bookings with only table assignment available", () => {
-    render(
+    const { container } = render(
       <ReservationRow
         r={row({
           source: "thefork",
@@ -163,7 +163,9 @@ describe("ReservationRow", () => {
       />,
     );
 
-    expect(screen.getByText("External - TheFork")).toBeInTheDocument();
+    expect(screen.getByText("TheFork")).toBeInTheDocument();
+    expect(screen.queryByText("External - TheFork")).not.toBeInTheDocument();
+    expect(container.querySelector('img[src="/integrations/thefork_logo.png"]')).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete reservation" })).not.toBeInTheDocument();
@@ -172,7 +174,7 @@ describe("ReservationRow", () => {
   });
 
   it("renders DISH reservations as external bookings with only table assignment available", () => {
-    render(
+    const { container } = render(
       <ReservationRow
         r={row({
           source: "dish",
@@ -184,8 +186,9 @@ describe("ReservationRow", () => {
       />,
     );
 
-    expect(screen.getByText("External - DISH")).toBeInTheDocument();
-    expect(screen.getByAltText("DISH")).toHaveAttribute("src", "/integrations/dish_co.png");
+    expect(screen.getByText("DISH")).toBeInTheDocument();
+    expect(screen.queryByText("External - DISH")).not.toBeInTheDocument();
+    expect(container.querySelector('img[src="/integrations/dish_co.png"]')).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit reservation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete reservation" })).not.toBeInTheDocument();
