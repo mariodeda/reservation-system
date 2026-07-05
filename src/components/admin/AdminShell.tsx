@@ -138,7 +138,7 @@ export default function AdminShell({
               className="shrink-0 min-w-0 flex items-center hover:opacity-80 transition"
             >
               {logoUrl ? (
-                <span className="inline-flex h-9 max-w-[176px] shrink-0 items-center rounded-lg border border-outline-variant/30 bg-surface-container-high px-2 shadow-sm">
+                <span className="inline-flex h-9 max-w-[176px] shrink-0 items-center rounded-lg border border-white/20 bg-neutral-950/75 px-2 shadow-md ring-1 ring-black/10 backdrop-blur-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
                 </span>

@@ -161,8 +161,8 @@ describe("AdminShell", () => {
     render(<AdminShell slug="acme" brandName="Osteria" logoUrl="https://cdn.example/acme.png"><span /></AdminShell>);
     const img = screen.getByRole("img", { name: "Osteria" });
     expect(img.getAttribute("src")).toBe("https://cdn.example/acme.png");
-    expect(img.parentElement).toHaveClass("bg-surface-container-high");
-    expect(img.parentElement).toHaveClass("border-outline-variant/30");
+    expect(img.parentElement).toHaveClass("bg-neutral-950/75");
+    expect(img.parentElement).toHaveClass("border-white/20");
   });
 
   it("marks the active route (prefix match, with dashboard exact)", () => {

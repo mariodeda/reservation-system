@@ -26,8 +26,8 @@ describe("AdminLoginPage", () => {
 
     const img = screen.getByRole("img", { name: "Acme" });
     expect(img).toHaveAttribute("src", "https://cdn.example/acme-white.png");
-    expect(img.parentElement).toHaveClass("bg-surface-container-high");
-    expect(img.parentElement).toHaveClass("border-outline-variant/30");
+    expect(img.parentElement).toHaveClass("bg-neutral-950/75");
+    expect(img.parentElement).toHaveClass("border-white/20");
   });
 
   it("submits credentials and redirects to the `next` target on success", async () => {
