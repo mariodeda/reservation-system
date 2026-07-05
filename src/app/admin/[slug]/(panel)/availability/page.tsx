@@ -646,7 +646,7 @@ function DayServicesEditor({
   wide?: boolean;
 }) {
   const wideColumns =
-    "lg:grid-cols-[minmax(6rem,1.4fr)_repeat(2,minmax(4.75rem,0.8fr))_minmax(4rem,0.65fr)_minmax(5.5rem,1fr)_auto]";
+    "lg:grid-cols-[minmax(6rem,1.25fr)_repeat(2,minmax(7.25rem,0.9fr))_minmax(4rem,0.65fr)_minmax(5.5rem,1fr)_auto]";
   return (
     <div className="space-y-2">
       {wide && services.length > 0 && (
@@ -742,13 +742,13 @@ function Inp({ label, value, onChange, type = "text", w = "", compact = false }:
 function TimeInp({ label, value, onChange, compact = false }: { label: string; value: string; onChange: (v: string) => void; compact?: boolean }) {
   const { hour, minute } = timeParts(value);
   return (
-    <fieldset className="flex flex-col gap-1">
+    <fieldset className="flex min-w-[7.25rem] flex-col gap-1">
       <legend className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${compact ? "lg:sr-only" : ""}`}>{label}</legend>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
         <select
           value={hour}
           onChange={(e) => onChange(`${e.target.value}:${minute}`)}
-          className={`${field} w-full tabular-nums`}
+          className={`${field} min-w-[50px] w-full tabular-nums`}
           aria-label={`${label} hour`}
         >
           {HOURS_24.map((h) => (
@@ -759,7 +759,7 @@ function TimeInp({ label, value, onChange, compact = false }: { label: string; v
         <select
           value={minute}
           onChange={(e) => onChange(`${hour}:${e.target.value}`)}
-          className={`${field} w-full tabular-nums`}
+          className={`${field} min-w-[50px] w-full tabular-nums`}
           aria-label={`${label} minute`}
         >
           {MINUTES_60.map((m) => (
