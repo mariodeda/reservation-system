@@ -415,6 +415,8 @@ export const am = {
     saving: "Saving…",
     saved: "Availability saved",
     savedIndicator: "✓ Saved",
+    unsavedIndicator: "Unsaved changes",
+    unsavedLeaveWarning: "You have unsaved availability changes. Leave without saving?",
     couldNotLoad: "Could not load configuration.",
     couldNotSave: "Could not save changes.",
     loading: "Loading…",

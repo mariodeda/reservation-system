@@ -442,6 +442,64 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      name: "global outbound email is disabled",
+      settings: {
+        emailEnabled: false,
+        feedbackEnabled: true,
+        emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+        feedbackAutoSendEnabled: true,
+      },
+    },
+    {
+      name: "feedback request email event is disabled",
+      settings: {
+        emailEnabled: true,
+        feedbackEnabled: false,
+        emailEvents: { bookingConfirmation: true, feedbackRequest: false },
+        feedbackAutoSendEnabled: true,
+      },
+    },
+    {
+      name: "tenant automatic feedback sends are disabled",
+      settings: {
+        emailEnabled: true,
+        feedbackEnabled: true,
+        emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+        feedbackAutoSendEnabled: false,
+      },
+    },
+  ])("cron skips due feedback candidates when $name", async ({ settings }) => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      reviewUrl: "https://g.page/r/fb-test/review",
+      feedbackRequestDelayHours: 0,
+      ...settings,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    const r = await s.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Cron Skipped Guest", email: "cron-skip@x.io", phone: "1",
+    });
+    await s.updateReservation(r.id, { status: "completed" });
+
+    const cronRes = await feedbackCronRoute.POST(req("/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+
+    expect(cronRes.status).toBe(200);
+    await expect(cronRes.json()).resolves.toMatchObject({ ok: true, tenants: 0, processed: 0, sent: 0, skipped: 0, failed: 0 });
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
+
   it("sends delayed feedback requests from the platform cron instead of the admin reservation list", async () => {
     vi.stubEnv("CRON_SECRET", "cron-secret");
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -559,4 +617,3 @@ describe("GET /api/admin/reservations/[id]/feedback", () => {
   });
 
 });
-

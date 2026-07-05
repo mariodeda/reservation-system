@@ -413,6 +413,8 @@ export const it = {
     saving: "Salvataggio…",
     saved: "Disponibilità salvata",
     savedIndicator: "✓ Salvato",
+    unsavedIndicator: "Modifiche non salvate",
+    unsavedLeaveWarning: "Hai modifiche non salvate alla disponibilità. Uscire senza salvare?",
     couldNotLoad: "Impossibile caricare la configurazione.",
     couldNotSave: "Impossibile salvare le modifiche.",
     loading: "Caricamento…",

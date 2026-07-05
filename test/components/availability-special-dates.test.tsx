@@ -62,6 +62,70 @@ describe("Availability — Special dates", () => {
     expect(globalDuration.selectedOptions[0].textContent).toBe("2h");
   });
 
+  it("edits service windows with explicit 24-hour time controls", async () => {
+    const user = userEvent.setup();
+    render(<AvailabilityPage />);
+
+    const fromHours = await screen.findAllByLabelText("From hour") as HTMLSelectElement[];
+    const fromMinutes = screen.getAllByLabelText("From minute") as HTMLSelectElement[];
+    const toHours = screen.getAllByLabelText("To hour") as HTMLSelectElement[];
+    const toMinutes = screen.getAllByLabelText("To minute") as HTMLSelectElement[];
+
+    expect(fromHours[0].value).toBe("12");
+    expect(fromMinutes[0].value).toBe("00");
+    expect(toHours[0].value).toBe("14");
+    expect(toMinutes[0].value).toBe("00");
+
+    await user.selectOptions(fromHours[0], "18");
+    await user.selectOptions(fromMinutes[0], "30");
+    await user.selectOptions(toHours[0], "22");
+    await user.selectOptions(toMinutes[0], "45");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(adminFetch).toHaveBeenCalled());
+    const putCall = adminFetch.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!;
+    const sent = JSON.parse((putCall[1] as RequestInit).body as string);
+    const mondayService = sent.config.offerings[0].weekly["1"].services[0];
+    expect(mondayService.start).toBe("18:30");
+    expect(mondayService.end).toBe("22:45");
+  });
+
+  it("warns before leaving with unsaved availability changes and clears after save", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<AvailabilityPage />);
+
+    const saveButton = await screen.findByRole("button", { name: /save changes/i });
+    expect(saveButton).toBeDisabled();
+
+    const fromHours = await screen.findAllByLabelText("From hour") as HTMLSelectElement[];
+    await user.selectOptions(fromHours[0], "18");
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+    expect(saveButton).toBeEnabled();
+
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+
+    const link = document.createElement("a");
+    link.href = "/admin/acme/reservations";
+    document.body.appendChild(link);
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    const allowed = link.dispatchEvent(click);
+    expect(allowed).toBe(false);
+    expect(confirm).toHaveBeenCalledWith("You have unsaved availability changes. Leave without saving?");
+
+    await user.click(saveButton);
+    await waitFor(() => expect(adminFetch).toHaveBeenCalled());
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+    expect(await screen.findByText("✓ Saved")).toBeInTheDocument();
+    expect(saveButton).toBeDisabled();
+
+    const cleanUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(cleanUnload);
+    expect(cleanUnload.defaultPrevented).toBe(false);
+  });
+
   it("adds a special date with a default service editor, then removes it", async () => {
     const user = userEvent.setup();
     render(<AvailabilityPage />);

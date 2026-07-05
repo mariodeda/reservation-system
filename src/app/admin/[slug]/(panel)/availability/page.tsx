@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type AvailabilityConfig,
   type DaySchedule,
@@ -61,16 +61,85 @@ const field =
 
 const SYSTEM_TURN_MINUTES = 120;
 const DUR_OPTIONS = [45, 60, 75, 90, 105, 120, 150, 180, 240];
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+
+function timeParts(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return { hour: "00", minute: "00" };
+  const hour = HOURS_24.includes(match[1]) ? match[1] : "00";
+  const minute = MINUTES_60.includes(match[2]) ? match[2] : "00";
+  return { hour, minute };
+}
+
+function useUnsavedChangesWarning(enabled: boolean, message: string) {
+  const enabledRef = useRef(enabled);
+  const messageRef = useRef(message);
+
+  useEffect(() => {
+    enabledRef.current = enabled;
+    messageRef.current = message;
+  }, [enabled, message]);
+
+  useEffect(() => {
+    const shouldLeave = () => !enabledRef.current || window.confirm(messageRef.current);
+    const sameDestination = (href: string) => {
+      const next = new URL(href, window.location.href);
+      return next.href === window.location.href;
+    };
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!enabledRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const onClick = (event: MouseEvent) => {
+      if (!enabledRef.current || event.defaultPrevented) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest?.("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target && anchor.target !== "_self") return;
+      if (anchor.hasAttribute("download") || sameDestination(anchor.href)) return;
+      if (shouldLeave()) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+    window.history.pushState = function pushState(data, unused, url) {
+      if (url !== undefined && !sameDestination(String(url)) && !shouldLeave()) return;
+      return originalPushState.apply(this, [data, unused, url]);
+    };
+    window.history.replaceState = function replaceState(data, unused, url) {
+      if (url !== undefined && !sameDestination(String(url)) && !shouldLeave()) return;
+      return originalReplaceState.apply(this, [data, unused, url]);
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("click", onClick, true);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    };
+  }, []);
+}
 
 export default function AvailabilityPage() {
   const [config, setConfig] = useState<AvailabilityConfig | null>(null);
   const [activeId, setActiveId] = useState<string>(DEFAULT_OFFERING_ID);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [newClosure, setNewClosure] = useState("");
   const [blockDate, setBlockDate] = useState("");
   const [blockTime, setBlockTime] = useState("");
   const [overrideDate, setOverrideDate] = useState("");
+
+  useUnsavedChangesWarning(dirty && !saving, am.availability.unsavedLeaveWarning);
 
   useEffect(() => {
     adminJson<{ config: AvailabilityConfig }>("/api/admin/config")
@@ -89,6 +158,7 @@ export default function AvailabilityPage() {
       fn(next);
       return next;
     });
+    setDirty(true);
     setSaved(false);
   }
 
@@ -127,6 +197,7 @@ export default function AvailabilityPage() {
         const restored = cfg.offerings![activeIdx] ?? cfg.offerings![0];
         setActiveId(restored.id);
       }
+      setDirty(false);
       setSaved(true);
       toast(am.availability.saved);
       setTimeout(() => setSaved(false), 2500);
@@ -147,11 +218,16 @@ export default function AvailabilityPage() {
     <div className="space-y-6 pb-24">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-semibold">{am.availability.title}</h1>
-        <div className="flex w-full items-center gap-3 sm:w-auto">
-          {saved && <span className="text-on-surface-variant text-sm">{am.availability.savedIndicator}</span>}
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+          {dirty && (
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-sm font-medium text-amber-700 dark:text-amber-200">
+              {am.availability.unsavedIndicator}
+            </span>
+          )}
+          {saved && !dirty && <span className="text-on-surface-variant text-sm">{am.availability.savedIndicator}</span>}
           <button
             onClick={save}
-            disabled={saving}
+            disabled={saving || !dirty}
             className="ml-auto bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60 sm:ml-0"
           >
             {saving ? am.availability.saving : am.availability.saveChanges}
@@ -589,8 +665,8 @@ function DayServicesEditor({
           className={`grid grid-cols-2 sm:grid-cols-3 ${wide ? wideColumns : ""} gap-2 items-end bg-surface-container-high/45 border border-outline-variant/20 rounded-lg p-2`}
         >
           <Inp label={am.availability.serviceName} value={s.label} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].label = v))} />
-          <Inp label={am.availability.serviceFrom} type="time" value={s.start} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].start = v))} />
-          <Inp label={am.availability.serviceTo} type="time" value={s.end} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].end = v))} />
+          <TimeInp label={am.availability.serviceFrom} value={s.start} compact={wide} onChange={(v) => mutate((d) => (d.services[si].start = v))} />
+          <TimeInp label={am.availability.serviceTo} value={s.end} compact={wide} onChange={(v) => mutate((d) => (d.services[si].end = v))} />
           <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-full" min={5} compact={wide} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
           <label className="flex flex-col gap-1">
             <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${wide ? "lg:sr-only" : ""}`}>{am.availability.serviceDuration}</span>
@@ -650,7 +726,6 @@ function Num({ label, value, onChange, min }: { label: string; value: number; on
   );
 }
 function Inp({ label, value, onChange, type = "text", w = "", compact = false }: { label: string; value: string; onChange: (v: string) => void; type?: string; w?: string; compact?: boolean }) {
-  const isTime = type === "time";
   return (
     <label className="flex flex-col gap-1">
       <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${compact ? "lg:sr-only" : ""}`}>{label}</span>
@@ -660,12 +735,39 @@ function Inp({ label, value, onChange, type = "text", w = "", compact = false }:
         onChange={(e) => onChange(e.target.value)}
         className={`${field} ${w}`}
         aria-label={compact ? label : undefined}
-        lang={isTime ? "en-GB" : undefined}
-        min={isTime ? "00:00" : undefined}
-        max={isTime ? "23:59" : undefined}
-        step={isTime ? 60 : undefined}
       />
     </label>
+  );
+}
+function TimeInp({ label, value, onChange, compact = false }: { label: string; value: string; onChange: (v: string) => void; compact?: boolean }) {
+  const { hour, minute } = timeParts(value);
+  return (
+    <fieldset className="flex flex-col gap-1">
+      <legend className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${compact ? "lg:sr-only" : ""}`}>{label}</legend>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+        <select
+          value={hour}
+          onChange={(e) => onChange(`${e.target.value}:${minute}`)}
+          className={`${field} w-full tabular-nums`}
+          aria-label={`${label} hour`}
+        >
+          {HOURS_24.map((h) => (
+            <option key={h} value={h}>{h}</option>
+          ))}
+        </select>
+        <span className="text-sm font-medium text-on-surface-variant" aria-hidden="true">:</span>
+        <select
+          value={minute}
+          onChange={(e) => onChange(`${hour}:${e.target.value}`)}
+          className={`${field} w-full tabular-nums`}
+          aria-label={`${label} minute`}
+        >
+          {MINUTES_60.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+      </div>
+    </fieldset>
   );
 }
 function NumInp({ label, value, onChange, w = "", min, compact = false }: { label: string; value: number; onChange: (v: number) => void; w?: string; min?: number; compact?: boolean }) {
