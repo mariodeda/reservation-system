@@ -396,6 +396,12 @@ describe("sendReservationReminderEmail", () => {
     expect(sendMail).not.toHaveBeenCalled();
   });
 
+  it("skips external imported reservations", async () => {
+    const r = await sendReservationReminderEmail(reservation({ source: "dish" }), tenant({ smtp }));
+    expect(r).toEqual({ sent: false, skipped: true, reason: "external_source" });
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
   it("sends the reminder template with the reminder email type header", async () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
     const r = await sendReservationReminderEmail(
@@ -428,6 +434,12 @@ describe("sendCancellationEmail", () => {
       tenant({ smtp, emailEvents: { bookingConfirmation: true, feedbackRequest: true, reservationReminder: true, cancellationConfirmation: false } }),
     );
     expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("skips external imported reservations", async () => {
+    const r = await sendCancellationEmail(reservation({ status: "cancelled", source: "thefork" }), tenant({ smtp }));
+    expect(r).toEqual({ sent: false, skipped: true, reason: "external_source" });
     expect(sendMail).not.toHaveBeenCalled();
   });
 

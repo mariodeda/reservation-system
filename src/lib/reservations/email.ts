@@ -5,6 +5,7 @@ import { defaultConfirmationTemplate, type Tenant, type TenantSmtp } from "./ten
 import { turnMinutesFor } from "./availability";
 import { hasGuestAttended, isEmailEventEnabled, type TenantEmailEvent } from "./email-policy";
 import { recordEmailAttempt, type EmailLogStatus } from "./email-log-store";
+import { isExternalReservationSource } from "./external-sources";
 
 export function smtpTransport(smtp: TenantSmtp) {
   const port = Number(smtp.port);
@@ -102,7 +103,7 @@ export function buildEmailVars(r: Reservation, tenant: Tenant, serviceLabel?: st
 }
 
 /** Why a send was skipped — distinguishes deliberate config from misconfig. */
-export type EmailSkipReason = "not_attended" | "event_disabled" | "no_smtp" | "no_recipient" | "no_review_url";
+export type EmailSkipReason = "not_attended" | "event_disabled" | "external_source" | "no_smtp" | "no_recipient" | "no_review_url";
 export type EmailFailureReason = "recipient_rejected" | "bounced";
 
 export interface SendResult {
@@ -437,6 +438,7 @@ export async function sendReservationReminderEmail(
   serviceLabel?: string,
   config?: AvailabilityConfig,
 ): Promise<SendResult> {
+  if (isExternalReservationSource(reservation.source)) return { sent: false, skipped: true, reason: "external_source" };
   const result = await runTransactionalTemplateSend(
     reservation,
     tenant,
@@ -456,6 +458,7 @@ export async function sendCancellationEmail(
   serviceLabel?: string,
   config?: AvailabilityConfig,
 ): Promise<SendResult> {
+  if (isExternalReservationSource(reservation.source)) return { sent: false, skipped: true, reason: "external_source" };
   const result = await runTransactionalTemplateSend(
     reservation,
     tenant,
