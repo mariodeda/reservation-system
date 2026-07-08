@@ -435,3 +435,228 @@ The team at {{restaurantName}}
 </html>`,
   },
 ];
+
+// ─── Reservation reminder presets ───────────────────────────────────────────
+
+export const REMINDER_PRESETS: EmailPreset[] = [
+  {
+    id: "friendly-reminder",
+    name: "Friendly Reminder",
+    description: "Warm upcoming-visit reminder with the reservation details clearly repeated.",
+    subject: "Reminder: your reservation at {{restaurantName}}",
+    text: `{{restaurantName}} — Reservation Reminder
+
+Dear {{guestName}},
+
+We're looking forward to welcoming you soon. This is a reminder of your upcoming reservation.
+
+  Date:       {{date}}
+  Time:       {{time}} · {{service}}
+  Guests:     {{partySize}}
+  Reference:  {{reference}}
+
+If your plans change, please contact us as soon as possible.
+
+{{contactPhone}}
+{{contactEmail}}
+{{siteUrl}}`,
+    html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Reservation Reminder</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f3ee;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f3ee;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
+      <tr><td style="background:#1c1b18;padding:28px 40px;" align="center">
+        <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:4px;color:#8a7a5a;text-transform:uppercase;">SEE YOU SOON AT</p>
+        <p style="margin:8px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:400;color:#e8d9b4;letter-spacing:0.5px;">{{restaurantName}}</p>
+      </td></tr>
+      <tr><td style="padding:30px 40px 0;" align="center">
+        <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:21px;color:#1c1b18;">Dear {{guestName}},</p>
+        <p style="margin:10px 0 0;font-size:14px;color:#666666;line-height:1.6;">This is a reminder of your upcoming reservation. We look forward to welcoming you.</p>
+      </td></tr>
+      <tr><td style="padding:22px 40px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f6;border:1px solid #e6e0d4;border-radius:6px;">
+          <tr><td style="padding:20px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="padding:8px 0;border-bottom:1px solid #ede8df;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Date</span></td><td style="padding:8px 0;border-bottom:1px solid #ede8df;"><span style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#1c1b18;">{{date}}</span></td></tr>
+              <tr><td style="padding:8px 0;border-bottom:1px solid #ede8df;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Time</span></td><td style="padding:8px 0;border-bottom:1px solid #ede8df;"><span style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#1c1b18;">{{time}}&nbsp;&middot;&nbsp;{{service}}</span></td></tr>
+              <tr><td style="padding:8px 0;border-bottom:1px solid #ede8df;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Guests</span></td><td style="padding:8px 0;border-bottom:1px solid #ede8df;"><span style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#1c1b18;">{{partySize}}</span></td></tr>
+              <tr><td style="padding:8px 0;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Reference</span></td><td style="padding:8px 0;"><span style="font-family:'Courier New',Courier,monospace;font-size:13px;color:#a07800;letter-spacing:1px;">{{reference}}</span></td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:0 40px 28px;">
+        <p style="margin:0;font-size:14px;color:#555555;line-height:1.7;">If your plans change, please contact us as soon as possible at <a href="mailto:{{contactEmail}}" style="color:#8a6a20;text-decoration:none;">{{contactEmail}}</a> or <a href="tel:{{contactPhone}}" style="color:#8a6a20;text-decoration:none;">{{contactPhone}}</a>.</p>
+      </td></tr>
+      <tr><td style="background:#1c1b18;padding:20px 40px;" align="center">
+        <p style="margin:0;font-size:11px;letter-spacing:2px;color:#8a7a5a;text-transform:uppercase;">{{restaurantName}}</p>
+        <p style="margin:6px 0 0;font-size:11px;color:#5a5450;"><a href="{{siteUrl}}" style="color:#5a5450;text-decoration:none;">{{siteUrl}}</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  },
+  {
+    id: "modern-reminder",
+    name: "Modern Reminder",
+    description: "Minimal white layout with a clear time-first treatment for contemporary venues.",
+    subject: "See you at {{time}} — {{restaurantName}}",
+    text: `Hi {{guestName}},
+
+Quick reminder that your reservation at {{restaurantName}} is coming up.
+
+Date: {{date}}
+Time: {{time}}
+Service: {{service}}
+Guests: {{partySize}}
+Reference: {{reference}}
+
+Need help? Contact {{contactEmail}} or {{contactPhone}}.
+
+{{siteUrl}}`,
+    html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Reservation Reminder</title></head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:6px;border-top:4px solid #2d6cdf;">
+      <tr><td style="padding:28px 36px 0;"><p style="margin:0;font-size:18px;font-weight:700;color:#111111;">{{restaurantName}}</p></td></tr>
+      <tr><td style="padding:22px 36px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#2d6cdf;letter-spacing:1px;text-transform:uppercase;">Reservation reminder</p>
+        <p style="margin:8px 0 0;font-size:22px;font-weight:700;color:#111111;">See you at {{time}}, {{guestName}}</p>
+        <p style="margin:7px 0 0;font-size:14px;color:#666666;line-height:1.6;">Your table is reserved for {{date}}.</p>
+      </td></tr>
+      <tr><td style="padding:22px 36px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e5e5;border-radius:6px;overflow:hidden;">
+          <tr style="background:#f9f9f9;"><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Date</span></td><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;"><span style="font-size:14px;font-weight:600;color:#111111;">{{date}}</span></td></tr>
+          <tr><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Time</span></td><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;"><span style="font-size:14px;font-weight:600;color:#111111;">{{time}}</span><span style="font-size:13px;color:#666666;">&nbsp;&mdash;&nbsp;{{service}}</span></td></tr>
+          <tr style="background:#f9f9f9;"><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Guests</span></td><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;"><span style="font-size:14px;font-weight:600;color:#111111;">{{partySize}}</span></td></tr>
+          <tr><td style="padding:12px 20px;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Reference</span></td><td style="padding:12px 20px;"><span style="font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:700;color:#2d6cdf;letter-spacing:0.5px;">{{reference}}</span></td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:0 36px 28px;"><p style="margin:0;font-size:13px;color:#888888;line-height:1.65;">Need to change something? Contact us at <a href="mailto:{{contactEmail}}" style="color:#2d6cdf;text-decoration:none;">{{contactEmail}}</a> or <a href="tel:{{contactPhone}}" style="color:#2d6cdf;text-decoration:none;">{{contactPhone}}</a>.</p></td></tr>
+      <tr><td style="padding:16px 36px;border-top:1px solid #eeeeee;" align="center"><p style="margin:0;font-size:11px;color:#cccccc;">{{restaurantName}}&nbsp;&middot;&nbsp;<a href="{{siteUrl}}" style="color:#cccccc;text-decoration:none;">{{siteUrl}}</a></p></td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  },
+];
+
+// ─── Cancellation confirmation presets ──────────────────────────────────────
+
+export const CANCELLATION_PRESETS: EmailPreset[] = [
+  {
+    id: "clear-cancellation",
+    name: "Clear Cancellation",
+    description: "Direct cancellation confirmation with the original booking details retained.",
+    subject: "Your reservation at {{restaurantName}} has been cancelled",
+    text: `{{restaurantName}} — Reservation Cancelled
+
+Dear {{guestName}},
+
+Your reservation has been cancelled.
+
+  Date:       {{date}}
+  Time:       {{time}} · {{service}}
+  Guests:     {{partySize}}
+  Reference:  {{reference}}
+
+If this was unexpected, please contact us and our team will help.
+
+{{contactPhone}}
+{{contactEmail}}
+{{siteUrl}}`,
+    html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Reservation Cancelled</title></head>
+<body style="margin:0;padding:0;background-color:#f7f3f2;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f3f2;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
+      <tr><td style="background:#2a1717;padding:28px 40px;" align="center">
+        <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:4px;color:#c77c7c;text-transform:uppercase;">RESERVATION CANCELLED</p>
+        <p style="margin:8px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:400;color:#f1d8d8;letter-spacing:0.5px;">{{restaurantName}}</p>
+      </td></tr>
+      <tr><td style="padding:28px 40px 0;" align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#fdecec;border:1px solid #ef9a9a;border-radius:20px;padding:5px 16px;"><span style="font-size:12px;font-weight:700;color:#b71c1c;letter-spacing:1px;text-transform:uppercase;">Cancelled</span></td></tr></table>
+        <p style="margin:14px 0 4px;font-family:Georgia,'Times New Roman',serif;font-size:21px;color:#1c1b18;">Dear {{guestName}},</p>
+        <p style="margin:0;font-size:14px;color:#666666;line-height:1.6;">Your reservation has been cancelled. We have kept the details below for your records.</p>
+      </td></tr>
+      <tr><td style="padding:20px 40px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fcf8f8;border:1px solid #eedada;border-radius:6px;">
+          <tr><td style="padding:20px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="padding:8px 0;border-bottom:1px solid #f0e2e2;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Date</span></td><td style="padding:8px 0;border-bottom:1px solid #f0e2e2;"><span style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#1c1b18;">{{date}}</span></td></tr>
+              <tr><td style="padding:8px 0;border-bottom:1px solid #f0e2e2;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Time</span></td><td style="padding:8px 0;border-bottom:1px solid #f0e2e2;"><span style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#1c1b18;">{{time}}&nbsp;&middot;&nbsp;{{service}}</span></td></tr>
+              <tr><td style="padding:8px 0;border-bottom:1px solid #f0e2e2;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Guests</span></td><td style="padding:8px 0;border-bottom:1px solid #f0e2e2;"><span style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#1c1b18;">{{partySize}}</span></td></tr>
+              <tr><td style="padding:8px 0;" width="38%"><span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999999;">Reference</span></td><td style="padding:8px 0;"><span style="font-family:'Courier New',Courier,monospace;font-size:13px;color:#b71c1c;letter-spacing:1px;">{{reference}}</span></td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:0 40px 28px;"><p style="margin:0;font-size:14px;color:#555555;line-height:1.7;">If this was unexpected, please contact us at <a href="mailto:{{contactEmail}}" style="color:#b71c1c;text-decoration:none;">{{contactEmail}}</a> or <a href="tel:{{contactPhone}}" style="color:#b71c1c;text-decoration:none;">{{contactPhone}}</a>.</p></td></tr>
+      <tr><td style="background:#2a1717;padding:20px 40px;" align="center"><p style="margin:0;font-size:11px;letter-spacing:2px;color:#c77c7c;text-transform:uppercase;">{{restaurantName}}</p><p style="margin:6px 0 0;font-size:11px;color:#8d6969;"><a href="{{siteUrl}}" style="color:#8d6969;text-decoration:none;">{{siteUrl}}</a></p></td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  },
+  {
+    id: "soft-cancellation",
+    name: "Soft Cancellation",
+    description: "Gentler cancellation notice with rebooking-friendly language.",
+    subject: "Reservation cancelled — {{restaurantName}}",
+    text: `Dear {{guestName}},
+
+Your reservation at {{restaurantName}} has been cancelled.
+
+Date: {{date}}
+Time: {{time}} ({{service}})
+Party size: {{partySize}}
+Reference: {{reference}}
+
+We hope to welcome you another time. If you would like to book again, visit {{siteUrl}} or contact us at {{contactEmail}}.
+
+{{restaurantName}}`,
+    html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Reservation Cancelled</title></head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:6px;border-top:4px solid #c45656;">
+      <tr><td style="padding:28px 36px 0;"><p style="margin:0;font-size:18px;font-weight:700;color:#111111;">{{restaurantName}}</p></td></tr>
+      <tr><td style="padding:22px 36px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#c45656;letter-spacing:1px;text-transform:uppercase;">Reservation cancelled</p>
+        <p style="margin:8px 0 0;font-size:21px;font-weight:700;color:#111111;">Your booking has been cancelled</p>
+        <p style="margin:7px 0 0;font-size:14px;color:#666666;line-height:1.6;">Dear {{guestName}}, we have cancelled the reservation below.</p>
+      </td></tr>
+      <tr><td style="padding:22px 36px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e5e5;border-radius:6px;overflow:hidden;">
+          <tr style="background:#f9f9f9;"><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Date</span></td><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;"><span style="font-size:14px;font-weight:600;color:#111111;">{{date}}</span></td></tr>
+          <tr><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Time</span></td><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;"><span style="font-size:14px;font-weight:600;color:#111111;">{{time}}</span><span style="font-size:13px;color:#666666;">&nbsp;&mdash;&nbsp;{{service}}</span></td></tr>
+          <tr style="background:#f9f9f9;"><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Guests</span></td><td style="padding:12px 20px;border-bottom:1px solid #e5e5e5;"><span style="font-size:14px;font-weight:600;color:#111111;">{{partySize}}</span></td></tr>
+          <tr><td style="padding:12px 20px;" width="36%"><span style="font-size:11px;font-weight:700;color:#999999;letter-spacing:1px;text-transform:uppercase;">Reference</span></td><td style="padding:12px 20px;"><span style="font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:700;color:#c45656;letter-spacing:0.5px;">{{reference}}</span></td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:0 36px 28px;"><p style="margin:0;font-size:13px;color:#888888;line-height:1.65;">We hope to welcome you another time. To book again, visit <a href="{{siteUrl}}" style="color:#c45656;text-decoration:none;">{{siteUrl}}</a> or contact <a href="mailto:{{contactEmail}}" style="color:#c45656;text-decoration:none;">{{contactEmail}}</a>.</p></td></tr>
+      <tr><td style="padding:16px 36px;border-top:1px solid #eeeeee;" align="center"><p style="margin:0;font-size:11px;color:#cccccc;">{{restaurantName}}&nbsp;&middot;&nbsp;<a href="{{siteUrl}}" style="color:#cccccc;text-decoration:none;">{{siteUrl}}</a></p></td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  },
+];

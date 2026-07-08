@@ -92,6 +92,22 @@ describe("TenantDetail", () => {
     expect(screen.getByLabelText("Anticipo promemoria (ore prima della prenotazione)")).toHaveAttribute("min", "1");
   });
 
+  it("loads reminder and cancellation email presets into their template fields", async () => {
+    const user = userEvent.setup();
+    render(<TenantDetail />);
+
+    await screen.findByRole("heading", { name: "Acme Osteria" });
+    const subjectInputs = screen.getAllByLabelText("Oggetto");
+
+    await user.click(screen.getByRole("button", { name: "Friendly Reminder" }));
+    expect(subjectInputs[2]).toHaveValue("Reminder: your reservation at {{restaurantName}}");
+    expect(toast).toHaveBeenCalledWith('Preimpostazione "Friendly Reminder" caricata');
+
+    await user.click(screen.getByRole("button", { name: "Clear Cancellation" }));
+    expect(subjectInputs[3]).toHaveValue("Your reservation at {{restaurantName}} has been cancelled");
+    expect(toast).toHaveBeenCalledWith('Preimpostazione "Clear Cancellation" caricata');
+  });
+
   it("starts impersonation from the tenant detail action bar", async () => {
     const user = userEvent.setup();
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("operator-pass");

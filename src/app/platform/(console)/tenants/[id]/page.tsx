@@ -5,8 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
 import { formatPlatformDateTime } from "@/components/platform/date-format";
 import {
+  CANCELLATION_PRESETS,
   CONFIRMATION_PRESETS,
   FEEDBACK_PRESETS,
+  REMINDER_PRESETS,
   renderPreview,
   type EmailPreset,
 } from "@/lib/email-presets";
@@ -251,15 +253,23 @@ export default function TenantDetail() {
   if (!view || !f) return <p className="text-on-surface-variant">{am.platform.loading}</p>;
   const set = (k: keyof Form, v: string | boolean) => setF((p) => (p ? { ...p, [k]: v } : p));
 
-  function loadPreset(type: "confirmation" | "feedback", preset: EmailPreset) {
+  function loadPreset(type: "confirmation" | "feedback" | "reminder" | "cancellation", preset: EmailPreset) {
     if (type === "confirmation") {
       set("confirmSubject", preset.subject);
       set("confirmText", preset.text);
       set("confirmHtml", preset.html);
-    } else {
+    } else if (type === "feedback") {
       set("feedbackSubject", preset.subject);
       set("feedbackText", preset.text);
       set("feedbackHtml", preset.html);
+    } else if (type === "reminder") {
+      set("reminderSubject", preset.subject);
+      set("reminderText", preset.text);
+      set("reminderHtml", preset.html);
+    } else {
+      set("cancellationSubject", preset.subject);
+      set("cancellationText", preset.text);
+      set("cancellationHtml", preset.html);
     }
     toast(am.platform.tenant.presetLoaded(preset.name));
   }
@@ -1081,6 +1091,12 @@ export default function TenantDetail() {
         {/* Reminder */}
         <div className="space-y-3 pt-2 border-t border-outline-variant/20">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant pt-1">{am.platform.tenant.reminderTpl}</h3>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[11px] text-on-surface-variant/60 self-center mr-1">{am.platform.tenant.presets}</span>
+            {REMINDER_PRESETS.map((p) => (
+              <PresetButton key={p.id} preset={p} onLoad={() => loadPreset("reminder", p)} />
+            ))}
+          </div>
           <div className="space-y-2">
             <Field label={am.platform.tenant.subject} v={f.reminderSubject} on={(v) => set("reminderSubject", v)} placeholder="Reminder: your reservation at {{restaurantName}}" />
             <TemplateArea label={am.platform.tenant.plainText} v={f.reminderText} on={(v) => set("reminderText", v)} rows={5} placeholder="Hi {{guestName}}, this is a reminder for {{date}} at {{time}}. Reference {{reference}}" />
@@ -1111,6 +1127,12 @@ export default function TenantDetail() {
         {/* Cancellation */}
         <div className="space-y-3 pt-2 border-t border-outline-variant/20">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant pt-1">{am.platform.tenant.cancellationTpl}</h3>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[11px] text-on-surface-variant/60 self-center mr-1">{am.platform.tenant.presets}</span>
+            {CANCELLATION_PRESETS.map((p) => (
+              <PresetButton key={p.id} preset={p} onLoad={() => loadPreset("cancellation", p)} />
+            ))}
+          </div>
           <div className="space-y-2">
             <Field label={am.platform.tenant.subject} v={f.cancellationSubject} on={(v) => set("cancellationSubject", v)} placeholder="Your reservation at {{restaurantName}} has been cancelled" />
             <TemplateArea label={am.platform.tenant.plainText} v={f.cancellationText} on={(v) => set("cancellationText", v)} rows={5} placeholder="Hi {{guestName}}, your reservation {{reference}} has been cancelled." />
