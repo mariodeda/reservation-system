@@ -14,8 +14,10 @@ vi.mock("@/lib/reservations/email-log-store", () => ({ recordEmailAttempt: vi.fn
 import {
   buildEmailVars,
   renderTemplate,
+  sendCancellationEmail,
   sendConfirmationEmail,
   sendFeedbackRequestEmail,
+  sendReservationReminderEmail,
   type EmailVars,
 } from "@/lib/reservations/email";
 import { defaultAvailability } from "@/reservation.config";
@@ -328,5 +330,74 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
     const r = await sendFeedbackRequestEmail(done(), tenant({ smtp, reviewUrl: "https://g.page/r/t1/review" }));
     expect(r.sent).toBe(false);
     expect(r.error).toBe("timeout");
+  });
+});
+
+describe("sendReservationReminderEmail", () => {
+  const smtp = { host: "smtp.acme.com", port: 587, secure: false };
+
+  beforeEach(() => sendMail.mockReset());
+
+  it("respects the reminder event switch", async () => {
+    const r = await sendReservationReminderEmail(
+      reservation(),
+      tenant({ smtp, emailEvents: { bookingConfirmation: true, feedbackRequest: true, reservationReminder: false, cancellationConfirmation: true } }),
+    );
+    expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("sends the reminder template with the reminder email type header", async () => {
+    sendMail.mockResolvedValueOnce({ messageId: "x" });
+    const r = await sendReservationReminderEmail(
+      reservation(),
+      tenant({
+        smtp,
+        emailTemplates: {
+          reminder: { subject: "Reminder {{reference}}", text: "{{guestName}} {{time}}", html: "<p>{{service}}</p>" },
+        },
+      }),
+      "Dinner",
+    );
+    expect(r.sent).toBe(true);
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.subject).toBe("Reminder ABCDEF");
+    expect(arg.text).toBe("Jane Doe 19:30");
+    expect(arg.html).toBe("<p>Dinner</p>");
+    expect(arg.headers["X-RSV-Email-Type"]).toBe("reservationReminder");
+  });
+});
+
+describe("sendCancellationEmail", () => {
+  const smtp = { host: "smtp.acme.com", port: 587, secure: false };
+
+  beforeEach(() => sendMail.mockReset());
+
+  it("respects the cancellation event switch", async () => {
+    const r = await sendCancellationEmail(
+      reservation({ status: "cancelled" }),
+      tenant({ smtp, emailEvents: { bookingConfirmation: true, feedbackRequest: true, reservationReminder: true, cancellationConfirmation: false } }),
+    );
+    expect(r).toEqual({ sent: false, skipped: true, reason: "event_disabled" });
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("sends the cancellation template with the cancellation email type header", async () => {
+    sendMail.mockResolvedValueOnce({ messageId: "x" });
+    const r = await sendCancellationEmail(
+      reservation({ status: "cancelled" }),
+      tenant({
+        smtp,
+        emailTemplates: {
+          cancellation: { subject: "Cancelled {{reference}}", text: "{{date}} {{time}}", html: "<p>{{guestName}}</p>" },
+        },
+      }),
+    );
+    expect(r.sent).toBe(true);
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.subject).toBe("Cancelled ABCDEF");
+    expect(arg.text).toContain("Friday, June 12, 2026 19:30");
+    expect(arg.html).toBe("<p>Jane Doe</p>");
+    expect(arg.headers["X-RSV-Email-Type"]).toBe("cancellationConfirmation");
   });
 });

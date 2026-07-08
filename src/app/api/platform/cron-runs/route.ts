@@ -6,7 +6,7 @@ import { requirePlatform } from "@/lib/reservations/tenant-context";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type CronJobName = "dish-sync" | "feedback-requests" | "smtp-health";
+type CronJobName = "dish-sync" | "feedback-requests" | "reminder-emails" | "smtp-health";
 type CronRunStatus = "success" | "warning" | "failed";
 type CronRunTrigger = "external" | "internal";
 
@@ -48,6 +48,13 @@ const JOBS: CronJobDefinition[] = [
     endpoint: "/api/platform/cron/feedback-requests",
   },
   {
+    name: "reminder-emails",
+    label: "Reminder emails",
+    description: "Sends due pre-visit reminders for eligible upcoming reservations.",
+    cadence: "Every 30 minutes internally, or external POST /api/platform/cron/reminder-emails.",
+    endpoint: "/api/platform/cron/reminder-emails",
+  },
+  {
     name: "smtp-health",
     label: "SMTP health checks",
     description: "Verifies per-tenant SMTP configuration and stores the latest health result.",
@@ -68,7 +75,7 @@ function numberParam(params: URLSearchParams, key: string): number | undefined {
 
 function jobFromMetadata(metadata: Record<string, unknown> | undefined): CronJobName | null {
   const job = metadata?.job;
-  return job === "dish-sync" || job === "feedback-requests" || job === "smtp-health" ? job : null;
+  return job === "dish-sync" || job === "feedback-requests" || job === "reminder-emails" || job === "smtp-health" ? job : null;
 }
 
 function triggerFromEvent(event: AppEvent): CronRunTrigger {

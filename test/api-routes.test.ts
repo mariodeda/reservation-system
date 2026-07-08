@@ -5,7 +5,8 @@ import { randomUUID } from "node:crypto";
 
 // Mock email so booking tests never touch SMTP and we can assert the wiring.
 const sendConfirmationEmail = vi.hoisted(() => vi.fn(async () => ({ sent: true })));
-vi.mock("@/lib/reservations/email", () => ({ sendConfirmationEmail }));
+const sendCancellationEmail = vi.hoisted(() => vi.fn(async () => ({ sent: true })));
+vi.mock("@/lib/reservations/email", () => ({ sendConfirmationEmail, sendCancellationEmail }));
 
 type MySQLDB = Awaited<ReturnType<typeof createDB>>;
 let db: MySQLDB;
@@ -22,6 +23,8 @@ let routes: {
   adminAvail: typeof import("@/app/api/admin/availability/route");
   config: typeof import("@/app/api/admin/config/route");
   slotBlocks: typeof import("@/app/api/admin/slot-blocks/route");
+  slotCapacity: typeof import("@/app/api/admin/slot-capacity/route");
+  capacitySettings: typeof import("@/app/api/admin/settings/capacity/route");
   todayControls: typeof import("@/app/api/admin/today-booking-controls/route");
   adminRes: typeof import("@/app/api/admin/reservations/route");
   adminResId: typeof import("@/app/api/admin/reservations/[id]/route");
@@ -78,6 +81,8 @@ beforeAll(async () => {
     adminAvail: await import("@/app/api/admin/availability/route"),
     config: await import("@/app/api/admin/config/route"),
     slotBlocks: await import("@/app/api/admin/slot-blocks/route"),
+    slotCapacity: await import("@/app/api/admin/slot-capacity/route"),
+    capacitySettings: await import("@/app/api/admin/settings/capacity/route"),
     todayControls: await import("@/app/api/admin/today-booking-controls/route"),
     adminRes: await import("@/app/api/admin/reservations/route"),
     adminResId: await import("@/app/api/admin/reservations/[id]/route"),
@@ -137,6 +142,7 @@ beforeEach(async () => {
   clearTenantCache();
 
   sendConfirmationEmail.mockClear();
+  sendCancellationEmail.mockClear();
   // Only fake Date — mocking setImmediate/setTimeout breaks mysql2's async I/O.
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-06-11T07:00:00Z")); // 09:00 Europe/Rome (summer)
@@ -476,6 +482,59 @@ describe("public marketing-site integration", () => {
     expect(lookupJson.reservations[0].reference).toMatch(/^[A-Z0-9]{6}$/);
     expect(lookupJson.reservations[0].id).toBeUndefined();
 
+    const cancelPreflight = await routes.lookup.OPTIONS(
+      marketingReq(`/api/reservations/lookup?${tenantParam}`, {
+        method: "OPTIONS",
+        headers: { "access-control-request-method": "DELETE" },
+      }),
+    );
+    expect(cancelPreflight.status).toBe(204);
+    expectMarketingCors(cancelPreflight);
+
+    const cancel = await routes.lookup.DELETE(
+      marketingReq(`/api/reservations/lookup?${tenantParam}`, {
+        method: "DELETE",
+        body: {
+          email: bookingGuest.email,
+          phone: bookingGuest.phone,
+          reference: lookupJson.reservations[0].reference,
+        },
+      }),
+    );
+    expect(cancel.status).toBe(200);
+    expectMarketingCors(cancel);
+    const cancelJson = await cancel.json();
+    expect(cancelJson).toMatchObject({
+      ok: true,
+      reservation: {
+        reference: lookupJson.reservations[0].reference,
+        status: "cancelled",
+      },
+    });
+    expect(cancelJson.reservation.id).toBeUndefined();
+    const stored = (await store.findByContact(bookingGuest.email, bookingGuest.phone))[0];
+    expect(stored.status).toBe("cancelled");
+    const notifications = await routes.notificationStore.listTenantNotifications(tenantId, { limit: 5 });
+    const cancelNotification = notifications.find((n) => n.title === "Online reservation cancelled");
+    expect(cancelNotification).toMatchObject({
+      type: "reservation.updated",
+      severity: "warning",
+      title: "Online reservation cancelled",
+      source: "web",
+      reservationId: stored.id,
+      reference: lookupJson.reservations[0].reference,
+    });
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const cancelEvents = await listAppEvents({ tenantId, event: "public.lookup.cancelled", limit: 5 });
+    expect(cancelEvents[0]).toMatchObject({
+      event: "public.lookup.cancelled",
+      surface: "public",
+      actorType: "guest",
+      reservationId: stored.id,
+      reference: lookupJson.reservations[0].reference,
+      status: 200,
+    });
+
     const blockedPreflight = await routes.avail.OPTIONS(
       req(`/api/availability?month=2026-06&${tenantParam}`, {
         method: "OPTIONS",
@@ -599,6 +658,34 @@ describe("public reservation self-service", () => {
     expect((await res.json()).reservation.status).toBe("cancelled");
     const stored = (await routes.store.getStore().forTenant(tenantId).findByContact(guest().email, guest().phone))[0];
     expect(stored.status).toBe("cancelled");
+    expect(sendCancellationEmail).toHaveBeenCalledOnce();
+    expect(sendCancellationEmail).toHaveBeenCalledWith(expect.objectContaining({ id: stored.id, status: "cancelled" }), expect.anything(), undefined, expect.anything());
+  });
+
+  it("rate-limits repeated cancellation attempts by normalized contact and reference", async () => {
+    const reference = await createGuest();
+    for (let i = 0; i < 5; i++) {
+      const attempt = await routes.lookup.DELETE(req("/api/reservations/lookup", {
+        method: "DELETE",
+        body: {
+          email: " GUEST-SELF@EXAMPLE.COM ",
+          phone: "555 123 456",
+          reference,
+        },
+      }));
+      expect([200, 409]).toContain(attempt.status);
+    }
+
+    const blocked = await routes.lookup.DELETE(req("/api/reservations/lookup", {
+      method: "DELETE",
+      body: {
+        email: guest().email,
+        phone: guest().phone,
+        reference,
+      },
+    }));
+    expect(blocked.status).toBe(429);
+    await expect(blocked.json()).resolves.toMatchObject({ error: expect.stringMatching(/too many requests/i) });
   });
 
   it("rejects self-service changes for the wrong contact", async () => {
@@ -778,6 +865,30 @@ describe("admin config routes", () => {
   });
 });
 
+describe("admin capacity settings", () => {
+  it("reads and updates the tenant capacity mode", async () => {
+    const before = await routes.capacitySettings.GET(adminReq("/api/admin/settings/capacity"));
+    expect(before.status).toBe(200);
+    expect(await before.json()).toEqual({ capacityMode: "tables" });
+
+    const patched = await routes.capacitySettings.PATCH(adminReq("/api/admin/settings/capacity", {
+      method: "PATCH",
+      body: { capacityMode: "manual" },
+    }));
+    expect(patched.status).toBe(200);
+    expect(await patched.json()).toEqual({ capacityMode: "manual" });
+    expect((await routes.store.getStore().forTenant(tenantId).getConfig()).capacityMode).toBe("manual");
+  });
+
+  it("rejects invalid capacity modes", async () => {
+    const res = await routes.capacitySettings.PATCH(adminReq("/api/admin/settings/capacity", {
+      method: "PATCH",
+      body: { capacityMode: "hybrid" },
+    }));
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("admin today booking controls", () => {
   it("lists today's services and toggles a service-level booking stop", async () => {
     const before = await routes.todayControls.GET(adminReq("/api/admin/today-booking-controls"));
@@ -860,6 +971,56 @@ describe("admin slot blocks", () => {
       body: { date: "2026-06-12", offering: "main", time: "12:17", blocked: true },
     }));
     expect(res.status).toBe(404);
+  });
+});
+
+describe("admin slot capacity", () => {
+  it("rejects slot capacity updates unless manual capacity mode is enabled", async () => {
+    const res = await routes.slotCapacity.PATCH(adminReq("/api/admin/slot-capacity", {
+      method: "PATCH",
+      body: { date: "2026-06-12", offering: "main", service: "lunch", time: "12:30", capacity: 14, scope: "date" },
+    }));
+    expect(res.status).toBe(409);
+  });
+
+  it("sets a one-day slot capacity override", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    await store.saveConfig({ ...(await store.getConfig()), capacityMode: "manual" });
+
+    const res = await routes.slotCapacity.PATCH(adminReq("/api/admin/slot-capacity", {
+      method: "PATCH",
+      body: { date: "2026-06-12", offering: "main", service: "lunch", time: "12:30", capacity: 14, scope: "date" },
+    }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, capacity: 14, scope: "date" });
+    const saved = await store.getConfig();
+    expect(saved.slotCapacityOverrides?.["2026-06-12"].main.lunch["12:30"]).toBe(14);
+
+    const day = await routes.adminAvail.GET(adminReq("/api/admin/availability?date=2026-06-12"));
+    const lunch = (await day.json()).services.find((s: { id: string }) => s.id === "lunch");
+    expect(lunch.slots.find((s: { time: string }) => s.time === "12:30")).toMatchObject({ capacity: 14 });
+  });
+
+  it("sets a forward slot capacity override from the selected date onward", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    await store.saveConfig({ ...(await store.getConfig()), capacityMode: "manual" });
+
+    const res = await routes.slotCapacity.PATCH(adminReq("/api/admin/slot-capacity", {
+      method: "PATCH",
+      body: { date: "2026-06-12", offering: "main", service: "lunch", time: "12:30", capacity: 16, scope: "future" },
+    }));
+    expect(res.status).toBe(200);
+    const saved = await store.getConfig();
+    expect(saved.forwardSlotCapacityOverrides?.main.lunch["12:30"]).toEqual([
+      { effectiveFrom: "2026-06-12", capacity: 16 },
+    ]);
+
+    const before = await routes.adminAvail.GET(adminReq("/api/admin/availability?date=2026-06-11"));
+    const after = await routes.adminAvail.GET(adminReq("/api/admin/availability?date=2026-06-12"));
+    const beforeLunch = (await before.json()).services.find((s: { id: string }) => s.id === "lunch");
+    const afterLunch = (await after.json()).services.find((s: { id: string }) => s.id === "lunch");
+    expect(beforeLunch.slots.find((s: { time: string }) => s.time === "12:30")).toMatchObject({ capacity: 20 });
+    expect(afterLunch.slots.find((s: { time: string }) => s.time === "12:30")).toMatchObject({ capacity: 16 });
   });
 });
 

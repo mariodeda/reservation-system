@@ -4,6 +4,7 @@ import { safeError } from "@/lib/observability/logger";
 import { runDishSyncCron } from "./dish-sync";
 import { runDueFeedbackRequestCron } from "./feedback-automation";
 import { getPool } from "./mysql-pool";
+import { runDueReservationReminderCron } from "./reminder-automation";
 import { runSmtpHealthChecks } from "./smtp-health";
 
 type SchedulerGlobal = typeof globalThis & {
@@ -105,6 +106,12 @@ export function startInternalScheduler() {
       everyMs: 30 * MINUTE,
       initialDelayMs: 60_000,
       run: runDueFeedbackRequestCron,
+    },
+    {
+      name: "reminder-emails",
+      everyMs: 30 * MINUTE,
+      initialDelayMs: 75_000,
+      run: runDueReservationReminderCron,
     },
     {
       name: "smtp-health",

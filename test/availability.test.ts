@@ -295,6 +295,27 @@ describe("getDayAvailability", () => {
     expect(bar.services[0].slots[0].capacity).toBe(8);
   });
 
+  it("uses manual service and slot overrides instead of table seats when manual capacity is enabled", () => {
+    setup();
+    const cfg = makeConfig({
+      capacityMode: "manual",
+      weekly: weeklyAll(openDay([lunchService({ start: "12:00", end: "14:00", capacity: 10 })])),
+      slotCapacityOverrides: {
+        "2026-06-12": { main: { lunch: { "13:00": 3 } } },
+      },
+      forwardSlotCapacityOverrides: {
+        main: { lunch: { "14:00": [{ effectiveFrom: "2026-06-01", capacity: 6 }] } },
+      },
+    });
+    const day = getDayAvailability(cfg, [], "2026-06-12", "main", [table({ capacity: 99 })]);
+    expect(day.capacityMode).toBe("manual");
+    expect(day.services[0].slots.map((s) => [s.time, s.capacity])).toEqual([
+      ["12:00", 10],
+      ["13:00", 3],
+      ["14:00", 6],
+    ]);
+  });
+
   it("does not advertise a slot when remaining covers are below the minimum party size", () => {
     setup();
     const cfg = makeConfig({
@@ -499,6 +520,20 @@ describe("canBook", () => {
     const cfg = makeConfig({ weekly: weeklyAll(openDay([lunchService({ capacity: 99 })])) });
     const existing = [res({ date: "2026-06-12", time: "13:00", partySize: 3 })];
     const tables = [table({ capacity: 4 })];
+    expect(canBook(cfg, existing, input({ partySize: 2 }), tables).ok).toBe(false);
+    expect(canBook(cfg, existing, input({ partySize: 1 }), tables).ok).toBe(true);
+  });
+
+  it("validates booking capacity against manual slot overrides when manual mode is enabled", () => {
+    setup();
+    const cfg = makeConfig({
+      capacityMode: "manual",
+      slotCapacityOverrides: {
+        "2026-06-12": { main: { lunch: { "13:00": 4 } } },
+      },
+    });
+    const existing = [res({ date: "2026-06-12", time: "13:00", partySize: 3 })];
+    const tables = [table({ capacity: 20 })];
     expect(canBook(cfg, existing, input({ partySize: 2 }), tables).ok).toBe(false);
     expect(canBook(cfg, existing, input({ partySize: 1 }), tables).ok).toBe(true);
   });

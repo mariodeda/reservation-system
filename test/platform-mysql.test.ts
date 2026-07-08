@@ -475,9 +475,10 @@ describe("platform tenant CRUD via routes", () => {
           timezone: "Europe/Rome",
           autoConfirm: true,
           emailEnabled: true,
-          emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+          emailEvents: { bookingConfirmation: true, feedbackRequest: true, reservationReminder: false, cancellationConfirmation: true },
           feedbackEnabled: true,
           feedbackRequestDelayHours: 4,
+          reminderLeadHours: 18,
           calendarEventTitle: "{{restaurantName}} booking for {{guestName}}",
           smtp: { host: "smtp.acme.com", port: 587, secure: true, user: "u" },
           emailTemplates: {
@@ -491,15 +492,30 @@ describe("platform tenant CRUD via routes", () => {
               textBase64: Buffer.from("Share your experience here: {{reviewUrl}}", "utf8").toString("base64"),
               htmlBase64: Buffer.from("<!DOCTYPE html><html><body><a href=\"{{reviewUrl}}\">Share my experience</a></body></html>", "utf8").toString("base64"),
             },
+            reminder: {
+              subject: "Reminder {{reference}}",
+              textBase64: Buffer.from("Reminder for {{date}} at {{time}}", "utf8").toString("base64"),
+              htmlBase64: Buffer.from("<html><body>Reminder {{reference}}</body></html>", "utf8").toString("base64"),
+            },
+            cancellation: {
+              subject: "Cancelled {{reference}}",
+              textBase64: Buffer.from("Cancelled {{reference}}", "utf8").toString("base64"),
+              htmlBase64: Buffer.from("<html><body>Cancelled {{reference}}</body></html>", "utf8").toString("base64"),
+            },
           },
         },
       },
     }), ctx);
     expect(res.status).toBe(200);
     const stored = await tenantStoreMod.getTenantStore().getById(id);
-    expect(stored?.settings.emailTemplates?.confirmation.subject).toContain("confirmed");
+    expect(stored?.settings.emailTemplates?.confirmation?.subject).toContain("confirmed");
     expect(stored?.settings.emailTemplates?.feedbackRequest?.subject).toContain("How was your visit");
     expect(stored?.settings.emailTemplates?.feedbackRequest?.html).toContain("{{reviewUrl}}");
+    expect(stored?.settings.emailTemplates?.reminder?.subject).toBe("Reminder {{reference}}");
+    expect(stored?.settings.emailTemplates?.cancellation?.subject).toBe("Cancelled {{reference}}");
+    expect(stored?.settings.emailEvents?.reservationReminder).toBe(false);
+    expect(stored?.settings.emailEvents?.cancellationConfirmation).toBe(true);
+    expect(stored?.settings.reminderLeadHours).toBe(18);
     expect(stored?.settings.calendarEventTitle).toBe("{{restaurantName}} booking for {{guestName}}");
     expect(stored?.settings.reviewUrl).toBe("https://g.page/r/acme/review");
     expect(stored?.settings.smtp?.pass).toBe("secret-pw");

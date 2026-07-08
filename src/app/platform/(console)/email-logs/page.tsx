@@ -33,7 +33,7 @@ const initialFilters: FilterState = {
   limit: "100",
 };
 
-const types: PlatformEmailLogType[] = ["bookingConfirmation", "feedbackRequest"];
+const types: PlatformEmailLogType[] = ["bookingConfirmation", "feedbackRequest", "reservationReminder", "cancellationConfirmation"];
 const statuses: PlatformEmailLogStatus[] = ["failed", "sent", "skipped"];
 
 export default function PlatformEmailLogsPage() {
@@ -219,7 +219,10 @@ function StatusBadge({ status }: { status: PlatformEmailLogStatus }) {
 }
 
 function labelForType(type: PlatformEmailLogType): string {
-  return type === "bookingConfirmation" ? "Booking confirmation" : "Feedback request";
+  if (type === "bookingConfirmation") return "Booking confirmation";
+  if (type === "feedbackRequest") return "Feedback request";
+  if (type === "reservationReminder") return "Reminder";
+  return "Cancellation";
 }
 
 function tenantLabel(tenant: PlatformLogTenant | undefined, fallback: string): string {

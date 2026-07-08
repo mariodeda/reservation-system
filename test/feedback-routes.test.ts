@@ -7,9 +7,13 @@ import type { Tenant } from "@/lib/reservations/tenant";
 
 // Mock email so tests never touch SMTP.
 const sendFeedbackRequestEmail = vi.hoisted(() => vi.fn(async () => ({ sent: true })));
+const sendCancellationEmail = vi.hoisted(() => vi.fn(async () => ({ sent: true })));
+const sendReservationReminderEmail = vi.hoisted(() => vi.fn(async () => ({ sent: true })));
 vi.mock("@/lib/reservations/email", async (importOriginal) => ({
   ...((await importOriginal()) as object),
   sendFeedbackRequestEmail,
+  sendCancellationEmail,
+  sendReservationReminderEmail,
 }));
 
 type MySQLDB = Awaited<ReturnType<typeof createDB>>;
@@ -21,6 +25,7 @@ let adminEmailSettingsRoute: typeof import("@/app/api/admin/settings/email/route
 let adminReservationsRoute: typeof import("@/app/api/admin/reservations/route");
 let adminReservationRoute: typeof import("@/app/api/admin/reservations/[id]/route");
 let feedbackCronRoute: typeof import("@/app/api/platform/cron/feedback-requests/route");
+let reminderCronRoute: typeof import("@/app/api/platform/cron/reminder-emails/route");
 let emailLogStore: typeof import("@/lib/reservations/email-log-store");
 let store: typeof import("@/lib/reservations/store");
 let auth: typeof import("@/lib/reservations/auth");
@@ -75,6 +80,7 @@ beforeAll(async () => {
   adminReservationsRoute = await import("@/app/api/admin/reservations/route");
   adminReservationRoute = await import("@/app/api/admin/reservations/[id]/route");
   feedbackCronRoute = await import("@/app/api/platform/cron/feedback-requests/route");
+  reminderCronRoute = await import("@/app/api/platform/cron/reminder-emails/route");
 
   const { getTenantStore, resetTenantStore } = await import("@/lib/reservations/tenant-store");
   const { hashPassword, templateSettings } = await import("@/lib/reservations/tenant");
@@ -122,6 +128,7 @@ beforeEach(async () => {
     allowedOrigins: [marketingOrigin],
   });
   sendFeedbackRequestEmail.mockClear();
+  sendReservationReminderEmail.mockClear();
 });
 
 async function makeCompleted(email = "guest@x.io") {
@@ -541,6 +548,50 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     const json = await cronRes.json();
     expect(json).toMatchObject({ ok: true, processed: 1, sent: 1, failed: 0 });
     expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
+  });
+
+  it("sends due reservation reminders from the platform cron once", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-12T10:30:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true, reservationReminder: true, cancellationConfirmation: true },
+      reminderLeadHours: 2,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    const r = await s.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Reminder Guest", email: "reminder@x.io", phone: "1", status: "confirmed",
+    });
+
+    const first = await reminderCronRoute.POST(req("/api/platform/cron/reminder-emails", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ ok: true, processed: 1, sent: 1, failed: 0 });
+    expect(sendReservationReminderEmail).toHaveBeenCalledOnce();
+    expect(sendReservationReminderEmail).toHaveBeenCalledWith(expect.objectContaining({ id: r.id }), expect.anything(), expect.anything(), expect.anything());
+    await emailLogStore.recordEmailAttempt({
+      tenantId,
+      reservationId: r.id,
+      type: "reservationReminder",
+      status: "sent",
+      toEmail: r.email,
+    });
+
+    const second = await reminderCronRoute.POST(req("/api/platform/cron/reminder-emails", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+    expect(second.status).toBe(200);
+    expect(await second.json()).toMatchObject({ ok: true, processed: 1, sent: 0, failed: 0 });
+    expect(sendReservationReminderEmail).toHaveBeenCalledOnce();
   });
 });
 

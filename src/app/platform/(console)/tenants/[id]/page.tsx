@@ -20,13 +20,16 @@ type Form = {
   name: string; url: string; contactEmail: string; contactPhone: string;
   reviewUrl: string;
   locale: string; timezone: string; autoConfirm: boolean; emailEnabled: boolean;
-  emailBookingConfirmation: boolean; emailFeedbackRequest: boolean; feedbackRequestDelayHours: string;
+  emailBookingConfirmation: boolean; emailFeedbackRequest: boolean; emailReservationReminder: boolean; emailCancellationConfirmation: boolean;
+  feedbackRequestDelayHours: string; reminderLeadHours: string;
   themePrimary: string; themeOnPrimary: string; logoUrl: string;
   allowedOrigins: string;
   smtpHost: string; smtpPort: string; smtpSecure: boolean; smtpUser: string; smtpFrom: string; smtpPass: string;
   calendarEventTitle: string;
   confirmSubject: string; confirmText: string; confirmHtml: string;
   feedbackSubject: string; feedbackText: string; feedbackHtml: string;
+  reminderSubject: string; reminderText: string; reminderHtml: string;
+  cancellationSubject: string; cancellationText: string; cancellationHtml: string;
 };
 
 type TheForkView = {
@@ -144,6 +147,8 @@ function toForm(t: TenantView): Form {
   const s = t.settings;
   const ct = s.emailTemplates?.confirmation;
   const ft = s.emailTemplates?.feedbackRequest;
+  const rt = s.emailTemplates?.reminder;
+  const xt = s.emailTemplates?.cancellation;
   const feedbackRequestEnabled = s.emailEvents?.feedbackRequest ?? s.feedbackEnabled ?? false;
   return {
     name: s.name, url: s.url, contactEmail: s.contactEmail, contactPhone: s.contactPhone,
@@ -151,7 +156,10 @@ function toForm(t: TenantView): Form {
     locale: s.locale, timezone: s.timezone, autoConfirm: s.autoConfirm, emailEnabled: s.emailEnabled,
     emailBookingConfirmation: s.emailEvents?.bookingConfirmation ?? true,
     emailFeedbackRequest: feedbackRequestEnabled,
+    emailReservationReminder: s.emailEvents?.reservationReminder ?? true,
+    emailCancellationConfirmation: s.emailEvents?.cancellationConfirmation ?? true,
     feedbackRequestDelayHours: String(s.feedbackRequestDelayHours ?? 0),
+    reminderLeadHours: String(s.reminderLeadHours ?? 24),
     themePrimary: s.theme?.primary ?? "", themeOnPrimary: s.theme?.onPrimary ?? "",
     logoUrl: s.logoUrl ?? "",
     allowedOrigins: (s.allowedOrigins ?? []).join("\n"),
@@ -160,6 +168,8 @@ function toForm(t: TenantView): Form {
     calendarEventTitle: s.calendarEventTitle ?? "",
     confirmSubject: ct?.subject ?? "", confirmText: ct?.text ?? "", confirmHtml: ct?.html ?? "",
     feedbackSubject: ft?.subject ?? "", feedbackText: ft?.text ?? "", feedbackHtml: ft?.html ?? "",
+    reminderSubject: rt?.subject ?? "", reminderText: rt?.text ?? "", reminderHtml: rt?.html ?? "",
+    cancellationSubject: xt?.subject ?? "", cancellationText: xt?.text ?? "", cancellationHtml: xt?.html ?? "",
   };
 }
 
@@ -265,8 +275,11 @@ export default function TenantDetail() {
         emailEvents: {
           bookingConfirmation: f.emailBookingConfirmation,
           feedbackRequest: f.emailFeedbackRequest,
+          reservationReminder: f.emailReservationReminder,
+          cancellationConfirmation: f.emailCancellationConfirmation,
         },
         feedbackRequestDelayHours: Number(f.feedbackRequestDelayHours) || 0,
+        reminderLeadHours: Number(f.reminderLeadHours) || 0,
         feedbackEnabled: f.emailFeedbackRequest,
         calendarEventTitle: f.calendarEventTitle || undefined,
         theme: { primary: f.themePrimary || undefined, onPrimary: f.themeOnPrimary || undefined },
@@ -282,10 +295,14 @@ export default function TenantDetail() {
       }
       const hasConfirm = f.confirmSubject || f.confirmText || f.confirmHtml;
       const hasFeedback = f.feedbackSubject || f.feedbackText || f.feedbackHtml;
-      if (hasConfirm || hasFeedback) {
+      const hasReminder = f.reminderSubject || f.reminderText || f.reminderHtml;
+      const hasCancellation = f.cancellationSubject || f.cancellationText || f.cancellationHtml;
+      if (hasConfirm || hasFeedback || hasReminder || hasCancellation) {
         settings.emailTemplates = {
           ...(hasConfirm ? { confirmation: { subject: f.confirmSubject, textBase64: encodeBase64Utf8(f.confirmText), htmlBase64: encodeBase64Utf8(f.confirmHtml) } } : {}),
           ...(hasFeedback ? { feedbackRequest: { subject: f.feedbackSubject, textBase64: encodeBase64Utf8(f.feedbackText), htmlBase64: encodeBase64Utf8(f.feedbackHtml) } } : {}),
+          ...(hasReminder ? { reminder: { subject: f.reminderSubject, textBase64: encodeBase64Utf8(f.reminderText), htmlBase64: encodeBase64Utf8(f.reminderHtml) } } : {}),
+          ...(hasCancellation ? { cancellation: { subject: f.cancellationSubject, textBase64: encodeBase64Utf8(f.cancellationText), htmlBase64: encodeBase64Utf8(f.cancellationHtml) } } : {}),
         };
       }
       const res = await platformFetch(`/api/platform/tenants/${id}`, {
@@ -905,7 +922,7 @@ export default function TenantDetail() {
               <input
                 className={field}
                 type="number"
-                min="0"
+                min="1"
                 max="720"
                 step="1"
                 disabled={!f.emailEnabled || !f.emailFeedbackRequest}
@@ -914,6 +931,39 @@ export default function TenantDetail() {
                 placeholder="0"
               />
             </label>
+          </div>
+          <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/70 p-3 space-y-3">
+            <Check
+              label={am.platform.tenant.emailReservationReminder}
+              v={f.emailReservationReminder}
+              on={(v) => set("emailReservationReminder", v)}
+              disabled={!f.emailEnabled}
+            />
+            <label className="block">
+              <span className="text-xs text-on-surface-variant">{am.platform.tenant.reminderLead}</span>
+              <input
+                className={field}
+                type="number"
+                min="1"
+                max="720"
+                step="1"
+                disabled={!f.emailEnabled || !f.emailReservationReminder}
+                value={f.reminderLeadHours}
+                onChange={(e) => set("reminderLeadHours", e.target.value)}
+                placeholder="24"
+              />
+            </label>
+          </div>
+          <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high/70 p-3 space-y-2">
+            <Check
+              label={am.platform.tenant.emailCancellationConfirmation}
+              v={f.emailCancellationConfirmation}
+              on={(v) => set("emailCancellationConfirmation", v)}
+              disabled={!f.emailEnabled}
+            />
+            <p className="text-xs text-on-surface-variant">
+              {am.platform.tenant.cancellationHint}
+            </p>
           </div>
         </div>
       </section>
@@ -1022,6 +1072,66 @@ export default function TenantDetail() {
                 rows={6}
                 value={f.feedbackHtml}
                 onChange={(e) => set("feedbackHtml", e.target.value)}
+                placeholder="<!DOCTYPE html>…"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Reminder */}
+        <div className="space-y-3 pt-2 border-t border-outline-variant/20">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant pt-1">{am.platform.tenant.reminderTpl}</h3>
+          <div className="space-y-2">
+            <Field label={am.platform.tenant.subject} v={f.reminderSubject} on={(v) => set("reminderSubject", v)} placeholder="Reminder: your reservation at {{restaurantName}}" />
+            <TemplateArea label={am.platform.tenant.plainText} v={f.reminderText} on={(v) => set("reminderText", v)} rows={5} placeholder="Hi {{guestName}}, this is a reminder for {{date}} at {{time}}. Reference {{reference}}" />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-on-surface-variant">{am.platform.tenant.htmlBody}</span>
+                {f.reminderHtml && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewHtml(renderPreview(f.reminderHtml))}
+                    className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
+                  >
+                    <EyeIcon /> {am.platform.tenant.preview}
+                  </button>
+                )}
+              </div>
+              <textarea
+                className={`${field} resize-y font-mono text-xs`}
+                rows={6}
+                value={f.reminderHtml}
+                onChange={(e) => set("reminderHtml", e.target.value)}
+                placeholder="<!DOCTYPE html>…"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Cancellation */}
+        <div className="space-y-3 pt-2 border-t border-outline-variant/20">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant pt-1">{am.platform.tenant.cancellationTpl}</h3>
+          <div className="space-y-2">
+            <Field label={am.platform.tenant.subject} v={f.cancellationSubject} on={(v) => set("cancellationSubject", v)} placeholder="Your reservation at {{restaurantName}} has been cancelled" />
+            <TemplateArea label={am.platform.tenant.plainText} v={f.cancellationText} on={(v) => set("cancellationText", v)} rows={5} placeholder="Hi {{guestName}}, your reservation {{reference}} has been cancelled." />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-on-surface-variant">{am.platform.tenant.htmlBody}</span>
+                {f.cancellationHtml && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewHtml(renderPreview(f.cancellationHtml))}
+                    className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
+                  >
+                    <EyeIcon /> {am.platform.tenant.preview}
+                  </button>
+                )}
+              </div>
+              <textarea
+                className={`${field} resize-y font-mono text-xs`}
+                rows={6}
+                value={f.cancellationHtml}
+                onChange={(e) => set("cancellationHtml", e.target.value)}
                 placeholder="<!DOCTYPE html>…"
               />
             </div>

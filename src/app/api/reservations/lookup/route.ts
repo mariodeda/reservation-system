@@ -12,12 +12,17 @@ import { log } from "@/lib/observability/logger";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
 import { observePublicRoute } from "@/lib/observability/route-events";
+import { emitReservation } from "@/lib/reservations/events";
+import { createAndEmitTenantNotification } from "@/lib/reservations/notifications";
+import { sendCancellationEmail } from "@/lib/reservations/email";
 
 export const runtime = "nodejs";
 
 const LOOKUP_WINDOW_MS = 600_000;
 const LOOKUP_MAX_ATTEMPTS = 5;
 const LOOKUP_MIN_SUBMIT_MS = 1_500;
+const MUTATION_WINDOW_MS = 600_000;
+const MUTATION_MAX_ATTEMPTS = 5;
 const fakeLookupOk = () => NextResponse.json({ reservations: [] }, { status: 200 });
 
 /** CORS preflight for cross-origin marketing sites. */
@@ -219,19 +224,6 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
     );
   }
 
-  if (!(await rateLimit(`lookup-${action}:${tenant.id}:${clientIp(req)}`, 5, 600_000))) {
-    await recordAppEvent(eventFromRequest(obs, {
-      level: "warn",
-      event: `public.lookup.${action}.rate_limited.ip`,
-      status: 429,
-      reason: "ip",
-    }));
-    return NextResponse.json(
-      { error: "Too many requests. Please try again later." },
-      { status: 429 },
-    );
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -244,6 +236,31 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
     return NextResponse.json(
       { error: "Email, phone number and booking reference are required." },
       { status: 400 },
+    );
+  }
+
+  const normEmail = normalizeEmail(email);
+  const normPhone = normalizePhone(phone);
+  const mutationRateChecks = [
+    rateLimit(`lookup-${action}:${tenant.id}:${clientIp(req)}`, MUTATION_MAX_ATTEMPTS, MUTATION_WINDOW_MS),
+    normEmail ? rateLimit(`lookup-${action}-email:${tenant.id}:${normEmail}`, MUTATION_MAX_ATTEMPTS, MUTATION_WINDOW_MS) : Promise.resolve(true),
+    normPhone ? rateLimit(`lookup-${action}-phone:${tenant.id}:${normPhone}`, MUTATION_MAX_ATTEMPTS, MUTATION_WINDOW_MS) : Promise.resolve(true),
+    normEmail && normPhone
+      ? rateLimit(`lookup-${action}-contact:${tenant.id}:${normEmail}:${normPhone}:${reference}`, MUTATION_MAX_ATTEMPTS, MUTATION_WINDOW_MS)
+      : Promise.resolve(true),
+  ];
+  const mutationRateResults = await Promise.all(mutationRateChecks);
+  if (mutationRateResults.some((ok) => !ok)) {
+    const reason = ["ip", "email", "phone", "contact_reference"][mutationRateResults.findIndex((ok) => !ok)] ?? "unknown";
+    await recordAppEvent(eventFromRequest(obs, {
+      level: "warn",
+      event: `public.lookup.${action}.rate_limited.${reason}`,
+      status: 429,
+      reason,
+    }));
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 },
     );
   }
 
@@ -294,6 +311,46 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
 
     if (action === "cancel") {
       const updated = await store.updateReservation(reservation.id, { status: "cancelled" });
+      if (updated) {
+        emitReservation({
+          type: "reservation.updated",
+          tenantId: tenant.id,
+          id: updated.id,
+          name: updated.name,
+          partySize: updated.partySize,
+          date: updated.date,
+          time: updated.time,
+          service: updated.service,
+          offering: updated.offering ?? "main",
+          status: updated.status,
+          source: "web",
+        });
+        await createAndEmitTenantNotification({
+          tenantId: tenant.id,
+          type: "reservation.updated",
+          severity: "warning",
+          title: "Online reservation cancelled",
+          body: `${updated.name} - ${updated.partySize} guest${updated.partySize === 1 ? "" : "s"} - ${updated.date} ${updated.time} - Status: Cancelled`,
+          source: "web",
+          reservationId: updated.id,
+          reference: referenceOf(updated.id),
+          dedupeKey: `reservation.web.cancelled:${updated.id}`,
+          metadata: {
+            reservation: {
+              id: updated.id,
+              name: updated.name,
+              partySize: updated.partySize,
+              date: updated.date,
+              time: updated.time,
+              service: updated.service,
+              offering: updated.offering ?? "main",
+              status: updated.status,
+              source: "web",
+            },
+          },
+        });
+        await sendCancellationEmail(updated, tenant, undefined, config);
+      }
       await recordAppEvent(eventFromRequest(obs, {
         level: "info",
         event: "public.lookup.cancelled",

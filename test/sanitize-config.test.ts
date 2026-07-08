@@ -134,6 +134,42 @@ describe("sanitizeConfig", () => {
     expect(sanitizeConfig({ turnMinutes: 5 }).turnMinutes).toBe(15); // clamped up
     expect(sanitizeConfig({ turnMinutes: 99999 }).turnMinutes).toBe(1440); // clamped down
   });
+  it("sanitizes capacity mode and slot capacity overrides", () => {
+    const cfg = sanitizeConfig({
+      capacityMode: "manual",
+      slotCapacityOverrides: {
+        "2026-06-12": {
+          main: {
+            dinner: {
+              "18:00": 35,
+              bad: 99,
+            },
+          },
+        },
+        bad: { main: { dinner: { "18:00": 10 } } },
+      },
+      forwardSlotCapacityOverrides: {
+        main: {
+          dinner: {
+            "18:00": [
+              { effectiveFrom: "2026-06-12", capacity: 30 },
+              { effectiveFrom: "bad", capacity: 10 },
+              { effectiveFrom: "2026-06-19", capacity: 999999 },
+            ],
+            bad: [{ effectiveFrom: "2026-06-12", capacity: 10 }],
+          },
+        },
+      },
+    });
+    expect(cfg.capacityMode).toBe("manual");
+    expect(cfg.slotCapacityOverrides?.["2026-06-12"].main.dinner["18:00"]).toBe(35);
+    expect(cfg.slotCapacityOverrides?.bad).toBeUndefined();
+    expect(cfg.forwardSlotCapacityOverrides?.main.dinner["18:00"]).toEqual([
+      { effectiveFrom: "2026-06-12", capacity: 30 },
+      { effectiveFrom: "2026-06-19", capacity: 100000 },
+    ]);
+    expect(sanitizeConfig({ capacityMode: "other" as never }).capacityMode).toBe("tables");
+  });
   it("provides defaults for an empty config", () => {
     const cfg = sanitizeConfig({});
     expect(cfg.bookingWindowDays).toBe(60);

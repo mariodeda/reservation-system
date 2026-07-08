@@ -39,8 +39,9 @@ export interface TenantView {
     timezone: string;
     autoConfirm: boolean;
     emailEnabled: boolean;
-    emailEvents?: { bookingConfirmation?: boolean; feedbackRequest?: boolean };
+    emailEvents?: { bookingConfirmation?: boolean; feedbackRequest?: boolean; reservationReminder?: boolean; cancellationConfirmation?: boolean };
     feedbackRequestDelayHours?: number;
+    reminderLeadHours?: number;
     feedbackEnabled?: boolean;
     emailFrom?: string;
     calendarEventTitle?: string;
@@ -52,6 +53,8 @@ export interface TenantView {
     emailTemplates?: {
       confirmation?: { subject: string; text: string; html: string };
       feedbackRequest?: { subject: string; text: string; html: string };
+      reminder?: { subject: string; text: string; html: string };
+      cancellation?: { subject: string; text: string; html: string };
     };
   };
   smtpHealth: {
@@ -109,7 +112,7 @@ export interface PlatformLogsResponse {
   tenants: PlatformLogTenant[];
 }
 
-export type PlatformEmailLogType = "bookingConfirmation" | "feedbackRequest";
+export type PlatformEmailLogType = "bookingConfirmation" | "feedbackRequest" | "reservationReminder" | "cancellationConfirmation";
 export type PlatformEmailLogStatus = "sent" | "failed" | "skipped";
 
 export interface PlatformEmailLogEntry {

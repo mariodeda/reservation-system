@@ -44,7 +44,7 @@ export interface AdminReservation {
 }
 
 /** The transactional email kinds we track per reservation. */
-export type EmailType = "bookingConfirmation" | "feedbackRequest";
+export type EmailType = "bookingConfirmation" | "feedbackRequest" | "reservationReminder" | "cancellationConfirmation";
 
 /** At-a-glance latest send outcome for one email type. */
 export interface EmailStatus {

@@ -16,7 +16,11 @@ beforeEach(() => {
 
 describe("tenant settings page", () => {
   it("disables feedback auto-send when platform feedback emails are disabled", async () => {
-    adminJson.mockResolvedValueOnce({ feedbackRequestsEnabled: false, feedbackAutoSendEnabled: true });
+    adminJson.mockImplementation((url: string) => {
+      if (url === "/api/admin/settings/email") return Promise.resolve({ feedbackRequestsEnabled: false, feedbackAutoSendEnabled: true });
+      if (url === "/api/admin/settings/capacity") return Promise.resolve({ capacityMode: "tables" });
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
     render(<SettingsPage />);
 
     expect(await screen.findByText("Email preferences")).toBeInTheDocument();
@@ -26,9 +30,14 @@ describe("tenant settings page", () => {
 
   it("saves the feedback auto-send preference when enabled", async () => {
     const user = userEvent.setup();
-    adminJson
-      .mockResolvedValueOnce({ feedbackRequestsEnabled: true, feedbackAutoSendEnabled: true })
-      .mockResolvedValueOnce({ feedbackRequestsEnabled: true, feedbackAutoSendEnabled: false });
+    adminJson.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/admin/settings/email" && init?.method === "PATCH") {
+        return Promise.resolve({ feedbackRequestsEnabled: true, feedbackAutoSendEnabled: false });
+      }
+      if (url === "/api/admin/settings/email") return Promise.resolve({ feedbackRequestsEnabled: true, feedbackAutoSendEnabled: true });
+      if (url === "/api/admin/settings/capacity") return Promise.resolve({ capacityMode: "tables" });
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
     render(<SettingsPage />);
 
     const toggle = await screen.findByRole("checkbox", { name: /automatically send review emails/i });
@@ -41,5 +50,27 @@ describe("tenant settings page", () => {
       })),
     );
     expect(toast).toHaveBeenCalledWith("Email preferences saved.");
+  });
+
+  it("saves the tenant capacity mode preference", async () => {
+    const user = userEvent.setup();
+    adminJson.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/admin/settings/email") return Promise.resolve({ feedbackRequestsEnabled: true, feedbackAutoSendEnabled: true });
+      if (url === "/api/admin/settings/capacity" && init?.method === "PATCH") return Promise.resolve({ capacityMode: "manual" });
+      if (url === "/api/admin/settings/capacity") return Promise.resolve({ capacityMode: "tables" });
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
+    render(<SettingsPage />);
+
+    const manual = await screen.findByRole("radio", { name: /use manual slot capacity/i });
+    await user.click(manual);
+
+    await waitFor(() =>
+      expect(adminJson).toHaveBeenCalledWith("/api/admin/settings/capacity", expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ capacityMode: "manual" }),
+      })),
+    );
+    expect(toast).toHaveBeenCalledWith("Capacity preferences saved.");
   });
 });

@@ -125,6 +125,38 @@ export function serviceSlotCapacity(
     .reduce((sum, t) => sum + t.capacity, 0);
 }
 
+export function manualSlotCapacity(
+  config: AvailabilityConfig,
+  service: ServiceWindow,
+  offeringId: OfferingId,
+  serviceId: ServiceId,
+  date: string,
+  time: string,
+): number {
+  const dated = config.slotCapacityOverrides?.[date]?.[offeringId]?.[serviceId]?.[time];
+  if (typeof dated === "number") return dated;
+  const forward = config.forwardSlotCapacityOverrides?.[offeringId]?.[serviceId]?.[time] ?? [];
+  const effective = [...forward]
+    .filter((entry) => entry.effectiveFrom <= date)
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+  return effective?.capacity ?? service.capacity;
+}
+
+export function effectiveSlotCapacity(
+  config: AvailabilityConfig,
+  service: ServiceWindow,
+  offeringId: OfferingId,
+  serviceId: ServiceId,
+  date: string,
+  time: string,
+  tables?: RestaurantTable[],
+): number {
+  if (config.capacityMode === "manual") {
+    return manualSlotCapacity(config, service, offeringId, serviceId, date, time);
+  }
+  return serviceSlotCapacity(service, offeringId, tables);
+}
+
 export const DEFAULT_TURN_MINUTES = 120;
 
 /**
@@ -204,7 +236,7 @@ export function getDayAvailability(
   const beyondWindow = dateStr > addDays(now.dateStr, config.bookingWindowDays);
 
   if (closed || beyondWindow || (dayPast && !options.includePastSlots)) {
-    return { date: dateStr, offering: resolvedId, closed, past: dayPast, full: false, services: [] };
+    return { date: dateStr, offering: resolvedId, capacityMode: config.capacityMode ?? "tables", closed, past: dayPast, full: false, services: [] };
   }
 
   const blocked = new Set(offering.blockedSlots[dateStr] ?? []);
@@ -216,7 +248,7 @@ export function getDayAvailability(
       label: w.label,
       turnMinutes,
       slots: generateSlots(w).map((time) => {
-        const capacity = serviceSlotCapacity(w, resolvedId, tables);
+        const capacity = effectiveSlotCapacity(config, w, resolvedId, w.id, dateStr, time, tables);
         const booked = bookedCoversForSlot(config, reservations, dateStr, time, resolvedId, w.id, turnMinutes);
         const remaining = Math.max(0, capacity - booked);
         const overbookedBy = Math.max(0, booked - capacity);
@@ -238,7 +270,7 @@ export function getDayAvailability(
   });
 
   const full = services.every((s) => s.slots.every((sl) => !sl.available));
-  return { date: dateStr, offering: resolvedId, closed: false, past: dayPast, full, services };
+  return { date: dateStr, offering: resolvedId, capacityMode: config.capacityMode ?? "tables", closed: false, past: dayPast, full, services };
 }
 
 /** Day status for a single offering (no past/window handling — caller does that). */
@@ -353,7 +385,7 @@ export function canBook(
 
   const candidateTurn = turnMinutesFor(config, offeringId, svc.id, input.date);
   const booked = bookedCoversForSlot(config, reservations, input.date, input.time, offeringId, svc.id, candidateTurn);
-  const capacity = serviceSlotCapacity(svc, offeringId, tables);
+  const capacity = effectiveSlotCapacity(config, svc, offeringId, svc.id, input.date, input.time, tables);
   const remaining = capacity - booked;
   if (input.partySize > remaining) {
     if (remaining <= 0)

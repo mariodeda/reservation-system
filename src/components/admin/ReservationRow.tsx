@@ -799,7 +799,7 @@ function EditForm({
 
 /* ----------------------------- email tracking ----------------------------- */
 
-const EMAIL_TYPES: EmailType[] = ["bookingConfirmation", "feedbackRequest"];
+const EMAIL_TYPES: EmailType[] = ["bookingConfirmation", "feedbackRequest", "reservationReminder", "cancellationConfirmation"];
 
 interface EmailLogEntry {
   id: string;
@@ -812,7 +812,10 @@ interface EmailLogEntry {
 }
 
 function emailTypeLabel(t: EmailType): string {
-  return t === "bookingConfirmation" ? am.email.confirmation : am.email.feedbackRequest;
+  if (t === "bookingConfirmation") return am.email.confirmation;
+  if (t === "feedbackRequest") return am.email.feedbackRequest;
+  if (t === "reservationReminder") return am.email.reminder;
+  return am.email.cancellation;
 }
 
 function reasonLabel(reason?: string): string | undefined {

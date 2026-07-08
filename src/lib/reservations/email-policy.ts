@@ -1,15 +1,23 @@
 import type { Reservation } from "./types";
 import type { TenantSettings } from "./tenant";
 
-export type TenantEmailEvent = "bookingConfirmation" | "feedbackRequest";
+export type TenantEmailEvent = "bookingConfirmation" | "feedbackRequest" | "reservationReminder" | "cancellationConfirmation";
 
 const DEFAULT_FEEDBACK_DELAY_HOURS = 0;
+const DEFAULT_REMINDER_LEAD_HOURS = 24;
 export const MAX_FEEDBACK_DELAY_HOURS = 24 * 30;
+export const MAX_REMINDER_LEAD_HOURS = 24 * 30;
 
 export function normalizeFeedbackRequestDelayHours(value: unknown): number {
   const n = Math.trunc(Number(value));
   if (!Number.isFinite(n) || n < 0) return DEFAULT_FEEDBACK_DELAY_HOURS;
   return Math.min(MAX_FEEDBACK_DELAY_HOURS, n);
+}
+
+export function normalizeReminderLeadHours(value: unknown): number {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_REMINDER_LEAD_HOURS;
+  return Math.min(MAX_REMINDER_LEAD_HOURS, n);
 }
 
 /**
@@ -71,6 +79,16 @@ function localNowMinutes(timezone: string, now: Date): number | null {
   return day === null || minutes === null ? null : day + minutes;
 }
 
+export function reservationLocalMinutes(reservation: Reservation): number | null {
+  const day = dateOrdinal(reservation.date);
+  const minutes = timeMinutes(reservation.time);
+  return day === null || minutes === null ? null : day + minutes;
+}
+
+export function localNowOrdinalMinutes(timezone: string, now = new Date()): number | null {
+  return localNowMinutes(timezone, now);
+}
+
 export function isFeedbackRequestDue(
   reservation: Reservation,
   settings: TenantSettings,
@@ -82,4 +100,17 @@ export function isFeedbackRequestDue(
   if (day === null || minutes === null || nowLocal === null) return true;
   const delayMinutes = normalizeFeedbackRequestDelayHours(settings.feedbackRequestDelayHours) * 60;
   return nowLocal >= day + minutes + delayMinutes;
+}
+
+export function isReservationReminderDue(
+  reservation: Reservation,
+  settings: TenantSettings,
+  now = new Date(),
+): boolean {
+  if (reservation.status !== "pending" && reservation.status !== "confirmed") return false;
+  const start = reservationLocalMinutes(reservation);
+  const nowLocal = localNowMinutes(settings.timezone, now);
+  if (start === null || nowLocal === null) return true;
+  const leadMinutes = normalizeReminderLeadHours(settings.reminderLeadHours) * 60;
+  return nowLocal >= start - leadMinutes && nowLocal < start;
 }

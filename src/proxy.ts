@@ -27,6 +27,7 @@ function hasBounceAuth(req: NextRequest): boolean {
 function isCronEndpoint(pathname: string): boolean {
   return pathname === "/api/platform/cron/smtp-health" ||
     pathname === "/api/platform/cron/feedback-requests" ||
+    pathname === "/api/platform/cron/reminder-emails" ||
     pathname === "/api/platform/cron/dish-sync";
 }
 

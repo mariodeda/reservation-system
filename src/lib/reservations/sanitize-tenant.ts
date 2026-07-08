@@ -5,7 +5,7 @@
  * SMTP validated.
  */
 import type { EmailTemplate, TenantSettings, TenantSmtp } from "./tenant";
-import { normalizeFeedbackRequestDelayHours } from "./email-policy";
+import { normalizeFeedbackRequestDelayHours, normalizeReminderLeadHours } from "./email-policy";
 
 const str = (v: unknown, max: number, dflt = ""): string =>
   typeof v === "string" ? v.slice(0, max) : dflt;
@@ -120,10 +120,14 @@ function sanitizeTemplate(input: unknown): TenantSettings["emailTemplates"] | un
   const obj = input as Record<string, unknown>;
   const confirmation = parseTemplate(obj.confirmation);
   const feedbackRequest = parseTemplate(obj.feedbackRequest);
-  if (!confirmation && !feedbackRequest) return undefined;
+  const reminder = parseTemplate(obj.reminder);
+  const cancellation = parseTemplate(obj.cancellation);
+  if (!confirmation && !feedbackRequest && !reminder && !cancellation) return undefined;
   return {
     ...(confirmation ? { confirmation } : {}),
     ...(feedbackRequest ? { feedbackRequest } : {}),
+    ...(reminder ? { reminder } : {}),
+    ...(cancellation ? { cancellation } : {}),
   } as TenantSettings["emailTemplates"];
 }
 
@@ -134,6 +138,8 @@ function sanitizeEmailEvents(input: Partial<TenantSettings>): NonNullable<Tenant
   return {
     bookingConfirmation: eventInput.bookingConfirmation === undefined ? true : Boolean(eventInput.bookingConfirmation),
     feedbackRequest: Boolean(feedbackRequest),
+    reservationReminder: eventInput.reservationReminder === undefined ? true : Boolean(eventInput.reservationReminder),
+    cancellationConfirmation: eventInput.cancellationConfirmation === undefined ? true : Boolean(eventInput.cancellationConfirmation),
   };
 }
 
@@ -156,6 +162,7 @@ export function sanitizeTenantSettings(input: Partial<TenantSettings>): TenantSe
     emailEnabled: Boolean(input.emailEnabled),
     emailEvents,
     feedbackRequestDelayHours: normalizeFeedbackRequestDelayHours(input.feedbackRequestDelayHours),
+    reminderLeadHours: normalizeReminderLeadHours(input.reminderLeadHours),
     feedbackEnabled: emailEvents.feedbackRequest,
   };
   const emailFrom = str(input.emailFrom, 200).trim();

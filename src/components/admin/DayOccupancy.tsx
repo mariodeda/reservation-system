@@ -50,6 +50,8 @@ export default function DayOccupancy({
   const [day, setDay] = useState<DayAvailability | null>(null);
   const [error, setError] = useState(false);
   const [savingSlot, setSavingSlot] = useState<string | null>(null);
+  const [savingCapacity, setSavingCapacity] = useState(false);
+  const [capacityScope, setCapacityScope] = useState<"date" | "future">("date");
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -90,6 +92,33 @@ export default function DayOccupancy({
       toast(err instanceof Error ? err.message : am.availability.slotStopError, "error");
     } finally {
       setSavingSlot(null);
+    }
+  };
+
+  const saveSlotCapacity = async () => {
+    if (!selectedSlot || !day || day.capacityMode !== "manual") return;
+    setSavingCapacity(true);
+    try {
+      await adminJson("/api/admin/slot-capacity", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          date,
+          offering,
+          service: selectedSlot.service,
+          time: selectedSlot.time,
+          capacity: selectedSlot.capacity,
+          scope: capacityScope,
+        }),
+      });
+      await loadDay();
+      await onSlotStopChanged?.();
+      toast(am.availability.slotCapacitySaved);
+      setSelectedSlot(null);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : am.availability.slotCapacityError, "error");
+    } finally {
+      setSavingCapacity(false);
     }
   };
 
@@ -167,26 +196,30 @@ export default function DayOccupancy({
                 const title = `${s.time}: ${slotStatusLabel(s)}. ${status.label}`;
                 const blocked = s.unavailableReason === "blocked";
                 const canToggleStop = allowSlotStops && !ended && s.unavailableReason !== "service_disabled";
-                const hasActions = Boolean(onPickSlot || canToggleStop);
+                const canEditCapacity = day.capacityMode === "manual";
+                const hasActions = Boolean(onPickSlot || canToggleStop || canEditCapacity);
                 return (
                   <Tooltip key={s.time} content={title} className="w-full">
                     <button
                       type="button"
                       disabled={!hasActions}
-                      onClick={() => setSelectedSlot({
-                        service: svc.id,
-                        serviceLabel: svc.label,
-                        time: s.time,
-                        booked: s.booked,
-                        capacity: s.capacity,
-                        remaining: s.remaining,
-                        overbookedBy: s.overbookedBy ?? 0,
-                        statusLabel: status.label,
-                        blocked,
-                        available: s.available,
-                        ended,
-                        canToggleStop,
-                      })}
+                      onClick={() => {
+                        setCapacityScope("date");
+                        setSelectedSlot({
+                          service: svc.id,
+                          serviceLabel: svc.label,
+                          time: s.time,
+                          booked: s.booked,
+                          capacity: s.capacity,
+                          remaining: s.remaining,
+                          overbookedBy: s.overbookedBy ?? 0,
+                          statusLabel: status.label,
+                          blocked,
+                          available: s.available,
+                          ended,
+                          canToggleStop,
+                        });
+                      }}
                       aria-label={title}
                       className={`min-h-[72px] w-full rounded-lg border px-3 py-2 text-left tabular-nums transition-all ${status.className} ${hasActions ? "cursor-pointer hover:brightness-110 active:scale-[0.98]" : "cursor-default"}`}
                     >
@@ -303,6 +336,69 @@ export default function DayOccupancy({
                 </button>
               )}
               </div>
+
+              {day.capacityMode === "manual" && (
+                <div className="space-y-3 rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                      {am.availability.slotCapacityActions}
+                    </div>
+                    <p className="mt-1 text-xs text-on-surface-variant">{am.availability.slotCapacityEditHint}</p>
+                  </div>
+                  <label className="block">
+                    <span className="text-xs text-on-surface-variant">{am.availability.slotCapacityLabel}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={selectedSlot.capacity}
+                      onChange={(event) => setSelectedSlot((slot) =>
+                        slot ? { ...slot, capacity: Math.max(0, Math.trunc(Number(event.target.value)) || 0) } : slot,
+                      )}
+                      className="mt-1 h-9 w-full rounded-lg border border-outline-variant/30 bg-surface-container-high px-2 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className={`rounded-lg border px-3 py-2 text-sm ${capacityScope === "date" ? "border-primary/45 bg-primary/10" : "border-outline-variant/30 bg-surface-container-high"}`}>
+                      <span className="flex items-start gap-2">
+                        <input
+                          type="radio"
+                          name="slot-capacity-scope"
+                          checked={capacityScope === "date"}
+                          onChange={() => setCapacityScope("date")}
+                          className="mt-1 accent-primary"
+                        />
+                        <span>
+                          <span className="block font-semibold text-on-surface">{am.availability.slotCapacityToday}</span>
+                          <span className="block text-xs text-on-surface-variant">{am.availability.slotCapacityTodayHint}</span>
+                        </span>
+                      </span>
+                    </label>
+                    <label className={`rounded-lg border px-3 py-2 text-sm ${capacityScope === "future" ? "border-primary/45 bg-primary/10" : "border-outline-variant/30 bg-surface-container-high"}`}>
+                      <span className="flex items-start gap-2">
+                        <input
+                          type="radio"
+                          name="slot-capacity-scope"
+                          checked={capacityScope === "future"}
+                          onChange={() => setCapacityScope("future")}
+                          className="mt-1 accent-primary"
+                        />
+                        <span>
+                          <span className="block font-semibold text-on-surface">{am.availability.slotCapacityFuture}</span>
+                          <span className="block text-xs text-on-surface-variant">{am.availability.slotCapacityFutureHint}</span>
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingCapacity}
+                    onClick={() => void saveSlotCapacity()}
+                    className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition hover:brightness-105 disabled:opacity-60"
+                  >
+                    {savingCapacity ? am.availability.saving : am.availability.slotCapacitySave}
+                  </button>
+                </div>
+              )}
 
               {selectedSlot.canToggleStop && (
                 <div className="space-y-2 rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-3">

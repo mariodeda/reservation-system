@@ -10,9 +10,12 @@
  */
 import {
   type AvailabilityConfig,
+  type CapacityMode,
   type DaySchedule,
   DEFAULT_OFFERING_ID,
   type DisabledServices,
+  type DatedSlotCapacityOverrides,
+  type ForwardSlotCapacityOverrides,
   type Offering,
   type ServiceWindow,
 } from "./types";
@@ -103,6 +106,70 @@ function sanitizeDisabledServices(input: Partial<AvailabilityConfig>): DisabledS
   return Object.keys(out).length ? out : undefined;
 }
 
+function sanitizeCapacityMode(input: unknown): CapacityMode {
+  return input === "manual" ? "manual" : "tables";
+}
+
+function sanitizeDatedSlotCapacityOverrides(input: Partial<AvailabilityConfig>): DatedSlotCapacityOverrides | undefined {
+  const value = input.slotCapacityOverrides;
+  if (!value || typeof value !== "object") return undefined;
+  const out: DatedSlotCapacityOverrides = {};
+  for (const [date, byOffering] of Object.entries(value)) {
+    if (!isDate(date) || !byOffering || typeof byOffering !== "object") continue;
+    for (const [offeringId, byService] of Object.entries(byOffering)) {
+      if (!byService || typeof byService !== "object") continue;
+      const oid = String(offeringId).slice(0, 40);
+      for (const [serviceId, byTime] of Object.entries(byService)) {
+        if (!byTime || typeof byTime !== "object") continue;
+        const sid = String(serviceId).slice(0, 40);
+        for (const [time, rawCapacity] of Object.entries(byTime)) {
+          if (!isTime(time)) continue;
+          const capacity = clamp(rawCapacity, 0, 100000, 20);
+          out[date] ??= {};
+          out[date][oid] ??= {};
+          out[date][oid][sid] ??= {};
+          out[date][oid][sid][time] = capacity;
+        }
+      }
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function sanitizeForwardSlotCapacityOverrides(input: Partial<AvailabilityConfig>): ForwardSlotCapacityOverrides | undefined {
+  const value = input.forwardSlotCapacityOverrides;
+  if (!value || typeof value !== "object") return undefined;
+  const out: ForwardSlotCapacityOverrides = {};
+  for (const [offeringId, byService] of Object.entries(value)) {
+    if (!byService || typeof byService !== "object") continue;
+    const oid = String(offeringId).slice(0, 40);
+    for (const [serviceId, byTime] of Object.entries(byService)) {
+      if (!byTime || typeof byTime !== "object") continue;
+      const sid = String(serviceId).slice(0, 40);
+      for (const [time, rawEntries] of Object.entries(byTime)) {
+        if (!isTime(time) || !Array.isArray(rawEntries)) continue;
+        const entries = rawEntries
+          .filter((entry): entry is { effectiveFrom: string; capacity: number } =>
+            Boolean(entry) &&
+            typeof entry === "object" &&
+            isDate((entry as { effectiveFrom?: unknown }).effectiveFrom),
+          )
+          .map((entry) => ({
+            effectiveFrom: String(entry.effectiveFrom),
+            capacity: clamp(entry.capacity, 0, 100000, 20),
+          }))
+          .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
+          .slice(-120);
+        if (!entries.length) continue;
+        out[oid] ??= {};
+        out[oid][sid] ??= {};
+        out[oid][sid][time] = entries;
+      }
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function sanitizeConfig(input: Partial<AvailabilityConfig>): AvailabilityConfig {
   // Build the canonical offerings array. If the input carries offerings, use
   // them; otherwise synthesize a single primary offering from the top-level
@@ -162,11 +229,16 @@ export function sanitizeConfig(input: Partial<AvailabilityConfig>): Availability
     closures,
     dateOverrides: primary.dateOverrides,
     blockedSlots: primary.blockedSlots,
+    capacityMode: sanitizeCapacityMode(input.capacityMode),
     offerings,
   };
   // Optional default table turn time; only persisted when explicitly set.
   if (input.turnMinutes != null) out.turnMinutes = clamp(input.turnMinutes, 15, 1440, 120);
   const disabledServices = sanitizeDisabledServices(input);
   if (disabledServices) out.disabledServices = disabledServices;
+  const slotCapacityOverrides = sanitizeDatedSlotCapacityOverrides(input);
+  if (slotCapacityOverrides) out.slotCapacityOverrides = slotCapacityOverrides;
+  const forwardSlotCapacityOverrides = sanitizeForwardSlotCapacityOverrides(input);
+  if (forwardSlotCapacityOverrides) out.forwardSlotCapacityOverrides = forwardSlotCapacityOverrides;
   return out;
 }

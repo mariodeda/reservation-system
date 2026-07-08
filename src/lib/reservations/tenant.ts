@@ -36,6 +36,8 @@ export interface TenantSmtp {
 export interface TenantEmailEvents {
   bookingConfirmation: boolean;
   feedbackRequest: boolean;
+  reservationReminder?: boolean;
+  cancellationConfirmation?: boolean;
 }
 
 /** Per-tenant identity/branding. Stored as JSON on the tenant row. */
@@ -55,6 +57,8 @@ export interface TenantSettings {
   emailEvents?: TenantEmailEvents;
   /** Hours after reservation time before automatic feedback requests are sent. */
   feedbackRequestDelayHours?: number;
+  /** Hours before reservation time when automatic reminder emails become due. */
+  reminderLeadHours?: number;
   /** Tenant-owned opt-out for automatic post-visit feedback request sends. */
   feedbackAutoSendEnabled?: boolean;
   /** Optional explicit From header. */
@@ -72,7 +76,12 @@ export interface TenantSettings {
   /** Per-tenant SMTP. If absent, confirmation emails are skipped. */
   smtp?: TenantSmtp;
   /** Optional per-tenant templates; falls back to the platform default. */
-  emailTemplates?: { confirmation: EmailTemplate; feedbackRequest?: EmailTemplate };
+  emailTemplates?: {
+    confirmation?: EmailTemplate;
+    feedbackRequest?: EmailTemplate;
+    reminder?: EmailTemplate;
+    cancellation?: EmailTemplate;
+  };
   /** Legacy alias for the feedbackRequest/review-request email flow. */
   feedbackEnabled?: boolean;
   /**

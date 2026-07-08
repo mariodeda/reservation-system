@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   type AvailabilityConfig,
   type DaySchedule,
@@ -129,6 +130,7 @@ function useUnsavedChangesWarning(enabled: boolean, message: string) {
 }
 
 export default function AvailabilityPage() {
+  const { slug } = useParams<{ slug: string }>();
   const [config, setConfig] = useState<AvailabilityConfig | null>(null);
   const [activeId, setActiveId] = useState<string>(DEFAULT_OFFERING_ID);
   const [saving, setSaving] = useState(false);
@@ -213,6 +215,7 @@ export default function AvailabilityPage() {
   const offerings = config.offerings ?? [];
   const active = offerings.find((o) => o.id === activeId) ?? offerings[0];
   const globalTurnMinutes = config.turnMinutes ?? SYSTEM_TURN_MINUTES;
+  const manualCapacity = config.capacityMode === "manual";
 
   return (
     <div className="space-y-6 pb-24">
@@ -289,6 +292,22 @@ export default function AvailabilityPage() {
         </p>
       </section>
 
+      {!manualCapacity && (
+        <section className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-sm text-on-surface">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-on-surface-variant">
+              {am.availability.tableCapacityBanner}
+            </p>
+            <a
+              href={`/admin/${slug}/tables`}
+              className="inline-flex w-fit items-center rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10"
+            >
+              {am.availability.manageTables}
+            </a>
+          </div>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-6 items-start">
         {/* Weekly schedule — for the selected offering */}
         <section className="bg-surface-container border border-outline-variant/30 rounded-xl overflow-hidden">
@@ -311,32 +330,35 @@ export default function AvailabilityPage() {
                 }`}
               >
                 <div className={`flex items-center gap-3 px-4 py-3 lg:items-start lg:flex-col lg:gap-2 ${isOpen ? "" : "opacity-60"}`}>
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 lg:w-full lg:justify-between">
                     <span className="font-medium text-sm min-w-24 lg:min-w-0">{label}</span>
-                    <span className={`text-[11px] font-medium ${isOpen ? "text-on-surface" : "text-on-surface-variant"}`}>
-                      {isOpen ? am.availability.open : am.availability.closed}
+                    <span className="flex items-center gap-2">
+                      <span className={`text-[11px] font-medium ${isOpen ? "text-on-surface" : "text-on-surface-variant"}`}>
+                        {isOpen ? am.availability.open : am.availability.closed}
+                      </span>
+                      <button
+                        role="switch"
+                        aria-checked={isOpen}
+                        onClick={() =>
+                          updateOffering((o) => {
+                            const d = (o.weekly[i] ??= { closed: true, services: [] });
+                            d.closed = !d.closed;
+                            if (!d.closed && d.services.length === 0) d.services.push(defaultService());
+                          })
+                        }
+                        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors focus:outline-none ${isOpen ? "bg-primary" : "bg-outline-variant/50"}`}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 bg-surface-bright rounded-full shadow transition-all ${isOpen ? "left-[18px]" : "left-0.5"}`} />
+                      </button>
                     </span>
                   </div>
-                  <button
-                    role="switch"
-                    aria-checked={isOpen}
-                    onClick={() =>
-                      updateOffering((o) => {
-                        const d = (o.weekly[i] ??= { closed: true, services: [] });
-                        d.closed = !d.closed;
-                        if (!d.closed && d.services.length === 0) d.services.push(defaultService());
-                      })
-                    }
-                    className={`relative shrink-0 w-9 h-5 rounded-full transition-colors focus:outline-none ${isOpen ? "bg-primary" : "bg-outline-variant/50"}`}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-surface-bright rounded-full shadow transition-all ${isOpen ? "left-[18px]" : "left-0.5"}`} />
-                  </button>
                 </div>
                 <div className={`min-w-0 px-4 pb-4 lg:px-3 lg:py-3 ${isOpen ? "lg:border-l lg:border-outline-variant/10" : "hidden lg:block"}`}>
                   {isOpen ? (
                     <DayServicesEditor
                       services={day.services}
                       inheritedTurnMinutes={globalTurnMinutes}
+                      showCapacity={manualCapacity}
                       wide
                       mutate={(fn) => updateOffering((o) => fn((o.weekly[i] ??= { closed: false, services: [] })))}
                     />
@@ -638,15 +660,19 @@ function DayServicesEditor({
   services,
   mutate,
   inheritedTurnMinutes,
+  showCapacity = false,
   wide = false,
 }: {
   services: ServiceWindow[];
   mutate: (fn: (day: DaySchedule) => void) => void;
   inheritedTurnMinutes: number;
+  showCapacity?: boolean;
   wide?: boolean;
 }) {
   const wideColumns =
-    "lg:grid-cols-[minmax(6rem,1.25fr)_repeat(2,minmax(7.25rem,0.9fr))_minmax(4rem,0.65fr)_minmax(5.5rem,1fr)_auto]";
+    showCapacity
+      ? "lg:grid-cols-[minmax(6rem,1.15fr)_repeat(2,minmax(7.25rem,0.85fr))_minmax(4rem,0.6fr)_minmax(5rem,0.7fr)_minmax(5.5rem,0.9fr)_auto]"
+      : "lg:grid-cols-[minmax(6rem,1.25fr)_repeat(2,minmax(7.25rem,0.9fr))_minmax(4rem,0.65fr)_minmax(5.5rem,1fr)_auto]";
   return (
     <div className="space-y-2">
       {wide && services.length > 0 && (
@@ -655,6 +681,7 @@ function DayServicesEditor({
           <HeaderTip label={am.availability.serviceFrom} tip={am.availability.serviceFromHint} />
           <HeaderTip label={am.availability.serviceTo} tip={am.availability.serviceToHint} />
           <HeaderTip label={am.availability.serviceInterval} tip={am.availability.serviceIntervalHint} />
+          {showCapacity && <HeaderTip label={am.availability.serviceCapacity} tip={am.availability.serviceCapacityHint} />}
           <HeaderTip label={am.availability.serviceDuration} tip={am.availability.serviceDurationHint} />
           <HeaderTip label={am.availability.actions} tip={am.availability.actionsHint} />
         </div>
@@ -668,6 +695,9 @@ function DayServicesEditor({
           <TimeInp label={am.availability.serviceFrom} value={s.start} compact={wide} onChange={(v) => mutate((d) => (d.services[si].start = v))} />
           <TimeInp label={am.availability.serviceTo} value={s.end} compact={wide} onChange={(v) => mutate((d) => (d.services[si].end = v))} />
           <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-full" min={5} compact={wide} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
+          {showCapacity && (
+            <NumInp label={am.availability.serviceCapacity} value={s.capacity} w="w-full" min={0} compact={wide} onChange={(v) => mutate((d) => (d.services[si].capacity = v))} />
+          )}
           <label className="flex flex-col gap-1">
             <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${wide ? "lg:sr-only" : ""}`}>{am.availability.serviceDuration}</span>
             <select

@@ -80,7 +80,7 @@ describe("sanitizeTenantSettings", () => {
 
   it("accepts a complete email template, rejects a partial one", () => {
     const ok = sanitizeTenantSettings({ emailTemplates: { confirmation: { subject: "s", text: "t", html: "h" } } });
-    expect(ok.emailTemplates?.confirmation.subject).toBe("s");
+    expect(ok.emailTemplates?.confirmation?.subject).toBe("s");
     const partial = sanitizeTenantSettings({ emailTemplates: { confirmation: { subject: "s" } } as never });
     expect(partial.emailTemplates).toBeUndefined();
   });
@@ -141,17 +141,34 @@ describe("sanitizeTenantSettings", () => {
     const s = sanitizeTenantSettings({
       emailEvents: { bookingConfirmation: false, feedbackRequest: true },
     });
-    expect(s.emailEvents).toEqual({ bookingConfirmation: false, feedbackRequest: true });
+    expect(s.emailEvents).toEqual({
+      bookingConfirmation: false,
+      feedbackRequest: true,
+      reservationReminder: true,
+      cancellationConfirmation: true,
+    });
     expect(s.feedbackEnabled).toBe(true);
 
     const legacy = sanitizeTenantSettings({ feedbackEnabled: true });
-    expect(legacy.emailEvents).toEqual({ bookingConfirmation: true, feedbackRequest: true });
+    expect(legacy.emailEvents).toEqual({
+      bookingConfirmation: true,
+      feedbackRequest: true,
+      reservationReminder: true,
+      cancellationConfirmation: true,
+    });
   });
 
   it("clamps feedback request delay hours", () => {
     expect(sanitizeTenantSettings({ feedbackRequestDelayHours: 48 }).feedbackRequestDelayHours).toBe(48);
     expect(sanitizeTenantSettings({ feedbackRequestDelayHours: -1 }).feedbackRequestDelayHours).toBe(0);
     expect(sanitizeTenantSettings({ feedbackRequestDelayHours: 9999 }).feedbackRequestDelayHours).toBe(720);
+  });
+
+  it("clamps reminder lead hours", () => {
+    expect(sanitizeTenantSettings({ reminderLeadHours: 12 }).reminderLeadHours).toBe(12);
+    expect(sanitizeTenantSettings({ reminderLeadHours: 0 }).reminderLeadHours).toBe(24);
+    expect(sanitizeTenantSettings({ reminderLeadHours: -1 }).reminderLeadHours).toBe(24);
+    expect(sanitizeTenantSettings({ reminderLeadHours: 9999 }).reminderLeadHours).toBe(720);
   });
 
   it("length-caps strings", () => {

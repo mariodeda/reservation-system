@@ -252,4 +252,39 @@ describe("DayOccupancy", () => {
     expect(onChanged).toHaveBeenCalledOnce();
     expect(toast).toHaveBeenCalledWith("Slot booking state updated.");
   });
+
+  it("edits manual slot capacity from the slot actions modal", async () => {
+    const user = userEvent.setup();
+    adminJson
+      .mockResolvedValueOnce(day({ capacityMode: "manual" }))
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce(day({ capacityMode: "manual" }));
+
+    render(<DayOccupancy date="2099-06-12" offering="main" />);
+
+    await user.click(await screen.findByRole("button", { name: /12:00.*4\/10 covers in turn window/i }));
+    expect(screen.getByRole("dialog", { name: "Slot actions" })).toBeInTheDocument();
+    const capacity = screen.getByLabelText("Maximum covers for this slot") as HTMLInputElement;
+    expect(capacity.value).toBe("10");
+    await user.clear(capacity);
+    await user.type(capacity, "14");
+    expect(screen.getByRole("radio", { name: /today only/i })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /all days moving forward/i }));
+    await user.click(screen.getByRole("button", { name: "Save slot capacity" }));
+
+    await waitFor(() =>
+      expect(adminJson).toHaveBeenCalledWith("/api/admin/slot-capacity", expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          date: "2099-06-12",
+          offering: "main",
+          service: "lunch",
+          time: "12:00",
+          capacity: 14,
+          scope: "future",
+        }),
+      })),
+    );
+    expect(toast).toHaveBeenCalledWith("Slot capacity updated.");
+  });
 });

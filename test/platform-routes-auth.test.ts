@@ -7,6 +7,9 @@ vi.mock("@/lib/reservations/smtp-health", () => ({
 vi.mock("@/lib/reservations/feedback-automation", () => ({
   runDueFeedbackRequestCron: async () => [],
 }));
+vi.mock("@/lib/reservations/reminder-automation", () => ({
+  runDueReservationReminderCron: async () => [],
+}));
 vi.mock("@/lib/reservations/dish-sync", () => ({
   runDishSyncCron: async () => [],
 }));
@@ -30,6 +33,7 @@ let emailLogs: typeof import("@/app/api/platform/email-logs/route");
 let smtpManual: typeof import("@/app/api/platform/smtp-health/route");
 let smtpCron: typeof import("@/app/api/platform/cron/smtp-health/route");
 let feedbackCron: typeof import("@/app/api/platform/cron/feedback-requests/route");
+let reminderCron: typeof import("@/app/api/platform/cron/reminder-emails/route");
 let dishCron: typeof import("@/app/api/platform/cron/dish-sync/route");
 let bounces: typeof import("@/app/api/platform/bounces/route");
 let pauth: typeof import("@/lib/reservations/platform-auth");
@@ -54,6 +58,7 @@ beforeAll(async () => {
   smtpManual = await import("@/app/api/platform/smtp-health/route");
   smtpCron = await import("@/app/api/platform/cron/smtp-health/route");
   feedbackCron = await import("@/app/api/platform/cron/feedback-requests/route");
+  reminderCron = await import("@/app/api/platform/cron/reminder-emails/route");
   dishCron = await import("@/app/api/platform/cron/dish-sync/route");
   bounces = await import("@/app/api/platform/bounces/route");
   pauth = await import("@/lib/reservations/platform-auth");
@@ -139,6 +144,21 @@ describe("platform routes reject unauthenticated callers (401)", () => {
   it("feedback cron POST accepts the cron bearer secret", async () => {
     vi.stubEnv("CRON_SECRET", "cron-secret");
     const res = await feedbackCron.POST(new NextRequest("http://platform.local/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+    expect(res.status).toBe(200);
+  });
+  it("reminder cron POST", async () => {
+    expect((await reminderCron.POST(req("/api/platform/cron/reminder-emails", "POST"))).status).toBe(401);
+  });
+  it("reminder cron POST does not accept a platform session", async () => {
+    const res = await reminderCron.POST(await authed("/api/platform/cron/reminder-emails", "POST"));
+    expect(res.status).toBe(401);
+  });
+  it("reminder cron POST accepts the cron bearer secret", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    const res = await reminderCron.POST(new NextRequest("http://platform.local/api/platform/cron/reminder-emails", {
       method: "POST",
       headers: { authorization: "Bearer cron-secret" },
     }));

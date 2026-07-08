@@ -45,6 +45,13 @@ beforeEach(() => {
         cadence: "Every 30 minutes internally.",
         endpoint: "/api/platform/cron/feedback-requests",
       },
+      {
+        name: "reminder-emails",
+        label: "Reminder emails",
+        description: "Sends due pre-visit reminders.",
+        cadence: "Every 30 minutes internally.",
+        endpoint: "/api/platform/cron/reminder-emails",
+      },
     ],
     runs: [
       {
@@ -80,6 +87,7 @@ describe("PlatformCronRunsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Cron jobs" })).toBeInTheDocument();
     expect(screen.getAllByText("DISH sync").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Reminder emails").length).toBeGreaterThan(0);
     expect(screen.getByText("External cron endpoint")).toBeInTheDocument();
     expect(screen.getByText("Internal scheduler")).toBeInTheDocument();
     expect(screen.getByText(/tenants: 2/)).toBeInTheDocument();

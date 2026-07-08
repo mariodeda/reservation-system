@@ -11,13 +11,14 @@ const { adminFetch, adminJson, toast } = vi.hoisted(() => ({
   toast: vi.fn(),
 }));
 vi.mock("@/components/admin/api", () => ({ adminFetch, adminJson, toast }));
+vi.mock("next/navigation", () => ({ useParams: () => ({ slug: "acme" }) }));
 
 import AvailabilityPage from "@/app/admin/[slug]/(panel)/availability/page";
 
 function config(): AvailabilityConfig {
   const weekly: AvailabilityConfig["weekly"] = {};
   for (let d = 0; d < 7; d++) weekly[d] = { closed: false, services: [{ id: "lunch", label: "Lunch", start: "12:00", end: "14:00", interval: 60, capacity: 10 }] };
-  return { timezone: "UTC", bookingWindowDays: 60, minPartySize: 1, maxPartySize: 12, leadMinutes: 0, weekly, closures: [], dateOverrides: {}, blockedSlots: {} };
+  return { timezone: "UTC", bookingWindowDays: 60, minPartySize: 1, maxPartySize: 12, leadMinutes: 0, weekly, closures: [], dateOverrides: {}, blockedSlots: {}, capacityMode: "tables" };
 }
 
 beforeEach(() => {
@@ -60,6 +61,34 @@ describe("Availability — Special dates", () => {
     const globalDuration = await screen.findByLabelText("Default table duration") as HTMLSelectElement;
     expect(globalDuration.value).toBe("");
     expect(globalDuration.selectedOptions[0].textContent).toBe("2h");
+  });
+
+  it("shows table-capacity banner and hides weekly capacity fields in table mode", async () => {
+    render(<AvailabilityPage />);
+
+    expect(await screen.findByText(/capacity is currently dictated by active tables/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage tables" })).toHaveAttribute("href", "/admin/acme/tables");
+    expect(screen.queryByLabelText("Default covers")).not.toBeInTheDocument();
+  });
+
+  it("shows weekly baseline capacity fields in manual mode and saves edits", async () => {
+    const user = userEvent.setup();
+    const cfg = config();
+    cfg.capacityMode = "manual";
+    adminJson.mockResolvedValueOnce({ config: cfg });
+    render(<AvailabilityPage />);
+
+    expect(screen.queryByText(/capacity is currently dictated by active tables/i)).not.toBeInTheDocument();
+    const capacityInputs = await screen.findAllByLabelText("Default covers") as HTMLInputElement[];
+    expect(capacityInputs[0].value).toBe("10");
+    await user.clear(capacityInputs[0]);
+    await user.type(capacityInputs[0], "18");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(adminFetch).toHaveBeenCalled());
+    const putCall = adminFetch.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!;
+    const sent = JSON.parse((putCall[1] as RequestInit).body as string);
+    expect(sent.config.offerings[0].weekly["1"].services[0].capacity).toBe(18);
   });
 
   it("edits service windows with explicit 24-hour time controls", async () => {

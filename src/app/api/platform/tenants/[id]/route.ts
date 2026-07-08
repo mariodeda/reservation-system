@@ -42,6 +42,8 @@ function normalizeSettingsPatch(patch: Partial<TenantSettings>): Partial<TenantS
       ...templates,
       confirmation: normalizeEmailTemplatePatch(templates.confirmation),
       feedbackRequest: normalizeEmailTemplatePatch(templates.feedbackRequest),
+      reminder: normalizeEmailTemplatePatch(templates.reminder),
+      cancellation: normalizeEmailTemplatePatch(templates.cancellation),
     } as TenantSettings["emailTemplates"],
   };
 }
@@ -130,7 +132,7 @@ async function patchTenant(req: NextRequest, ctxArg: { params: Promise<{ id: str
   if (body.settings !== undefined) {
     const next = mergeTenantSettings(existing.settings, body.settings, existing.name);
     await store.updateSettings(id, next);
-    const policyChanged = ["emailEnabled", "emailEvents", "feedbackRequestDelayHours", "feedbackEnabled"].some((k) =>
+    const policyChanged = ["emailEnabled", "emailEvents", "feedbackRequestDelayHours", "reminderLeadHours", "feedbackEnabled"].some((k) =>
       Object.prototype.hasOwnProperty.call(body.settings, k),
     );
     await recordAppEvent({

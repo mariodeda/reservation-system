@@ -40,6 +40,18 @@ export interface DaySchedule {
   services: ServiceWindow[];
 }
 
+export type CapacityMode = "tables" | "manual";
+
+export type DatedSlotCapacityOverrides = Record<
+  string,
+  Record<OfferingId, Record<ServiceId, Record<string, number>>>
+>;
+
+export type ForwardSlotCapacityOverrides = Record<
+  OfferingId,
+  Record<ServiceId, Record<string, { effectiveFrom: string; capacity: number }[]>>
+>;
+
 /**
  * A bookable offering — the *kind* of experience a guest reserves (Restaurant,
  * Sushi, Cocktails, Events…). Each offering owns its own weekly schedule of
@@ -89,6 +101,17 @@ export interface AvailabilityConfig {
   blockedSlots: Record<string, string[]>;
   /** Manually disabled services for specific dates, used for same-day stop-taking-bookings controls. */
   disabledServices?: DisabledServices;
+  /**
+   * Controls the source of truth for covers capacity. "tables" preserves the
+   * existing behavior: active managed tables drive capacity, with legacy service
+   * capacity as fallback when no active tables exist. "manual" ignores tables
+   * for availability and booking capacity and uses service/slot capacity.
+   */
+  capacityMode?: CapacityMode;
+  /** One-day slot capacity overrides keyed by date/offering/service/time. */
+  slotCapacityOverrides?: DatedSlotCapacityOverrides;
+  /** Forward slot overrides keyed by offering/service/time and effective date. */
+  forwardSlotCapacityOverrides?: ForwardSlotCapacityOverrides;
   /**
    * Multi-offering support. When present, this is the source of truth and the
    * top-level weekly/dateOverrides/blockedSlots mirror offerings[0] for legacy
@@ -199,6 +222,7 @@ export interface DayAvailability {
   date: string;
   /** The offering this availability view was computed for. */
   offering?: OfferingId;
+  capacityMode?: CapacityMode;
   closed: boolean;
   past: boolean;
   full: boolean;

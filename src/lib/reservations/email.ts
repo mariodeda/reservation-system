@@ -189,6 +189,7 @@ function buildReservationCalendarEvent(
   tenant: Tenant,
   serviceLabel?: string,
   config?: AvailabilityConfig,
+  method: "REQUEST" | "CANCEL" = "REQUEST",
 ): string {
   const durationMins = reservation.durationMinsOverride
     ?? (config ? turnMinutesFor(config, reservation.offering, reservation.service, reservation.date) : 120);
@@ -224,7 +225,7 @@ function buildReservationCalendarEvent(
     "VERSION:2.0",
     "PRODID:-//Reservation System//Restaurant Booking//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:REQUEST",
+    `METHOD:${method}`,
     "BEGIN:VEVENT",
     `UID:${icsText(`${reservation.id}@${tenant.slug || tenant.id}`)}`,
     `DTSTAMP:${now}`,
@@ -241,10 +242,10 @@ function buildReservationCalendarEvent(
       ? [`ATTENDEE;CN="${icsParamText(reservation.name)}";ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=FALSE:mailto:${attendeeEmail}`]
       : []),
     ...(tenant.settings.url ? [`URL:${icsText(tenant.settings.url)}`] : []),
-    "STATUS:CONFIRMED",
+    `STATUS:${method === "CANCEL" ? "CANCELLED" : "CONFIRMED"}`,
     "TRANSP:OPAQUE",
     "CLASS:PUBLIC",
-    "X-MICROSOFT-CDO-BUSYSTATUS:BUSY",
+    `X-MICROSOFT-CDO-BUSYSTATUS:${method === "CANCEL" ? "FREE" : "BUSY"}`,
     "END:VEVENT",
     "END:VCALENDAR",
   ];
@@ -300,6 +301,116 @@ function defaultFeedbackHtml(): string {
   return `<p>Hi {{guestName}},</p><p>Thank you for dining with us on <strong>{{date}}</strong>.</p><p>We'd love to hear about your experience:</p><p><a href="{{reviewUrl}}" style="background:#f2ca50;color:#3c2f00;padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block">Leave a review →</a></p><p>Warm regards,<br/>{{restaurantName}}</p>`;
 }
 
+function defaultReminderTemplate() {
+  return {
+    subject: "Reminder: your reservation at {{restaurantName}} — {{date}} at {{time}}",
+    text: `Dear {{guestName}},
+
+This is a friendly reminder of your reservation at {{restaurantName}}:
+
+  Date:      {{date}}
+  Time:      {{time}} ({{service}})
+  Guests:    {{partySize}}
+  Reference: {{reference}}
+
+If you need to amend or cancel, reply to this email or call us at {{contactPhone}}.
+
+We look forward to welcoming you.
+{{restaurantName}}`,
+    html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2933">
+  <h2 style="margin:0 0 8px;color:#a8842a">{{restaurantName}}</h2>
+  <p style="margin:0 0 18px;color:#64748b">Reservation reminder</p>
+  <p>Dear {{guestName}},</p>
+  <p>This is a friendly reminder of your reservation:</p>
+  <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:16px 0">
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Date</td><td><strong>{{date}}</strong></td></tr>
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Time</td><td><strong>{{time}} ({{service}})</strong></td></tr>
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Guests</td><td><strong>{{partySize}}</strong></td></tr>
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Reference</td><td><strong>{{reference}}</strong></td></tr>
+  </table>
+  <p style="color:#64748b;font-size:14px">Need to amend or cancel? Reply to this email or call us at {{contactPhone}}.</p>
+  <p style="margin-top:22px">We look forward to welcoming you.<br><strong>{{restaurantName}}</strong></p>
+</div>`,
+  };
+}
+
+function defaultCancellationTemplate() {
+  return {
+    subject: "Your reservation at {{restaurantName}} has been cancelled — {{reference}}",
+    text: `Dear {{guestName}},
+
+Your reservation at {{restaurantName}} has been cancelled.
+
+  Date:      {{date}}
+  Time:      {{time}} ({{service}})
+  Guests:    {{partySize}}
+  Reference: {{reference}}
+
+If this was unexpected, please reply to this email or call us at {{contactPhone}}.
+
+{{restaurantName}}`,
+    html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2933">
+  <h2 style="margin:0 0 8px;color:#b42318">{{restaurantName}}</h2>
+  <p style="margin:0 0 18px;color:#64748b">Reservation cancelled</p>
+  <p>Dear {{guestName}},</p>
+  <p>Your reservation has been cancelled.</p>
+  <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:16px 0">
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Date</td><td><strong>{{date}}</strong></td></tr>
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Time</td><td><strong>{{time}} ({{service}})</strong></td></tr>
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Guests</td><td><strong>{{partySize}}</strong></td></tr>
+    <tr><td style="padding:5px 18px 5px 0;color:#64748b">Reference</td><td><strong>{{reference}}</strong></td></tr>
+  </table>
+  <p style="color:#64748b;font-size:14px">If this was unexpected, please reply to this email or call us at {{contactPhone}}.</p>
+</div>`,
+  };
+}
+
+async function runTransactionalTemplateSend(
+  reservation: Reservation,
+  tenant: Tenant,
+  type: TenantEmailEvent,
+  template: { subject: string; text: string; html: string },
+  serviceLabel?: string,
+  config?: AvailabilityConfig,
+  calendarMethod?: "REQUEST" | "CANCEL",
+): Promise<SendResult> {
+  const s = tenant.settings;
+  if (!isEmailEventEnabled(s, type)) return { sent: false, skipped: true, reason: "event_disabled" };
+  const smtp = s.smtp;
+  if (!smtp?.host || !smtp?.port) return { sent: false, skipped: true, reason: "no_smtp" };
+  if (!reservation.email) return { sent: false, skipped: true, reason: "no_recipient" };
+  try {
+    const transport = smtpTransport(smtp);
+    const vars = buildEmailVars(reservation, tenant, serviceLabel);
+    const from = smtp.from || s.emailFrom || `${s.name} <${smtp.user ?? s.contactEmail}>`;
+    const message: Parameters<ReturnType<typeof smtpTransport>["sendMail"]>[0] = {
+      from,
+      to: reservation.email,
+      replyTo: s.contactEmail,
+      subject: renderTemplate(template.subject, vars),
+      text: renderTemplate(template.text, vars),
+      html: renderTemplate(template.html, vars),
+      headers: trackingHeaders(tenant, reservation, type),
+    };
+    if (calendarMethod) {
+      message.headers = {
+        ...message.headers,
+        "Content-Class": "urn:content-classes:calendarmessage",
+      };
+      message.icalEvent = {
+        method: calendarMethod,
+        filename: calendarMethod === "REQUEST" ? "invitation.ics" : "cancellation.ics",
+        content: buildReservationCalendarEvent(reservation, tenant, serviceLabel, config, calendarMethod),
+      };
+    }
+    const info = await transport.sendMail(message);
+    return resultFromSendInfo(info, reservation.email);
+  } catch (err) {
+    console.error(`[reservations] ${type} email failed:`, err);
+    return { sent: false, error: err instanceof Error ? err.message : "send failed" };
+  }
+}
+
 /** Send the post-visit feedback request email. Logs the attempt. Never throws. */
 export async function sendFeedbackRequestEmail(
   reservation: Reservation,
@@ -307,6 +418,44 @@ export async function sendFeedbackRequestEmail(
 ): Promise<SendResult> {
   const result = await runFeedbackSend(reservation, tenant);
   await logEmailAttempt("feedbackRequest", reservation, tenant, result);
+  return result;
+}
+
+export async function sendReservationReminderEmail(
+  reservation: Reservation,
+  tenant: Tenant,
+  serviceLabel?: string,
+  config?: AvailabilityConfig,
+): Promise<SendResult> {
+  const result = await runTransactionalTemplateSend(
+    reservation,
+    tenant,
+    "reservationReminder",
+    tenant.settings.emailTemplates?.reminder ?? defaultReminderTemplate(),
+    serviceLabel,
+    config,
+    "REQUEST",
+  );
+  await logEmailAttempt("reservationReminder", reservation, tenant, result);
+  return result;
+}
+
+export async function sendCancellationEmail(
+  reservation: Reservation,
+  tenant: Tenant,
+  serviceLabel?: string,
+  config?: AvailabilityConfig,
+): Promise<SendResult> {
+  const result = await runTransactionalTemplateSend(
+    reservation,
+    tenant,
+    "cancellationConfirmation",
+    tenant.settings.emailTemplates?.cancellation ?? defaultCancellationTemplate(),
+    serviceLabel,
+    config,
+    "CANCEL",
+  );
+  await logEmailAttempt("cancellationConfirmation", reservation, tenant, result);
   return result;
 }
 
@@ -377,38 +526,13 @@ async function runConfirmationSend(
   serviceLabel?: string,
   config?: AvailabilityConfig,
 ): Promise<SendResult> {
-  const s = tenant.settings;
-  if (!isEmailEventEnabled(s, "bookingConfirmation")) return { sent: false, skipped: true, reason: "event_disabled" };
-  const smtp = s.smtp;
-  if (!smtp?.host || !smtp?.port) {
-    console.warn(`[reservations] tenant ${tenant.id} has no SMTP — skipping confirmation email.`);
-    return { sent: false, skipped: true, reason: "no_smtp" };
-  }
-  try {
-    const transport = smtpTransport(smtp);
-    const vars = buildEmailVars(reservation, tenant, serviceLabel);
-    const tpl = s.emailTemplates?.confirmation ?? defaultConfirmationTemplate();
-    const from = smtp.from || s.emailFrom || `${s.name} <${smtp.user ?? s.contactEmail}>`;
-    const info = await transport.sendMail({
-      from,
-      to: reservation.email,
-      replyTo: s.contactEmail,
-      subject: renderTemplate(tpl.subject, vars),
-      text: renderTemplate(tpl.text, vars),
-      html: renderTemplate(tpl.html, vars),
-      headers: {
-        ...trackingHeaders(tenant, reservation, "bookingConfirmation"),
-        "Content-Class": "urn:content-classes:calendarmessage",
-      },
-      icalEvent: {
-        method: "REQUEST",
-        filename: "invitation.ics",
-        content: buildReservationCalendarEvent(reservation, tenant, serviceLabel, config),
-      },
-    });
-    return resultFromSendInfo(info, reservation.email);
-  } catch (err) {
-    console.error("[reservations] confirmation email failed:", err);
-    return { sent: false, error: err instanceof Error ? err.message : "send failed" };
-  }
+  return runTransactionalTemplateSend(
+    reservation,
+    tenant,
+    "bookingConfirmation",
+    tenant.settings.emailTemplates?.confirmation ?? defaultConfirmationTemplate(),
+    serviceLabel,
+    config,
+    "REQUEST",
+  );
 }

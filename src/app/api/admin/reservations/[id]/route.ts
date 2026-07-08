@@ -4,6 +4,7 @@ import { getTableStore } from "@/lib/reservations/table-store";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { RESERVATION_STATUSES, type Reservation } from "@/lib/reservations/types";
 import { sendFeedbackRequestForReservation } from "@/lib/reservations/feedback-automation";
+import { sendCancellationEmail } from "@/lib/reservations/email";
 import { emitReservation } from "@/lib/reservations/events";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { requestContext } from "@/lib/observability/request-context";
@@ -131,6 +132,10 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
   if (patch.status === "completed") {
     sendFeedbackRequestForReservation(reservation, admin.tenant)
       .catch((err) => console.error("[feedback] auto-send failed:", err));
+  }
+  if (patch.status === "cancelled" && existing.status !== "cancelled" && !isExternalReservationSource(existing.source)) {
+    sendCancellationEmail(reservation, admin.tenant)
+      .catch((err) => console.error("[email] cancellation send failed:", err));
   }
 
   emitReservation({

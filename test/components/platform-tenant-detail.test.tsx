@@ -46,8 +46,9 @@ const tenant = {
     timezone: "Europe/Rome",
     autoConfirm: true,
     emailEnabled: true,
-    emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+    emailEvents: { bookingConfirmation: true, feedbackRequest: true, reservationReminder: true, cancellationConfirmation: true },
     feedbackRequestDelayHours: 24,
+    reminderLeadHours: 12,
     feedbackEnabled: true,
     allowedOrigins: ["https://acme.example.com"],
     reviewUrl: "https://reviews.example.com/acme",
@@ -56,6 +57,8 @@ const tenant = {
     emailTemplates: {
       confirmation: { subject: "Confirmed", text: "Text", html: "<p>Html</p>" },
       feedbackRequest: { subject: "Review", text: "Text", html: "<p>Html</p>" },
+      reminder: { subject: "Reminder", text: "Text", html: "<p>Html</p>" },
+      cancellation: { subject: "Cancelled", text: "Text", html: "<p>Html</p>" },
     },
   },
 };
@@ -78,6 +81,17 @@ afterEach(() => {
 });
 
 describe("TenantDetail", () => {
+  it("renders all email event toggles in the platform email flow panel", async () => {
+    render(<TenantDetail />);
+
+    await screen.findByRole("heading", { name: "Acme Osteria" });
+    expect(screen.getByRole("checkbox", { name: "Email di conferma prenotazione" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Email di richiesta recensione post-visita" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Email promemoria pre-visita" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Email di cancellazione" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Anticipo promemoria (ore prima della prenotazione)")).toHaveAttribute("min", "1");
+  });
+
   it("starts impersonation from the tenant detail action bar", async () => {
     const user = userEvent.setup();
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("operator-pass");
