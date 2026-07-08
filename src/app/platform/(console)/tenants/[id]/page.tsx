@@ -252,6 +252,7 @@ export default function TenantDetail() {
 
   if (!view || !f) return <p className="text-on-surface-variant">{am.platform.loading}</p>;
   const set = (k: keyof Form, v: string | boolean) => setF((p) => (p ? { ...p, [k]: v } : p));
+  const previewTheme = { themePrimary: f.themePrimary, themeOnPrimary: f.themeOnPrimary };
 
   function loadPreset(type: "confirmation" | "feedback" | "reminder" | "cancellation", preset: EmailPreset) {
     if (type === "confirmation") {
@@ -1003,7 +1004,7 @@ export default function TenantDetail() {
           <h2 className="font-semibold">{am.platform.tenant.emailTemplates}</h2>
           <p className="text-xs text-on-surface-variant mt-1">
             {am.platform.tenant.templatesHint}&nbsp;
-            {["guestName","restaurantName","date","time","service","partySize","reference","contactPhone","contactEmail","siteUrl"].map((v) => (
+            {["guestName","restaurantName","date","time","service","partySize","reference","contactPhone","contactEmail","siteUrl","themePrimary","themeOnPrimary"].map((v) => (
               <code key={v} className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{`{{${v}}}`}</code>
             ))}.
             {am.platform.tenant.feedbackTemplateHint} <code className="mx-0.5 px-1 py-0.5 rounded bg-surface-container-high text-[10px]">{"{{reviewUrl}}"}</code>.
@@ -1034,7 +1035,7 @@ export default function TenantDetail() {
                 {f.confirmHtml && (
                   <button
                     type="button"
-                    onClick={() => setPreviewHtml(renderPreview(f.confirmHtml))}
+                    onClick={() => setPreviewHtml(renderPreview(f.confirmHtml, previewTheme))}
                     className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
                   >
                     <EyeIcon /> {am.platform.tenant.preview}
@@ -1070,7 +1071,7 @@ export default function TenantDetail() {
                 {f.feedbackHtml && (
                   <button
                     type="button"
-                    onClick={() => setPreviewHtml(renderPreview(f.feedbackHtml))}
+                    onClick={() => setPreviewHtml(renderPreview(f.feedbackHtml, previewTheme))}
                     className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
                   >
                     <EyeIcon /> {am.platform.tenant.preview}
@@ -1106,7 +1107,7 @@ export default function TenantDetail() {
                 {f.reminderHtml && (
                   <button
                     type="button"
-                    onClick={() => setPreviewHtml(renderPreview(f.reminderHtml))}
+                    onClick={() => setPreviewHtml(renderPreview(f.reminderHtml, previewTheme))}
                     className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
                   >
                     <EyeIcon /> {am.platform.tenant.preview}
@@ -1142,7 +1143,7 @@ export default function TenantDetail() {
                 {f.cancellationHtml && (
                   <button
                     type="button"
-                    onClick={() => setPreviewHtml(renderPreview(f.cancellationHtml))}
+                    onClick={() => setPreviewHtml(renderPreview(f.cancellationHtml, previewTheme))}
                     className="text-[11px] text-primary hover:text-primary/70 flex items-center gap-1 transition"
                   >
                     <EyeIcon /> {am.platform.tenant.preview}

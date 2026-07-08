@@ -72,7 +72,9 @@ export const emailEnabled = true;
 /**
  * Email templates. Placeholders: {{guestName}} {{restaurantName}} {{date}}
  * {{time}} {{service}} {{partySize}} {{occasion}} {{notes}} {{reference}}
- * {{contactPhone}} {{contactEmail}} {{siteUrl}}
+ * {{contactPhone}} {{contactEmail}} {{siteUrl}} {{themePrimary}}
+ * {{themeOnPrimary}}. Placeholders may include an inline fallback, e.g.
+ * {{themePrimary:#a8842a}}.
  */
 export const emailTemplates = {
   confirmation: {
@@ -100,7 +102,7 @@ We look forward to welcoming you.
 </head>
 <body style="margin:0;padding:0;background-color:#ffffff">
 <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;padding:24px 16px;color:#1a1a1a">
-  <h2 style="color:#a8842a;margin:0 0 4px">{{restaurantName}}</h2>
+  <h2 style="color:{{themePrimary:#a8842a}};margin:0 0 4px">{{restaurantName}}</h2>
   <p style="margin:0 0 16px;color:#666">Reservation confirmed</p>
   <p>Dear {{guestName}},</p>
   <p>Thank you for booking with us. Your table is confirmed:</p>

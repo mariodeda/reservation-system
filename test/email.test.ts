@@ -23,6 +23,7 @@ import {
 import { defaultAvailability } from "@/reservation.config";
 import type { Reservation } from "@/lib/reservations/types";
 import { hashPassword, templateSettings, type Tenant } from "@/lib/reservations/tenant";
+import { renderPreview } from "@/lib/email-presets";
 
 function tenant(over: Partial<Tenant["settings"]> = {}): Tenant {
   return {
@@ -65,6 +66,8 @@ const vars: EmailVars = {
   contactPhone: "+39",
   contactEmail: "x@y.z",
   siteUrl: "https://x",
+  themePrimary: "",
+  themeOnPrimary: "",
 };
 
 describe("renderTemplate", () => {
@@ -76,6 +79,26 @@ describe("renderTemplate", () => {
   it("renders unknown placeholders as empty string", () => {
     expect(renderTemplate("a {{nope}} b", vars)).toBe("a  b");
   });
+  it("supports inline fallback values and tenant theme colors", () => {
+    expect(renderTemplate("background:{{themePrimary:#1c1b18}};color:{{themeOnPrimary:#e8d9b4}}", vars)).toBe(
+      "background:#1c1b18;color:#e8d9b4",
+    );
+    expect(renderTemplate("background:{{themePrimary:#1c1b18}};color:{{themeOnPrimary:#e8d9b4}}", {
+      ...vars,
+      themePrimary: "#123456",
+      themeOnPrimary: "#ffffff",
+    })).toBe("background:#123456;color:#ffffff");
+  });
+});
+
+describe("renderPreview", () => {
+  it("uses inline theme fallbacks unless preview overrides are provided", () => {
+    const html = "background:{{themePrimary:#1c1b18}};color:{{themeOnPrimary:#e8d9b4}}";
+    expect(renderPreview(html)).toBe("background:#1c1b18;color:#e8d9b4");
+    expect(renderPreview(html, { themePrimary: "#123456", themeOnPrimary: "#ffffff" })).toBe(
+      "background:#123456;color:#ffffff",
+    );
+  });
 });
 
 describe("buildEmailVars", () => {
@@ -85,12 +108,20 @@ describe("buildEmailVars", () => {
     expect(v.partySize).toBe("4");
     expect(v.guestName).toBe("Jane Doe");
     expect(v.reference).toMatch(/^[A-Z0-9]{6}$/);
+    expect(v.themePrimary).toBe("");
+    expect(v.themeOnPrimary).toBe("");
   });
   it("uses the provided service label and empties optional fields", () => {
-    const v = buildEmailVars(reservation({ occasion: undefined, notes: undefined }), tenant(), "Dinner Service");
+    const v = buildEmailVars(
+      reservation({ occasion: undefined, notes: undefined }),
+      tenant({ theme: { primary: "#123456", onPrimary: "#ffffff" } }),
+      "Dinner Service",
+    );
     expect(v.service).toBe("Dinner Service");
     expect(v.occasion).toBe("");
     expect(v.notes).toBe("");
+    expect(v.themePrimary).toBe("#123456");
+    expect(v.themeOnPrimary).toBe("#ffffff");
   });
 });
 

@@ -41,6 +41,8 @@ export interface EmailVars {
   contactPhone: string;
   contactEmail: string;
   siteUrl: string;
+  themePrimary: string;
+  themeOnPrimary: string;
 }
 
 export interface FeedbackEmailVars {
@@ -50,13 +52,22 @@ export interface FeedbackEmailVars {
   reference: string;
   reviewUrl: string;
   contactEmail: string;
+  themePrimary: string;
+  themeOnPrimary: string;
+}
+
+function renderVariableTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(
+    /\{\{(\w+)(?::([^}]*))?\}\}/g,
+    (_, k: string, fallback: string | undefined) => {
+      const value = vars[k];
+      return value === undefined || value === "" ? fallback ?? "" : value;
+    },
+  );
 }
 
 export function renderTemplate(tpl: string, vars: EmailVars): string {
-  return tpl.replace(
-    /\{\{(\w+)\}\}/g,
-    (_, k: string) => (vars as unknown as Record<string, string>)[k] ?? "",
-  );
+  return renderVariableTemplate(tpl, vars as unknown as Record<string, string>);
 }
 
 function formatDate(dateStr: string, locale: string): string {
@@ -85,6 +96,8 @@ export function buildEmailVars(r: Reservation, tenant: Tenant, serviceLabel?: st
     contactPhone: s.contactPhone,
     contactEmail: s.contactEmail,
     siteUrl: s.url,
+    themePrimary: s.theme?.primary ?? "",
+    themeOnPrimary: s.theme?.onPrimary ?? "",
   };
 }
 
@@ -285,10 +298,7 @@ async function logEmailAttempt(
 }
 
 function renderFeedbackTemplate(tpl: string, vars: FeedbackEmailVars): string {
-  return tpl.replace(
-    /\{\{(\w+)\}\}/g,
-    (_, k: string) => (vars as unknown as Record<string, string>)[k] ?? "",
-  );
+  return renderVariableTemplate(tpl, vars as unknown as Record<string, string>);
 }
 
 function defaultFeedbackSubject(): string {
@@ -298,7 +308,7 @@ function defaultFeedbackText(): string {
   return `Hi {{guestName}},\n\nThank you for dining with us on {{date}}.\nWe'd love to hear about your experience:\n\n{{reviewUrl}}\n\nWarm regards,\n{{restaurantName}}`;
 }
 function defaultFeedbackHtml(): string {
-  return `<p>Hi {{guestName}},</p><p>Thank you for dining with us on <strong>{{date}}</strong>.</p><p>We'd love to hear about your experience:</p><p><a href="{{reviewUrl}}" style="background:#f2ca50;color:#3c2f00;padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block">Leave a review →</a></p><p>Warm regards,<br/>{{restaurantName}}</p>`;
+  return `<p>Hi {{guestName}},</p><p>Thank you for dining with us on <strong>{{date}}</strong>.</p><p>We'd love to hear about your experience:</p><p><a href="{{reviewUrl}}" style="background:{{themePrimary:#f2ca50}};color:{{themeOnPrimary:#3c2f00}};padding:10px 22px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block">Leave a review →</a></p><p>Warm regards,<br/>{{restaurantName}}</p>`;
 }
 
 function defaultReminderTemplate() {
@@ -318,7 +328,7 @@ If you need to amend or cancel, reply to this email or call us at {{contactPhone
 We look forward to welcoming you.
 {{restaurantName}}`,
     html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2933">
-  <h2 style="margin:0 0 8px;color:#a8842a">{{restaurantName}}</h2>
+  <h2 style="margin:0 0 8px;color:{{themePrimary:#a8842a}}">{{restaurantName}}</h2>
   <p style="margin:0 0 18px;color:#64748b">Reservation reminder</p>
   <p>Dear {{guestName}},</p>
   <p>This is a friendly reminder of your reservation:</p>
@@ -350,7 +360,7 @@ If this was unexpected, please reply to this email or call us at {{contactPhone}
 
 {{restaurantName}}`,
     html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2933">
-  <h2 style="margin:0 0 8px;color:#b42318">{{restaurantName}}</h2>
+  <h2 style="margin:0 0 8px;color:{{themePrimary:#b42318}}">{{restaurantName}}</h2>
   <p style="margin:0 0 18px;color:#64748b">Reservation cancelled</p>
   <p>Dear {{guestName}},</p>
   <p>Your reservation has been cancelled.</p>
@@ -481,8 +491,10 @@ async function runFeedbackSend(
       date: formatDate(reservation.date, s.locale),
       reference: referenceOf(reservation.id),
       reviewUrl: s.reviewUrl ?? "",
-      contactEmail: s.contactEmail,
-    };
+    contactEmail: s.contactEmail,
+    themePrimary: s.theme?.primary ?? "",
+    themeOnPrimary: s.theme?.onPrimary ?? "",
+  };
     const tpl = s.emailTemplates?.feedbackRequest;
     const subject = renderFeedbackTemplate(tpl?.subject ?? defaultFeedbackSubject(), vars);
     const text = renderFeedbackTemplate(tpl?.text ?? defaultFeedbackText(), vars);

@@ -187,7 +187,7 @@ describe("auth edge cases", () => {
 const baseVars: EmailVars = {
   guestName: "Jane", restaurantName: "O", date: "d", time: "t", service: "s",
   partySize: "2", occasion: "", notes: "", reference: "R", contactPhone: "p",
-  contactEmail: "e", siteUrl: "u",
+  contactEmail: "e", siteUrl: "u", themePrimary: "", themeOnPrimary: "",
 };
 
 describe("renderTemplate edge cases", () => {
