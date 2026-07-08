@@ -330,10 +330,9 @@ export default function AvailabilityPage() {
                   isOpen ? "bg-surface-container" : "bg-surface-container/60"
                 }`}
               >
-                <div className={`flex items-center gap-3 px-4 py-3 lg:items-start lg:flex-col lg:gap-2 ${isOpen ? "" : "opacity-60"}`}>
-                  <div className="flex items-center gap-3 min-w-0 lg:w-full lg:justify-between">
-                    <span className="font-medium text-sm min-w-24 lg:min-w-0">{label}</span>
-                    <span className="flex items-center gap-2">
+                <div className={`flex flex-col items-start gap-2 px-4 py-3 ${isOpen ? "" : "opacity-60"}`}>
+                  <span className="font-medium text-sm">{label}</span>
+                  <div className="flex items-center gap-2">
                       <span className={`text-[11px] font-medium ${isOpen ? "text-on-surface" : "text-on-surface-variant"}`}>
                         {isOpen ? am.availability.open : am.availability.closed}
                       </span>
@@ -351,7 +350,6 @@ export default function AvailabilityPage() {
                       >
                         <span className={`absolute top-0.5 w-4 h-4 bg-surface-bright rounded-full shadow transition-all ${isOpen ? "left-[18px]" : "left-0.5"}`} />
                       </button>
-                    </span>
                   </div>
                 </div>
                 <div className={`min-w-0 px-4 pb-4 lg:px-3 lg:py-3 ${isOpen ? "lg:border-l lg:border-outline-variant/10" : "hidden lg:block"}`}>
