@@ -6,6 +6,7 @@ import { platformFetch, platformJson, toast, type TenantView } from "@/component
 import { formatPlatformDateTime } from "@/components/platform/date-format";
 import { am } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
+import { usePlatformUnsavedChanges } from "@/components/platform/usePlatformUnsavedChanges";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
@@ -308,6 +309,8 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
   const [f, setF] = useState({ name: "", slug: "", username: "", password: "", hosts: "" });
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const dirty = Object.values(f).some((value) => value.trim() !== "");
+  usePlatformUnsavedChanges(dirty);
 
   async function submit() {
     if (!f.name.trim() || !f.slug.trim() || !f.username.trim() || f.password.length < 8) {
@@ -331,6 +334,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || am.platform.create.error);
       toast(am.platform.create.created);
+      setF({ name: "", slug: "", username: "", password: "", hosts: "" });
       onCreated();
     } catch (e) {
       toast(e instanceof Error ? e.message : am.platform.create.error, "error");

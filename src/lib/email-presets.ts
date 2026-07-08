@@ -119,12 +119,12 @@ We look forward to welcoming you.
       <!-- Footer -->
       <tr><td style="background:{{themePrimary:#1c1b18}};padding:20px 40px;" align="center">
         <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2px;color:{{themeOnPrimary:#8a7a5a}};text-transform:uppercase;">{{restaurantName}}</p>
-        <p style="margin:6px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#5a5450;">
-          <a href="tel:{{contactPhone}}" style="color:#5a5450;text-decoration:none;">{{contactPhone}}</a>
+        <p style="margin:6px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:{{themeOnPrimary:#5a5450}};">
+          <a href="tel:{{contactPhone}}" style="color:{{themeOnPrimary:#5a5450}};text-decoration:none;">{{contactPhone}}</a>
           &nbsp;&middot;&nbsp;
-          <a href="mailto:{{contactEmail}}" style="color:#5a5450;text-decoration:none;">{{contactEmail}}</a>
+          <a href="mailto:{{contactEmail}}" style="color:{{themeOnPrimary:#5a5450}};text-decoration:none;">{{contactEmail}}</a>
         </p>
-        <p style="margin:4px 0 0;"><a href="{{siteUrl}}" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#5a5450;text-decoration:none;">{{siteUrl}}</a></p>
+        <p style="margin:4px 0 0;"><a href="{{siteUrl}}" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:{{themeOnPrimary:#5a5450}};text-decoration:none;">{{siteUrl}}</a></p>
       </td></tr>
     </table>
   </td></tr>
@@ -410,8 +410,8 @@ The team at {{restaurantName}}
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border-radius:8px;border:1px solid #ede8de;overflow:hidden;">
       <!-- Header -->
-      <tr><td style="background:#2c2417;padding:24px 40px;" align="center">
-        <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:400;color:#e8d5a3;letter-spacing:0.5px;">{{restaurantName}}</p>
+      <tr><td style="background:{{themePrimary:#2c2417}};padding:24px 40px;" align="center">
+        <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:400;color:{{themeOnPrimary:#e8d5a3}};letter-spacing:0.5px;">{{restaurantName}}</p>
       </td></tr>
       <!-- Body -->
       <tr><td style="padding:32px 40px 24px;">
@@ -499,7 +499,7 @@ If your plans change, please contact us as soon as possible.
       </td></tr>
       <tr><td style="background:{{themePrimary:#1c1b18}};padding:20px 40px;" align="center">
         <p style="margin:0;font-size:11px;letter-spacing:2px;color:{{themeOnPrimary:#8a7a5a}};text-transform:uppercase;">{{restaurantName}}</p>
-        <p style="margin:6px 0 0;font-size:11px;color:#5a5450;"><a href="{{siteUrl}}" style="color:#5a5450;text-decoration:none;">{{siteUrl}}</a></p>
+        <p style="margin:6px 0 0;font-size:11px;color:{{themeOnPrimary:#5a5450}};"><a href="{{siteUrl}}" style="color:{{themeOnPrimary:#5a5450}};text-decoration:none;">{{siteUrl}}</a></p>
       </td></tr>
     </table>
   </td></tr>
@@ -609,7 +609,7 @@ If this was unexpected, please contact us and our team will help.
         </table>
       </td></tr>
       <tr><td style="padding:0 40px 28px;"><p style="margin:0;font-size:14px;color:#555555;line-height:1.7;">If this was unexpected, please contact us at <a href="mailto:{{contactEmail}}" style="color:#b71c1c;text-decoration:none;">{{contactEmail}}</a> or <a href="tel:{{contactPhone}}" style="color:#b71c1c;text-decoration:none;">{{contactPhone}}</a>.</p></td></tr>
-      <tr><td style="background:{{themePrimary:#2a1717}};padding:20px 40px;" align="center"><p style="margin:0;font-size:11px;letter-spacing:2px;color:{{themeOnPrimary:#c77c7c}};text-transform:uppercase;">{{restaurantName}}</p><p style="margin:6px 0 0;font-size:11px;color:#8d6969;"><a href="{{siteUrl}}" style="color:#8d6969;text-decoration:none;">{{siteUrl}}</a></p></td></tr>
+      <tr><td style="background:{{themePrimary:#2a1717}};padding:20px 40px;" align="center"><p style="margin:0;font-size:11px;letter-spacing:2px;color:{{themeOnPrimary:#c77c7c}};text-transform:uppercase;">{{restaurantName}}</p><p style="margin:6px 0 0;font-size:11px;color:{{themeOnPrimary:#8d6969}};"><a href="{{siteUrl}}" style="color:{{themeOnPrimary:#8d6969}};text-decoration:none;">{{siteUrl}}</a></p></td></tr>
     </table>
   </td></tr>
 </table>

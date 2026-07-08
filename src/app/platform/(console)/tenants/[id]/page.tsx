@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
 import { formatPlatformDateTime } from "@/components/platform/date-format";
+import { usePlatformUnsavedChanges } from "@/components/platform/usePlatformUnsavedChanges";
 import {
   CANCELLATION_PRESETS,
   CONFIRMATION_PRESETS,
@@ -175,6 +176,29 @@ function toForm(t: TenantView): Form {
   };
 }
 
+function sameForm(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function theForkToForm(integration: TheForkView | null): TheForkForm {
+  return {
+    enabled: integration?.enabled ?? false,
+    clientId: integration?.clientId ?? "",
+    clientSecret: "",
+    restaurantUuid: integration?.restaurantUuid ?? "",
+    groupUuid: integration?.groupUuid ?? "",
+  };
+}
+
+function dishToForm(integration: DishView | null): DishForm {
+  return {
+    enabled: integration?.enabled ?? false,
+    email: integration?.email ?? "",
+    password: "",
+    establishmentId: integration?.establishmentId ?? "",
+  };
+}
+
 export default function TenantDetail() {
   const router = useRouter();
   const id = String(useParams().id);
@@ -221,13 +245,7 @@ export default function TenantDetail() {
     try {
       const d = await platformJson<{ integration: TheForkView | null }>(`/api/platform/tenants/${id}/thefork`);
       setTheFork(d.integration);
-      setTfForm({
-        enabled: d.integration?.enabled ?? false,
-        clientId: d.integration?.clientId ?? "",
-        clientSecret: "",
-        restaurantUuid: d.integration?.restaurantUuid ?? "",
-        groupUuid: d.integration?.groupUuid ?? "",
-      });
+      setTfForm(theForkToForm(d.integration));
     } catch {
       /* keep page usable if integration is not configured yet */
     }
@@ -238,17 +256,19 @@ export default function TenantDetail() {
     try {
       const d = await platformJson<{ integration: DishView | null }>(`/api/platform/tenants/${id}/dish`);
       setDish(d.integration);
-      setDishForm({
-        enabled: d.integration?.enabled ?? false,
-        email: d.integration?.email ?? "",
-        password: "",
-        establishmentId: d.integration?.establishmentId ?? "",
-      });
+      setDishForm(dishToForm(d.integration));
     } catch {
       /* keep page usable if integration is not configured yet */
     }
   }, [id]);
   useEffect(() => { loadDish(); }, [loadDish]);
+
+  const settingsDirty = view && f ? !sameForm(f, toForm(view)) : false;
+  const hostDirty = newHost.trim() !== "";
+  const passwordDirty = newPass !== "";
+  const theForkDirty = !sameForm(tfForm, theForkToForm(theFork));
+  const dishDirty = !sameForm(dishForm, dishToForm(dish));
+  usePlatformUnsavedChanges(Boolean(settingsDirty || hostDirty || passwordDirty || theForkDirty || dishDirty));
 
   if (!view || !f) return <p className="text-on-surface-variant">{am.platform.loading}</p>;
   const set = (k: keyof Form, v: string | boolean) => setF((p) => (p ? { ...p, [k]: v } : p));
@@ -436,7 +456,7 @@ export default function TenantDetail() {
       if (!res.ok) throw new Error(data.error || "Could not save TheFork integration.");
       setTheFork(data.integration);
       setWebhookToken(data.webhookToken ?? null);
-      setTfForm((p) => ({ ...p, clientSecret: "" }));
+      setTfForm(theForkToForm(data.integration));
       setTfSyncStatus("TheFork API connection validated and credentials saved.");
       toast("TheFork integration saved.");
     } catch (err) {
@@ -526,7 +546,7 @@ export default function TenantDetail() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not save DISH integration.");
       setDish(data.integration);
-      setDishForm((p) => ({ ...p, password: "" }));
+      setDishForm(dishToForm(data.integration));
       setDishSyncStatus("DISH login validated and credentials saved.");
       toast("DISH integration saved.");
     } catch (err) {

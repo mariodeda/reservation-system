@@ -108,6 +108,20 @@ describe("TenantDetail", () => {
     expect(toast).toHaveBeenCalledWith('Preimpostazione "Clear Cancellation" caricata');
   });
 
+  it("warns before browser unload when tenant settings have unsaved edits", async () => {
+    const user = userEvent.setup();
+    render(<TenantDetail />);
+
+    const name = await screen.findByLabelText("Nome visualizzato");
+    await user.clear(name);
+    await user.type(name, "Changed Osteria");
+
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+
+    expect(unload.defaultPrevented).toBe(true);
+  });
+
   it("starts impersonation from the tenant detail action bar", async () => {
     const user = userEvent.setup();
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("operator-pass");

@@ -23,7 +23,7 @@ import {
 import { defaultAvailability } from "@/reservation.config";
 import type { Reservation } from "@/lib/reservations/types";
 import { hashPassword, templateSettings, type Tenant } from "@/lib/reservations/tenant";
-import { renderPreview } from "@/lib/email-presets";
+import { CANCELLATION_PRESETS, CONFIRMATION_PRESETS, FEEDBACK_PRESETS, REMINDER_PRESETS, renderPreview } from "@/lib/email-presets";
 
 function tenant(over: Partial<Tenant["settings"]> = {}): Tenant {
   return {
@@ -98,6 +98,24 @@ describe("renderPreview", () => {
     expect(renderPreview(html, { themePrimary: "#123456", themeOnPrimary: "#ffffff" })).toBe(
       "background:#123456;color:#ffffff",
     );
+  });
+});
+
+describe("branded email presets", () => {
+  it("uses themeOnPrimary for text inside themed banner footers and headers", () => {
+    const themedVars = { ...vars, themePrimary: "#123456", themeOnPrimary: "#ffffff" };
+    const classic = renderTemplate(CONFIRMATION_PRESETS.find((p) => p.id === "classic-warm")!.html, themedVars);
+    const reminder = renderTemplate(REMINDER_PRESETS.find((p) => p.id === "friendly-reminder")!.html, themedVars);
+    const cancellation = renderTemplate(CANCELLATION_PRESETS.find((p) => p.id === "clear-cancellation")!.html, themedVars);
+    const feedback = renderTemplate(FEEDBACK_PRESETS.find((p) => p.id === "warm-gratitude")!.html, themedVars);
+
+    expect(classic).toContain("background:#123456");
+    expect(classic).toContain("color:#ffffff");
+    expect(classic).not.toContain("color:#5a5450");
+    expect(reminder).not.toContain("color:#5a5450");
+    expect(cancellation).not.toContain("color:#8d6969");
+    expect(feedback).toContain("background:#123456");
+    expect(feedback).toContain("color:#ffffff");
   });
 });
 

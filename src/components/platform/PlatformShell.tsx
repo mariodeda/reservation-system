@@ -7,6 +7,7 @@ import SystemLogo from "@/components/SystemLogo";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
 import LanguageFlag from "@/components/ui/LanguageFlag";
+import { confirmPlatformNavigation } from "@/components/platform/usePlatformUnsavedChanges";
 
 export default function PlatformShell({
   username,
@@ -35,6 +36,7 @@ export default function PlatformShell({
   }
 
   async function logout() {
+    if (!confirmPlatformNavigation()) return;
     await fetch("/api/platform/logout", { method: "POST" });
     router.replace("/platform/login");
     router.refresh();
