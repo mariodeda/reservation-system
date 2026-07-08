@@ -309,7 +309,7 @@ export default function AvailabilityPage() {
         </section>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-6 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[7fr_3fr] gap-6 items-start">
         {/* Weekly schedule — for the selected offering */}
         <section className="bg-surface-container border border-outline-variant/30 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-outline-variant/20">
@@ -326,7 +326,7 @@ export default function AvailabilityPage() {
             return (
               <div
                 key={i}
-                className={`grid lg:grid-cols-[9.5rem_minmax(0,1fr)] ${idx > 0 ? "border-t border-outline-variant/20" : ""} ${
+                className={`grid lg:grid-cols-[120px_minmax(0,1fr)] ${idx > 0 ? "border-t border-outline-variant/20" : ""} ${
                   isOpen ? "bg-surface-container" : "bg-surface-container/60"
                 }`}
               >
