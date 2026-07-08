@@ -91,6 +91,22 @@ describe("Availability — Special dates", () => {
     expect(sent.config.offerings[0].weekly["1"].services[0].capacity).toBe(18);
   });
 
+  it("chooses service names from the translated service pool", async () => {
+    const user = userEvent.setup();
+    render(<AvailabilityPage />);
+
+    const serviceSelects = await screen.findAllByLabelText("Service name") as HTMLSelectElement[];
+    expect(serviceSelects[0].selectedOptions[0].textContent).toContain("Lunch / Pranzo");
+    await user.selectOptions(serviceSelects[0], "dinner");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(adminFetch).toHaveBeenCalled());
+    const putCall = adminFetch.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!;
+    const sent = JSON.parse((putCall[1] as RequestInit).body as string);
+    const mondayService = sent.config.offerings[0].weekly["1"].services[0];
+    expect(mondayService).toMatchObject({ id: "dinner", label: "Dinner" });
+  });
+
   it("edits service windows with explicit 24-hour time controls", async () => {
     const user = userEvent.setup();
     render(<AvailabilityPage />);

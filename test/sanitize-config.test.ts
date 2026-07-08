@@ -48,6 +48,10 @@ describe("sanitizeService", () => {
     expect(s.start).toBe("10:00");
     expect(s.interval).toBe(15);
   });
+  it("normalizes known service labels to the English catalog label", () => {
+    const s = sanitizeService({ id: "lunch", label: "Pranzo", start: "10:00", end: "11:30", interval: 15, capacity: 50 }, 0);
+    expect(s.label).toBe("Lunch");
+  });
   it("omits turnMinutes unless explicitly set, and clamps when present", () => {
     expect(sanitizeService({ interval: 30, capacity: 10 }, 0).turnMinutes).toBeUndefined();
     expect(sanitizeService({ interval: 30, capacity: 10, turnMinutes: 90 }, 0).turnMinutes).toBe(90);

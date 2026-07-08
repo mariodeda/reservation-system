@@ -14,6 +14,7 @@ import {
   type ServiceWindow,
 } from "./types";
 import { getOffering, getOfferings, offeringOf } from "./offerings";
+import { serviceLabelsFor } from "./service-catalog";
 
 /* ---------- time helpers ---------- */
 
@@ -243,9 +244,11 @@ export function getDayAvailability(
   const schedule = scheduleForOffering(offering, dateStr);
   const services = schedule.services.map((w) => {
     const turnMinutes = turnMinutesFor(config, resolvedId, w.id, dateStr);
+    const labels = serviceLabelsFor(w);
     return {
       id: w.id,
       label: w.label,
+      ...labels,
       turnMinutes,
       slots: generateSlots(w).map((time) => {
         const capacity = effectiveSlotCapacity(config, w, resolvedId, w.id, dateStr, time, tables);

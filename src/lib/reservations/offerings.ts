@@ -5,6 +5,7 @@ import {
   type OfferingId,
   type OfferingSummary,
 } from "./types";
+import { serviceLabelsFor } from "./service-catalog";
 
 /**
  * Offering normalization — the single place that turns any stored config (legacy
@@ -67,10 +68,12 @@ export function offeringSummaries(
   config: AvailabilityConfig,
   fallbackLabel = "Dining",
 ): OfferingSummary[] {
+  const servicesByOffering = new Map(offeringServiceMap(config, fallbackLabel).map((o) => [o.id, o.services]));
   return getOfferings(config, fallbackLabel).map((o) => ({
     id: o.id,
     label: o.label,
     description: o.description,
+    services: servicesByOffering.get(o.id) ?? [],
   }));
 }
 
@@ -83,7 +86,7 @@ export function offeringOf(value?: OfferingId | null): OfferingId {
 export interface OfferingServices {
   id: OfferingId;
   label: string;
-  services: { id: string; label: string }[];
+  services: { id: string; label: string; labelEn?: string; labelIt?: string }[];
 }
 
 /**
@@ -96,10 +99,10 @@ export function offeringServiceMap(
   fallbackLabel = "Dining",
 ): OfferingServices[] {
   return getOfferings(config, fallbackLabel).map((o) => {
-    const m = new Map<string, string>();
+    const m = new Map<string, { label: string; labelEn: string; labelIt: string }>();
     for (const day of [...Object.values(o.weekly), ...Object.values(o.dateOverrides)]) {
-      day.services?.forEach((s) => m.set(s.id, s.label));
+      day.services?.forEach((s) => m.set(s.id, { label: s.label, ...serviceLabelsFor(s) }));
     }
-    return { id: o.id, label: o.label, services: [...m].map(([id, label]) => ({ id, label })) };
+    return { id: o.id, label: o.label, services: [...m].map(([id, labels]) => ({ id, ...labels })) };
   });
 }

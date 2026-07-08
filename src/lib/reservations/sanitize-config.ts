@@ -19,6 +19,7 @@ import {
   type Offering,
   type ServiceWindow,
 } from "./types";
+import { canonicalServiceLabel } from "./service-catalog";
 
 const MAX_OFFERINGS = 12;
 
@@ -33,9 +34,10 @@ export const clamp = (n: unknown, min: number, max: number, dflt: number) => {
 };
 
 export function sanitizeService(s: Partial<ServiceWindow>, i: number): ServiceWindow {
+  const id = String(s.id ?? `service-${i}`).slice(0, 40);
   const out: ServiceWindow = {
-    id: String(s.id ?? `service-${i}`).slice(0, 40),
-    label: String(s.label ?? "Service").slice(0, 60),
+    id,
+    label: canonicalServiceLabel(id, String(s.label ?? "Service").slice(0, 60)),
     start: isTime(s.start) ? (s.start as string) : "12:00",
     end: isTime(s.end) ? (s.end as string) : "22:00",
     interval: clamp(s.interval, 5, 240, 30),

@@ -213,6 +213,8 @@ export type SlotUnavailableReason = "service_disabled" | "blocked" | "lead_time"
 export interface ServiceAvailability {
   id: ServiceId;
   label: string;
+  labelEn?: string;
+  labelIt?: string;
   /** Effective table duration for this service on this date, in minutes. */
   turnMinutes: number;
   slots: SlotAvailability[];
@@ -234,6 +236,7 @@ export interface OfferingSummary {
   id: OfferingId;
   label: string;
   description?: string;
+  services?: { id: ServiceId; label: string; labelEn?: string; labelIt?: string }[];
 }
 
 export type DayStatus = "open" | "closed" | "past" | "full";

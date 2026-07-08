@@ -104,7 +104,7 @@ describe("offerings normalization", () => {
     const config = makeConfig({ offerings: [offering("main", "Restaurant"), offering("bar", "Cocktails")] });
     const map = offeringServiceMap(config);
     expect(map.map((o) => o.id)).toEqual(["main", "bar"]);
-    expect(map[0].services).toEqual([{ id: "lunch", label: "Lunch" }]);
+    expect(map[0].services).toEqual([{ id: "lunch", label: "Lunch", labelEn: "Lunch", labelIt: "Pranzo" }]);
   });
 });
 

@@ -3,6 +3,7 @@ import { getStore } from "@/lib/reservations/store";
 import { nowInTz, scheduleForDate, toMinutes } from "@/lib/reservations/availability";
 import { getOfferings } from "@/lib/reservations/offerings";
 import { sanitizeConfig } from "@/lib/reservations/sanitize-config";
+import { serviceLabelsFor } from "@/lib/reservations/service-catalog";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import type { AvailabilityConfig, OfferingId, ServiceId } from "@/lib/reservations/types";
 import { observeAdminRoute } from "@/lib/observability/route-events";
@@ -15,6 +16,8 @@ export interface TodayBookingControlService {
   offeringLabel: string;
   service: ServiceId;
   serviceLabel: string;
+  serviceLabelEn?: string;
+  serviceLabelIt?: string;
   start: string;
   end: string;
   cutoffTime: string;
@@ -97,11 +100,14 @@ function todayControls(config: AvailabilityConfig, tenantName: string): TodayBoo
     for (const service of schedule.services) {
       const cutoffMinutes = toMinutes(service.end) - config.leadMinutes;
       const cutoffPassed = now.minutes > cutoffMinutes;
+      const labels = serviceLabelsFor(service);
       services.push({
         offering: offering.id,
         offeringLabel: offering.label,
         service: service.id,
         serviceLabel: service.label,
+        serviceLabelEn: labels.labelEn,
+        serviceLabelIt: labels.labelIt,
         start: service.start,
         end: service.end,
         cutoffTime: minutesToTime(Math.max(0, cutoffMinutes)),

@@ -7,6 +7,7 @@ import { getTenantStore } from "./tenant-store";
 import type { AvailabilityConfig, Reservation } from "./types";
 import { getStore } from "./store";
 import { isExternalReservationSource } from "./external-sources";
+import { localizedServiceLabel } from "./service-catalog";
 
 export interface ReminderCronTenantResult {
   tenantId: string;
@@ -23,7 +24,8 @@ function serviceLabel(reservation: Reservation, config: AvailabilityConfig, tena
   const services = offering
     ? (offering.dateOverrides[reservation.date]?.services ?? offering.weekly[new Date(`${reservation.date}T12:00:00Z`).getUTCDay()]?.services)
     : undefined;
-  const label = services?.find((s) => s.id === reservation.service)?.label;
+  const service = services?.find((s) => s.id === reservation.service);
+  const label = service ? localizedServiceLabel(service, tenant.settings.locale) : undefined;
   return offerings.length > 1 && offering?.label ? (label ? `${offering.label} · ${label}` : offering.label) : label;
 }
 

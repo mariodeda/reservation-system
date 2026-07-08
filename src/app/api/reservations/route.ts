@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getStore, referenceOf } from "@/lib/reservations/store";
 import { canBook, normalizeEmail, normalizePhone, nowInTz, scheduleForDate } from "@/lib/reservations/availability";
 import { getTableStore } from "@/lib/reservations/table-store";
+import { localizedServiceLabel } from "@/lib/reservations/service-catalog";
 import { getOfferings } from "@/lib/reservations/offerings";
 import { sendConfirmationEmail } from "@/lib/reservations/email";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
@@ -225,9 +226,10 @@ async function handle(req: NextRequest) {
       return NextResponse.json({ error: result.error ?? "Unavailable." }, { status: 409 });
     }
 
-    const serviceLabel = scheduleForDate(config, input.date, inputOffering).services.find(
+    const serviceWindow = scheduleForDate(config, input.date, inputOffering).services.find(
       (s) => s.id === input.service,
-    )?.label;
+    );
+    const serviceLabel = serviceWindow ? localizedServiceLabel(serviceWindow, tenant.settings.locale) : undefined;
     // For multi-offering venues, prefix the offering so the confirmation email
     // reads e.g. "Cocktails · Evening". Single-offering emails are unchanged.
     const offs = getOfferings(config, tenant.name);

@@ -235,6 +235,26 @@ describe("POST /api/reservations", () => {
     expect(res.status).toBe(409);
   });
 
+  it("validates public bookings against manual slot capacity instead of table seats", async () => {
+    const { getTableStore } = await import("@/lib/reservations/table-store");
+    await getTableStore(tenantId).createTable({ label: "A", capacity: 50 });
+    const store = routes.store.getStore().forTenant(tenantId);
+    await store.saveConfig({
+      ...(await store.getConfig()),
+      capacityMode: "manual",
+      slotCapacityOverrides: {
+        "2026-06-12": { main: { lunch: { "12:30": 1 } } },
+      },
+    });
+
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), partySize: 2 },
+    }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/only 1 cover left/i);
+  });
+
   it("rejects an invalid slot time with 409", async () => {
     const res = await routes.book.POST(req("/api/reservations", { method: "POST", body: { ...valid(), time: "12:17" } }));
     expect(res.status).toBe(409);
@@ -303,6 +323,7 @@ describe("GET /api/availability", () => {
     const json = await res.json();
     expect(json.date).toBe("2026-06-12");
     expect(json.services.length).toBeGreaterThan(0);
+    expect(json.services[0]).toMatchObject({ id: "lunch", label: "Lunch", labelEn: "Lunch", labelIt: "Pranzo" });
     expect(json.reservationPolicy.maxPartySize).toBe(12);
   });
   it("derives public slot capacity from active tables when configured", async () => {
@@ -316,6 +337,65 @@ describe("GET /api/availability", () => {
     const json = await res.json();
     const slot = json.services[0].slots.find((s: { time: string }) => s.time === "12:30");
     expect(slot).toMatchObject({ capacity: 10, remaining: 10, available: true });
+  });
+  it("uses manual slot capacity overrides in the public day availability API even when tables exist", async () => {
+    const { getTableStore } = await import("@/lib/reservations/table-store");
+    await getTableStore(tenantId).createTable({ label: "A", capacity: 50 });
+    const store = routes.store.getStore().forTenant(tenantId);
+    await store.saveConfig({
+      ...(await store.getConfig()),
+      capacityMode: "manual",
+      slotCapacityOverrides: {
+        "2026-06-12": { main: { lunch: { "12:30": 6 } } },
+      },
+    });
+
+    const res = await routes.avail.GET(req("/api/availability?date=2026-06-12"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const slot = json.services[0].slots.find((s: { time: string }) => s.time === "12:30");
+    expect(json.capacityMode).toBe("manual");
+    expect(slot).toMatchObject({ capacity: 6, remaining: 6, available: true });
+  });
+  it("uses manual forward capacity overrides in the public month availability API", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    const singleSlotDay = {
+      closed: false,
+      services: [{ id: "lunch", label: "Lunch", start: "12:30", end: "12:30", interval: 30, capacity: 20 }],
+    };
+    const nextConfig = {
+      ...config,
+      capacityMode: "manual" as const,
+      minPartySize: 1,
+      dateOverrides: { ...config.dateOverrides, "2026-06-12": singleSlotDay },
+      forwardSlotCapacityOverrides: {
+        main: { lunch: { "12:30": [{ effectiveFrom: "2026-06-12", capacity: 0 }] } },
+      },
+    };
+    if (nextConfig.offerings?.[0]) {
+      nextConfig.offerings = nextConfig.offerings.map((offering, index) =>
+        index === 0
+          ? { ...offering, dateOverrides: { ...offering.dateOverrides, "2026-06-12": singleSlotDay } }
+          : offering,
+      );
+    }
+    await store.saveConfig({
+      ...nextConfig,
+    });
+
+    const res = await routes.avail.GET(req("/api/availability?month=2026-06"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.days.find((d: { date: string }) => d.date === "2026-06-12")).toMatchObject({ status: "full" });
+
+    const day = await routes.avail.GET(req("/api/availability?date=2026-06-12"));
+    const dayJson = await day.json();
+    expect(dayJson.services[0].slots.find((s: { time: string }) => s.time === "12:30")).toMatchObject({
+      capacity: 0,
+      available: false,
+      unavailableReason: "capacity",
+    });
   });
   it("returns a month grid", async () => {
     const res = await routes.avail.GET(req("/api/availability?month=2026-06"));
@@ -333,6 +413,7 @@ describe("GET /api/availability", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.offerings[0]).toMatchObject({ id: "main" });
+    expect(json.offerings[0].services[0]).toMatchObject({ id: "lunch", labelEn: "Lunch", labelIt: "Pranzo" });
     expect(json.reservationPolicy).toEqual({ maxPartySize: 20 });
   });
   it("400s on a malformed date and month", async () => {
@@ -478,6 +559,8 @@ describe("public marketing-site integration", () => {
       partySize: bookingGuest.partySize,
       name: bookingGuest.name,
       status: "confirmed",
+      serviceLabelEn: "Lunch",
+      serviceLabelIt: "Pranzo",
     });
     expect(lookupJson.reservations[0].reference).toMatch(/^[A-Z0-9]{6}$/);
     expect(lookupJson.reservations[0].id).toBeUndefined();
@@ -896,7 +979,7 @@ describe("admin today booking controls", () => {
     const beforeJson = await before.json();
     expect(beforeJson.date).toBe("2026-06-11");
     const lunch = beforeJson.services.find((s: { service: string }) => s.service === "lunch");
-    expect(lunch).toMatchObject({ disabled: false, cutoffPassed: false });
+    expect(lunch).toMatchObject({ disabled: false, cutoffPassed: false, serviceLabel: "Lunch", serviceLabelEn: "Lunch", serviceLabelIt: "Pranzo" });
 
     const patched = await routes.todayControls.PATCH(adminReq("/api/admin/today-booking-controls", {
       method: "PATCH",

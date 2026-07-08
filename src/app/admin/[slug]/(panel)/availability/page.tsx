@@ -10,13 +10,14 @@ import {
   type ServiceWindow,
 } from "@/lib/reservations/types";
 import { getOfferings } from "@/lib/reservations/offerings";
+import { SERVICE_NAME_POOL, serviceNameFor } from "@/lib/reservations/service-catalog";
 import { adminFetch, adminJson, toast } from "@/components/admin/api";
 import Tooltip from "@/components/ui/Tooltip";
 import { am } from "@/i18n";
 
 const defaultService = (): ServiceWindow => ({
-  id: `service-${Date.now()}`,
-  label: "Service",
+  id: "dinner",
+  label: serviceNameFor("dinner").en,
   start: "18:00",
   end: "22:00",
   interval: 30,
@@ -691,7 +692,28 @@ function DayServicesEditor({
           key={si}
           className={`grid grid-cols-2 sm:grid-cols-3 ${wide ? wideColumns : ""} gap-2 items-end bg-surface-container-high/45 border border-outline-variant/20 rounded-lg p-2`}
         >
-          <Inp label={am.availability.serviceName} value={s.label} w="w-full" compact={wide} onChange={(v) => mutate((d) => (d.services[si].label = v))} />
+          <label className="flex flex-col gap-1">
+            <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${wide ? "lg:sr-only" : ""}`}>{am.availability.serviceName}</span>
+            <select
+              value={SERVICE_NAME_POOL.some((service) => service.id === s.id) ? s.id : ""}
+              onChange={(event) => mutate((d) => {
+                const selected = serviceNameFor(event.target.value, d.services[si].label);
+                d.services[si].id = selected.id;
+                d.services[si].label = selected.en;
+              })}
+              className={`${field} w-full`}
+              aria-label={am.availability.serviceName}
+            >
+              {!SERVICE_NAME_POOL.some((service) => service.id === s.id) && (
+                <option value="">{s.label || am.availability.serviceName}</option>
+              )}
+              {SERVICE_NAME_POOL.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.en} / {service.it}
+                </option>
+              ))}
+            </select>
+          </label>
           <TimeInp label={am.availability.serviceFrom} value={s.start} compact={wide} onChange={(v) => mutate((d) => (d.services[si].start = v))} />
           <TimeInp label={am.availability.serviceTo} value={s.end} compact={wide} onChange={(v) => mutate((d) => (d.services[si].end = v))} />
           <NumInp label={am.availability.serviceInterval} value={s.interval} w="w-full" min={5} compact={wide} onChange={(v) => mutate((d) => (d.services[si].interval = v))} />
