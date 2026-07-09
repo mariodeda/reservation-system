@@ -334,7 +334,7 @@ function Metadata({ event }: { event: PlatformLogEvent }) {
   return (
     <details className="group">
       <summary className="cursor-pointer text-sm text-primary hover:underline">Metadata</summary>
-      <pre className="mt-2 max-h-56 w-[320px] overflow-auto rounded-lg border border-outline-variant bg-surface p-3 text-xs text-on-surface">
+      <pre className="mt-2 max-h-56 w-[320px] max-w-[calc(100vw-2rem)] overflow-auto rounded-lg border border-outline-variant bg-surface p-3 text-xs text-on-surface">
         {JSON.stringify(event.metadata, null, 2)}
       </pre>
     </details>

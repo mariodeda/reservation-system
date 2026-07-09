@@ -109,14 +109,18 @@ function useAdminTooltipDismiss(onDismiss: () => void) {
 function Tip({ tip }: { tip: NonNullable<TipState> }) {
   const safeX =
     typeof window !== "undefined"
-      ? Math.min(tip.x + 14, window.innerWidth - 224)
+      ? Math.min(Math.max(8, tip.x + 14), Math.max(8, window.innerWidth - 288 - 8))
       : tip.x + 14;
+  const safeY =
+    typeof window !== "undefined"
+      ? Math.min(Math.max(8, tip.y), Math.max(8, window.innerHeight - 8))
+      : tip.y;
   return (
-    <div className="fixed z-50 pointer-events-none" style={{ left: safeX, top: tip.y }}>
-      <div className="-translate-y-full rounded-lg border border-outline-variant/40 bg-surface-container shadow-xl px-3 py-2 text-xs space-y-0.5">
-        <div className="font-semibold text-on-surface whitespace-nowrap">{tip.title}</div>
+    <div className="fixed z-[300] pointer-events-none" style={{ left: safeX, top: safeY }}>
+      <div className="-translate-y-full max-w-[calc(100vw-1rem)] rounded-lg border border-outline-variant/40 bg-surface-container px-3 py-2 text-xs shadow-xl sm:max-w-[18rem]">
+        <div className="font-semibold leading-snug text-on-surface">{tip.title}</div>
         {tip.lines.map((l, i) => (
-          <div key={i} className="text-on-surface-variant whitespace-nowrap">{l}</div>
+          <div key={i} className="leading-snug text-on-surface-variant">{l}</div>
         ))}
       </div>
     </div>

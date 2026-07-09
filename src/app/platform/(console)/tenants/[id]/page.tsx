@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
 import { formatPlatformDateTime } from "@/components/platform/date-format";
 import { usePlatformUnsavedChanges } from "@/components/platform/usePlatformUnsavedChanges";
+import Tooltip from "@/components/ui/Tooltip";
 import {
   CANCELLATION_PRESETS,
   CONFIRMATION_PRESETS,
@@ -1317,25 +1318,24 @@ function TemplateArea({ label, v, on, placeholder, rows = 3 }: { label: string; 
 }
 
 function PresetButton({ preset, onLoad }: { preset: EmailPreset; onLoad: () => void }) {
-  const [tip, setTip] = useState(false);
   return (
-    <div className="relative">
+    <Tooltip
+      content={(
+        <span>
+          <span className="block font-semibold">{preset.name}</span>
+          <span className="mt-0.5 block text-on-surface-variant">{preset.description}</span>
+        </span>
+      )}
+      side="bottom"
+    >
       <button
         type="button"
         onClick={onLoad}
-        onMouseEnter={() => setTip(true)}
-        onMouseLeave={() => setTip(false)}
         className="text-[11px] px-2.5 py-1 rounded-full border border-outline-variant/40 text-on-surface-variant hover:border-primary hover:text-primary hover:bg-primary/5 transition"
       >
         {preset.name}
       </button>
-      {tip && (
-        <div className="absolute bottom-full left-0 mb-1.5 z-10 w-52 rounded-lg bg-surface-container border border-outline-variant/40 shadow-xl px-3 py-2 pointer-events-none">
-          <p className="text-xs font-semibold text-on-surface">{preset.name}</p>
-          <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{preset.description}</p>
-        </div>
-      )}
-    </div>
+    </Tooltip>
   );
 }
 
@@ -1348,16 +1348,16 @@ function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => voi
   }, [onClose]);
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={(e) => { if (!ref.current?.contains(e.target as Node)) onClose(); }}
     >
-      <div ref={ref} className="relative mx-3 w-full max-w-2xl overflow-hidden rounded-xl bg-surface-container shadow-2xl sm:mx-4">
-        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-3">
-          <div className="flex items-center gap-2">
+      <div ref={ref} className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-surface-container shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant/30 px-4 py-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-widest text-primary">
               {am.platform.tenant.previewTitle}
             </span>
-            <span className="ml-1 text-[11px] text-on-surface-variant">- {am.platform.tenant.previewSample}</span>
+            <span className="text-[11px] text-on-surface-variant">- {am.platform.tenant.previewSample}</span>
           </div>
           <button
             onClick={onClose}
@@ -1367,7 +1367,7 @@ function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => voi
             <XIcon className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div style={{ background: "#f4f4f4", maxHeight: "72vh", overflow: "auto" }}>
+        <div className="min-h-0 flex-1 overflow-auto" style={{ background: "#f4f4f4" }}>
           <iframe
             srcDoc={html}
             title="Email preview"

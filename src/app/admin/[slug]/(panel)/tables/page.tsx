@@ -292,7 +292,7 @@ function TableForm({
   }
 
   return (
-    <div className="bg-surface-container border border-primary/30 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className="bg-surface-container border border-primary/30 rounded-xl p-4 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
       <label className="col-span-2 sm:col-span-1 space-y-1">
         <span className="text-xs text-on-surface-variant">{am.tables.label}</span>
         <input value={f.label} onChange={(e) => set("label", e.target.value)} placeholder={am.tables.labelPlaceholder} maxLength={50} className={field} autoFocus />

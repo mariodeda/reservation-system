@@ -45,8 +45,8 @@ export default function PlatformShell({
   return (
     <div data-admin data-theme={theme} className="min-h-screen bg-background text-on-surface">
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
-        <div className={`${fullWidth ? "w-full px-3 sm:px-6 lg:px-8" : "max-w-5xl mx-auto px-3 sm:px-4"} h-14 flex items-center justify-between gap-2 sm:gap-4`}>
-          <div className="flex items-center gap-4 md:gap-6 min-w-0">
+        <div className={`${fullWidth ? "w-full px-2.5 sm:px-6 lg:px-8" : "max-w-5xl mx-auto px-2.5 sm:px-4"} h-14 flex items-center justify-between gap-1.5 sm:gap-4`}>
+          <div className="flex items-center gap-2 sm:gap-4 md:gap-6 min-w-0">
             <Link href="/platform" className="flex items-center gap-2 text-primary">
               <SystemLogo className="h-7 w-7" />
               <span className="font-display-lg text-[16px] uppercase tracking-tighter truncate hidden sm:inline">
@@ -61,7 +61,7 @@ export default function PlatformShell({
               <NavLink href="/platform/docs" active={isActivePath(currentPath, "/platform/docs")}>Docs</NavLink>
             </nav>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <span className="text-sm text-on-surface-variant hidden sm:inline mr-1">{username}</span>
             <Tooltip content={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}>
               <button
@@ -78,7 +78,7 @@ export default function PlatformShell({
                 <button
                   onClick={() => { if (locale !== l) setLocale(l); }}
                   aria-label={l === "it" ? "Italiano" : "English"}
-                  className={`px-2 py-1 text-sm leading-none transition ${
+                  className={`px-1.5 py-1 text-sm leading-none transition sm:px-2 ${
                     locale === l
                       ? "bg-primary/15 text-primary font-medium"
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
@@ -91,7 +91,7 @@ export default function PlatformShell({
             </div>
             <button
               onClick={logout}
-              className="text-xs sm:text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-2 sm:px-3 py-1.5 transition"
+              className="text-xs sm:text-sm text-on-surface-variant hover:text-primary border border-outline-variant/40 rounded-lg px-1.5 sm:px-3 py-1.5 transition"
             >
               {am.nav.signOut}
             </button>

@@ -100,4 +100,15 @@ describe("TodayBookingControls", () => {
     );
     expect(toast).toHaveBeenCalledWith("Booking controls updated");
   });
+
+  it("closes the popup with Escape", async () => {
+    const user = userEvent.setup();
+    render(<TodayBookingControls />);
+
+    await user.click(await screen.findByRole("button", { name: "Today bookings" }));
+    expect(screen.getByRole("dialog", { name: "Today booking controls" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Today booking controls" })).not.toBeInTheDocument();
+  });
 });

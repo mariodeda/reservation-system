@@ -260,7 +260,7 @@ describe("DayOccupancy", () => {
       .mockResolvedValueOnce({ ok: true })
       .mockResolvedValueOnce(day({ capacityMode: "manual" }));
 
-    render(<DayOccupancy date="2099-06-12" offering="main" />);
+    render(<DayOccupancy date="2099-06-12" offering="main" onPickSlot={vi.fn()} />);
 
     await user.click(await screen.findByRole("button", { name: /12:00.*4\/10 covers in turn window/i }));
     expect(screen.getByRole("dialog", { name: "Slot actions" })).toBeInTheDocument();
@@ -286,5 +286,18 @@ describe("DayOccupancy", () => {
       })),
     );
     expect(toast).toHaveBeenCalledWith("Slot capacity updated.");
+  });
+
+  it("closes the slot actions modal with Escape", async () => {
+    const user = userEvent.setup();
+    adminJson.mockResolvedValueOnce(day());
+
+    render(<DayOccupancy date="2099-06-12" offering="main" onPickSlot={vi.fn()} />);
+
+    await user.click(await screen.findByRole("button", { name: /12:00.*4\/10 covers in turn window/i }));
+    expect(screen.getByRole("dialog", { name: "Slot actions" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Slot actions" })).not.toBeInTheDocument();
   });
 });

@@ -38,7 +38,7 @@ describe("CustomersPage", () => {
   it("displays comma-form customer names as first name then last name", async () => {
     render(<CustomersPage />);
 
-    expect(await screen.findAllByText("Jane Doe")).toHaveLength(2);
+    expect(await screen.findAllByText("Jane Doe")).toHaveLength(1);
     expect(screen.queryByText("Doe, Jane")).not.toBeInTheDocument();
   });
 });

@@ -446,8 +446,8 @@ function ReservationTable({
       {reservations.length === 0 ? (
         <p className="text-sm text-on-surface-variant/60">{emptyText}</p>
       ) : (
-        <div className="rounded-lg border border-outline-variant/30 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border border-outline-variant/30">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="border-b border-outline-variant/30 bg-surface-container text-xs text-on-surface-variant uppercase tracking-widest">
                 <th className="px-3 py-2 text-left font-medium">Date</th>

@@ -78,8 +78,15 @@ export default function AdminShell({
         setClientStatsOpen(false);
       }
     }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setClientStatsOpen(false);
+    }
     document.addEventListener("pointerdown", closeOnOutsidePointer);
-    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, [clientStatsOpen]);
 
   useEffect(() => {
@@ -89,8 +96,15 @@ export default function AdminShell({
         setTenantMenuOpen(false);
       }
     }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setTenantMenuOpen(false);
+    }
     document.addEventListener("pointerdown", closeOnOutsidePointer);
-    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, [tenantMenuOpen]);
 
   function toggleTheme() {
@@ -129,8 +143,8 @@ export default function AdminShell({
   return (
     <div data-admin data-theme={theme} className="min-h-screen bg-background text-on-surface">
       <header className="sticky top-0 z-30 bg-surface-container/95 backdrop-blur border-b border-outline-variant/30">
-        <div className="px-3 sm:px-4 lg:px-6 h-14 flex items-center justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-3 lg:gap-5 min-w-0">
+        <div className="px-2.5 sm:px-4 lg:px-6 h-14 flex items-center justify-between gap-1.5 sm:gap-3">
+          <div className="flex items-center gap-2 lg:gap-5 min-w-0">
             <Tooltip content={am.nav.dashboard}>
             <Link
               href={base}
@@ -138,9 +152,9 @@ export default function AdminShell({
               className="shrink-0 min-w-0 flex items-center hover:opacity-80 transition"
             >
               {logoUrl ? (
-                <span className="inline-flex h-9 max-w-[176px] shrink-0 items-center rounded-lg border border-white/20 bg-neutral-950/75 px-2 shadow-md ring-1 ring-black/10 backdrop-blur-sm">
+                <span className="inline-flex h-9 max-w-[116px] shrink-0 items-center rounded-lg border border-white/20 bg-neutral-950/75 px-2 shadow-md ring-1 ring-black/10 backdrop-blur-sm sm:max-w-[176px]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[160px] object-contain shrink-0" />
+                  <img src={logoUrl} alt={brandName} className="h-7 w-auto max-w-[100px] object-contain shrink-0 sm:max-w-[160px]" />
                 </span>
               ) : (
                 <div className="flex items-center gap-2 min-w-0">
@@ -186,7 +200,7 @@ export default function AdminShell({
                   {am.nav.clientsAndStatistics}
                   <ChevronDownIcon />
                 </summary>
-                <div className="absolute left-0 top-full mt-2 min-w-48 rounded-lg border border-outline-variant/40 bg-surface-container shadow-xl p-1 z-50">
+                <div className="absolute left-0 top-full z-50 mt-2 min-w-48 rounded-lg border border-outline-variant/40 bg-surface-container p-1 shadow-xl" role="menu">
                   {clientStatsSections.map((section) => {
                     const active = isActivePath(currentPath, section.href);
                     return (
@@ -209,7 +223,7 @@ export default function AdminShell({
               </details>
             </nav>
           </div>
-          <div className="flex items-center gap-2 shrink-0" onMouseEnter={dismissAdminTooltips}>
+          <div className="flex items-center gap-1 shrink-0 sm:gap-2" onMouseEnter={dismissAdminTooltips}>
             <TodayBookingControls />
             <NotificationBell
               notifications={notifications}
@@ -245,7 +259,7 @@ export default function AdminShell({
                 </button>
               </Tooltip>
               {tenantMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
+                <div className="fixed inset-x-3 top-[4.25rem] z-50 overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 sm:max-w-[calc(100vw-1.5rem)]" role="menu" aria-label={am.nav.settings}>
                   <div className="px-4 py-3 border-b border-outline-variant/20">
                     <div className="text-xs uppercase tracking-widest text-on-surface-variant/70">Restaurant</div>
                     <div className="mt-1 text-sm font-semibold text-on-surface truncate">{brandName}</div>
@@ -305,7 +319,7 @@ export default function AdminShell({
                 <button
                   onClick={() => { if (locale !== l) setLocale(l); }}
                   aria-label={l === "it" ? "Italiano" : "English"}
-                  className={`px-2 py-1 text-sm leading-none transition ${
+                  className={`px-1.5 py-1 text-sm leading-none transition sm:px-2 ${
                     locale === l
                       ? "bg-primary/15 text-primary font-medium"
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"

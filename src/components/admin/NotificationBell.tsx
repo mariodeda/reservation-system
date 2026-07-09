@@ -248,6 +248,15 @@ export function NotificationBell({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   function toggleOpen() {
     dismissAdminTooltips();
     setOpen((v) => !v);
@@ -291,11 +300,14 @@ export function NotificationBell({
 
       {open && (
         <div
-          className="absolute right-0 top-10 w-[calc(100vw-1.5rem)] max-w-sm rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden"
+          className="fixed inset-x-3 top-[4.25rem] z-50 max-h-[calc(100dvh-5rem)] overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-10 sm:w-[calc(100vw-1.5rem)] sm:max-w-sm"
+          role="dialog"
+          aria-modal="false"
+          aria-label={am.notifications.title}
           onMouseEnter={dismissAdminTooltips}
         >
           {/* header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-outline-variant/20">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-outline-variant/20">
             <span className="text-sm font-semibold text-on-surface">{am.notifications.title}</span>
             <div className="flex items-center gap-2">
               {!connected && (
@@ -313,7 +325,7 @@ export function NotificationBell({
           </div>
 
           {/* list */}
-          <div className="max-h-[420px] overflow-y-auto">
+          <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto sm:max-h-[420px]">
             {unreadNotifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-on-surface-variant/50">
                 <BellIcon className="w-6 h-6 mx-auto mb-2" />
@@ -345,7 +357,7 @@ export function NotificationBell({
                       <p className="text-xs text-on-surface-variant mt-0.5">
                         {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
                       </p>
-                      <div className="flex items-center gap-1.5 mt-1">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
                           {eventLabel(n)}
                         </span>

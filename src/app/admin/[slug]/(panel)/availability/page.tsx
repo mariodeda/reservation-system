@@ -688,7 +688,7 @@ function DayServicesEditor({
       {services.map((s, si) => (
         <div
           key={si}
-          className={`grid grid-cols-2 sm:grid-cols-3 ${wide ? wideColumns : ""} gap-2 items-end bg-surface-container-high/45 border border-outline-variant/20 rounded-lg p-2`}
+          className={`grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 ${wide ? wideColumns : ""} gap-2 items-end bg-surface-container-high/45 border border-outline-variant/20 rounded-lg p-2`}
         >
           <label className="flex flex-col gap-1">
             <span className={`text-[10px] uppercase tracking-widest text-on-surface-variant ${wide ? "lg:sr-only" : ""}`}>{am.availability.serviceName}</span>

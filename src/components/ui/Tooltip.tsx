@@ -4,6 +4,7 @@ import {
   cloneElement,
   isValidElement,
   useCallback,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -18,6 +19,11 @@ type TooltipSide = "top" | "bottom" | "left" | "right";
 const VIEWPORT_PADDING = 8;
 const TOOLTIP_GAP = 8;
 const OFFSCREEN_COORDS = { left: -9999, top: -9999 };
+
+function canShowPointerTooltip() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
+  return !window.matchMedia("(hover: none), (pointer: coarse)").matches;
+}
 
 function candidateRect(trigger: DOMRect, width: number, height: number, side: TooltipSide) {
   switch (side) {
@@ -94,6 +100,11 @@ export default function Tooltip({
   });
   const [active, setActive] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const updatePlacement = useCallback(() => {
     const trigger = triggerRef.current;
@@ -147,12 +158,20 @@ export default function Tooltip({
         setActive(false);
         setDismissed(true);
       }}
+      onKeyDownCapture={(event) => {
+        if (event.key === "Escape") {
+          setActive(false);
+          setDismissed(true);
+        }
+      }}
       onFocusCapture={() => {
+        if (!canShowPointerTooltip()) return;
         setDismissed(false);
         setActive(true);
         updatePlacement();
       }}
-      onPointerEnter={() => {
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "mouse" || !canShowPointerTooltip()) return;
         setDismissed(false);
         setActive(true);
         updatePlacement();
@@ -163,7 +182,7 @@ export default function Tooltip({
       }}
     >
       {describedChildren}
-      {typeof document !== "undefined" &&
+      {mounted && typeof document !== "undefined" &&
         createPortal(
           <span
             ref={tooltipRef}
@@ -171,7 +190,7 @@ export default function Tooltip({
             role="tooltip"
             data-side={placement.side}
             style={{ left: placement.left, top: placement.top } as CSSProperties}
-            className={`pointer-events-none fixed z-[300] min-w-[200px] max-w-[18rem] whitespace-pre-line rounded-md border border-outline-variant/50 bg-surface-container-high px-2.5 py-1.5 text-xs font-medium leading-snug text-on-surface shadow-xl transition-opacity duration-150 ${active && !dismissed ? "opacity-100" : "opacity-0"}`}
+            className={`pointer-events-none fixed z-[300] min-w-0 max-w-[calc(100vw-1rem)] whitespace-pre-line rounded-md border border-outline-variant/50 bg-surface-container-high px-2.5 py-1.5 text-xs font-medium leading-snug text-on-surface shadow-xl transition-opacity duration-150 sm:min-w-[200px] sm:max-w-[18rem] ${active && !dismissed ? "opacity-100" : "opacity-0"}`}
           >
             {content}
           </span>,

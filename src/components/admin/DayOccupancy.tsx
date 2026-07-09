@@ -75,6 +75,15 @@ export default function DayOccupancy({
     };
   }, [loadDay, refreshKey]);
 
+  useEffect(() => {
+    if (!selectedSlot) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedSlot(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectedSlot]);
+
   const toggleSlotStop = async (service: string, time: string, blocked: boolean) => {
     const key = `${service}:${time}`;
     setSavingSlot(key);
@@ -251,9 +260,17 @@ export default function DayOccupancy({
         <SlotCapacityHelpModal onClose={() => setHelpOpen(false)} />
       )}
       {selectedSlot && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={am.availability.slotActionsTitle}>
-          <div className="w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
-            <div className="border-b border-outline-variant/20 bg-surface-container px-4 py-4 sm:px-5">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={am.availability.slotActionsTitle}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedSlot(null);
+          }}
+        >
+          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
+            <div className="shrink-0 border-b border-outline-variant/20 bg-surface-container px-4 py-4 sm:px-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
@@ -275,7 +292,7 @@ export default function DayOccupancy({
               </div>
             </div>
 
-            <div className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
               {selectedSlot.overbookedBy > 0 && (
                 <div className="rounded-lg border border-rose-400/40 bg-rose-500/15 px-3 py-3 text-sm text-on-surface">
                   <div className="flex items-start gap-2">
@@ -466,8 +483,8 @@ function SlotCapacityHelpModal({ onClose }: { onClose: () => void }) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container px-4 py-3">
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container px-4 py-3">
           <h2 id="slot-capacity-help-title" className="text-sm font-semibold text-on-surface">
             {am.availability.slotCapacityHelpTitle}
           </h2>
@@ -480,7 +497,7 @@ function SlotCapacityHelpModal({ onClose }: { onClose: () => void }) {
             <CloseIcon />
           </button>
         </div>
-        <div className="space-y-3 px-4 py-4 text-sm leading-relaxed text-on-surface-variant">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm leading-relaxed text-on-surface-variant">
           <p>{am.availability.slotCapacityHelpIntro}</p>
           <p>{am.availability.slotCapacityHelpExample}</p>
           <p>{am.availability.slotCapacityHelpReason}</p>

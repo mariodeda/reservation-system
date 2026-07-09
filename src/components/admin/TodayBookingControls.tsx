@@ -42,6 +42,15 @@ export default function TodayBookingControls() {
   }, []);
 
   useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  useEffect(() => {
     void load();
   }, []);
 
@@ -103,9 +112,14 @@ export default function TodayBookingControls() {
       </Tooltip>
 
       {open && (
-        <div className="absolute right-0 top-10 w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl z-50 overflow-hidden">
+        <div
+          className="fixed inset-x-3 top-[4.25rem] z-50 max-h-[calc(100dvh-5rem)] overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-10 sm:w-96 sm:max-w-[calc(100vw-2rem)]"
+          role="dialog"
+          aria-modal="false"
+          aria-label={am.bookingControls.title}
+        >
           <div className="px-4 py-3 border-b border-outline-variant/20">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-on-surface">{am.bookingControls.title}</span>
               {stopped > 0 && (
                 <span className="rounded-full bg-amber-400/15 text-on-surface border border-amber-400/30 px-2 py-0.5 text-[10px] font-semibold">
@@ -116,7 +130,7 @@ export default function TodayBookingControls() {
             <p className="mt-1 text-xs text-on-surface-variant">{am.bookingControls.subtitle}</p>
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto p-2">
+          <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto p-2 sm:max-h-[420px]">
             {loading && !data ? (
               <div className="px-3 py-6 text-sm text-on-surface-variant">{am.bookingControls.loading}</div>
             ) : !data || data.services.length === 0 ? (
@@ -155,9 +169,9 @@ function ServiceControl({
   const locked = service.cutoffPassed || saving;
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${service.disabled ? "border-amber-400/40 bg-amber-400/10" : "border-outline-variant/25 bg-surface-container-high/35"}`}>
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-on-surface truncate">{service.serviceLabel}</span>
             <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${service.disabled ? "bg-amber-400/20 text-on-surface" : "bg-emerald-400/15 text-on-surface"}`}>
               {service.disabled ? am.bookingControls.stopped : am.bookingControls.accepting}
@@ -170,7 +184,7 @@ function ServiceControl({
             {service.cutoffPassed ? am.bookingControls.cutoffPassed : am.bookingControls.cutoffHint(service.cutoffTime)}
           </p>
         </div>
-        <label className={`inline-flex items-center gap-2 text-xs font-medium ${locked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+        <label className={`inline-flex items-center gap-2 self-start text-xs font-medium sm:self-auto ${locked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
           <span>{am.bookingControls.stop}</span>
           <input
             type="checkbox"

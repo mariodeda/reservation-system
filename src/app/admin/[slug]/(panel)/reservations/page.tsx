@@ -642,7 +642,7 @@ function WalkInForm({
         <span className="text-xs text-on-surface-variant">{am.walkIn.subtitle}</span>
         <span className="ml-auto text-xs text-primary font-semibold tabular-nums">{nowTime}</span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
         <ReservationField label={am.walkIn.name} className="col-span-2">
           <input
             value={name}
@@ -836,7 +836,7 @@ function FloorModal({
 
   return (
     <div
-      className="fixed inset-0 z-[180] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+      className="fixed inset-0 z-[180] bg-black/70 p-3 backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={am.floor.title}
@@ -844,7 +844,7 @@ function FloorModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="mx-auto flex max-h-[calc(100vh-1.5rem)] max-w-6xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-background shadow-2xl sm:max-h-[calc(100vh-3rem)]">
+      <div className="mx-auto flex max-h-[calc(100dvh-1.5rem)] max-w-6xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-background shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
         <div className="flex items-center gap-3 border-b border-outline-variant/25 bg-surface-container px-4 py-3">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold">{am.floor.title}</h2>
@@ -897,12 +897,12 @@ function WaitlistModal({
 
   return (
     <div
-      className="fixed inset-0 z-[180] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+      className="fixed inset-0 z-[180] bg-black/70 p-3 backdrop-blur-sm sm:p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="mx-auto flex max-h-[calc(100vh-1.5rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-background shadow-2xl sm:max-h-[calc(100vh-3rem)]">
+      <div className="mx-auto flex max-h-[calc(100dvh-1.5rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-background shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
         <div className="flex items-center gap-3 border-b border-outline-variant/25 bg-surface-container px-4 py-3">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold">{am.waitlist.title}</h2>
@@ -1233,31 +1233,40 @@ function ReservationField({ label, className = "", children }: { label: string; 
 }
 
 function ReservationModal({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
-      className="fixed inset-0 z-[190] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+      className="fixed inset-0 z-[190] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reservation-modal-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      <div className="mx-auto flex h-full w-full max-w-3xl items-center">
-        <div className="max-h-full w-full overflow-y-auto rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-outline-variant/25 bg-surface px-4 py-3">
-            <h2 id="reservation-modal-title" className="text-sm font-semibold text-on-surface">
-              {title}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant transition hover:text-primary"
-              aria-label={am.reservations.close}
-            >
-              <CloseIcon />
-            </button>
-          </div>
-          <div className="p-4">
-            {children}
-          </div>
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-outline-variant/25 bg-surface px-4 py-3">
+          <h2 id="reservation-modal-title" className="text-sm font-semibold text-on-surface">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant transition hover:text-primary"
+            aria-label={am.reservations.close}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {children}
         </div>
       </div>
     </div>
@@ -1344,7 +1353,7 @@ function NewReservationForm({
   }
 
   return (
-    <form onSubmit={submit} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <form onSubmit={submit} className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
       {multiOffering && (
         <ReservationField label={am.reservations.offeringLabel} className="col-span-2 sm:col-span-4">
           <select

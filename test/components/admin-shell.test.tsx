@@ -336,7 +336,7 @@ describe("AdminShell", () => {
     expect(date).toHaveClass("font-medium");
   });
 
-  it("caps the notification popup width for small viewports", async () => {
+  it("keeps the notification popup viewport-safe on small screens", async () => {
     const user = userEvent.setup();
     reservationEvents.notifications = [{
       id: "res-1",
@@ -354,10 +354,36 @@ describe("AdminShell", () => {
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
 
     await user.click(screen.getByRole("button", { name: /notifications/i }));
-    const popup = screen.getByText("Mark all read").closest(".absolute");
+    const popup = screen.getByText("Mark all read").closest(".fixed");
 
-    expect(popup).toHaveClass("w-[calc(100vw-1.5rem)]");
-    expect(popup).toHaveClass("max-w-sm");
+    expect(popup).toHaveClass("inset-x-3");
+    expect(popup).toHaveClass("max-h-[calc(100dvh-5rem)]");
+    expect(popup).toHaveClass("sm:absolute");
+    expect(popup).toHaveClass("sm:max-w-sm");
+  });
+
+  it("closes the notification popup with Escape", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    expect(screen.getByRole("dialog", { name: "Notifications" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Notifications" })).not.toBeInTheDocument();
   });
 
   it("dismisses active page tooltips when opening notifications", async () => {

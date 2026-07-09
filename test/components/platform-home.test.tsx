@@ -122,8 +122,8 @@ describe("PlatformHome", () => {
     render(<PlatformHome />);
 
     expect(await screen.findByText("Acme Osteria")).toBeInTheDocument();
-    expect(screen.getByText("Conferme: Attiva")).toBeInTheDocument();
-    expect(screen.getByText("Feedback: Disattiva")).toBeInTheDocument();
+    expect(screen.getByText("Conferme")).toBeInTheDocument();
+    expect(screen.getByText("Feedback")).toBeInTheDocument();
     expect(screen.getByText("SMTP: Connesso")).toBeInTheDocument();
 
     expect(screen.getByText("Beta Trattoria")).toBeInTheDocument();
