@@ -28,6 +28,12 @@ globalThis.localStorage.setItem("admin-locale", "en");
 const { hydrateLocale } = await import("@/i18n");
 hydrateLocale();
 
+// jsdom exposes scrollTo but does not implement it. Modal scroll-lock tests
+// exercise scroll restoration, so provide a quiet no-op for DOM test files.
+if (typeof window !== "undefined") {
+  window.scrollTo = () => {};
+}
+
 // jsdom doesn't ship EventSource — stub it so AdminShell renders without crashing.
 if (typeof EventSource === "undefined") {
   (globalThis as Record<string, unknown>).EventSource = class {

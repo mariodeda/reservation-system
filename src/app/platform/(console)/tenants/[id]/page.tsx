@@ -6,6 +6,7 @@ import { platformFetch, platformJson, toast, type TenantView } from "@/component
 import { formatPlatformDateTime } from "@/components/platform/date-format";
 import { usePlatformUnsavedChanges } from "@/components/platform/usePlatformUnsavedChanges";
 import Tooltip from "@/components/ui/Tooltip";
+import { useBodyScrollLock } from "@/components/ui/useBodyScrollLock";
 import {
   CANCELLATION_PRESETS,
   CONFIRMATION_PRESETS,
@@ -1341,6 +1342,7 @@ function PresetButton({ preset, onLoad }: { preset: EmailPreset; onLoad: () => v
 
 function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  useBodyScrollLock(true);
   useEffect(() => {
     function handler(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     document.addEventListener("keydown", handler);

@@ -5,6 +5,7 @@ import type { DayAvailability, SlotUnavailableReason } from "@/lib/reservations/
 import { adminJson, toast } from "./api";
 import { am } from "@/i18n";
 import Tooltip from "@/components/ui/Tooltip";
+import { useBodyScrollLock } from "@/components/ui/useBodyScrollLock";
 
 type SelectedSlot = {
   service: string;
@@ -54,6 +55,7 @@ export default function DayOccupancy({
   const [capacityScope, setCapacityScope] = useState<"date" | "future">("date");
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  useBodyScrollLock(Boolean(selectedSlot) || helpOpen);
 
   const loadDay = useCallback((cancelled: () => boolean = () => false) => {
     setError(false);

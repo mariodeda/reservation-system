@@ -19,6 +19,7 @@ import {
 import { scheduleForDate } from "@/lib/reservations/availability";
 import { getOfferings, offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
 import Tooltip from "@/components/ui/Tooltip";
+import { useBodyScrollLock } from "@/components/ui/useBodyScrollLock";
 
 /** Floor-view entry returned by GET /api/admin/tables?date= */
 interface FloorEntry {
@@ -823,6 +824,7 @@ function FloorModal({
   open: boolean;
   onClose: () => void;
 }) {
+  useBodyScrollLock(open);
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -887,6 +889,7 @@ function WaitlistModal({
   onClose: () => void;
   onSeated: () => void;
 }) {
+  useBodyScrollLock(true);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -1233,6 +1236,7 @@ function ReservationField({ label, className = "", children }: { label: string; 
 }
 
 function ReservationModal({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) {
+  useBodyScrollLock(true);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
