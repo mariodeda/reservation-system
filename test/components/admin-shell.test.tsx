@@ -147,14 +147,23 @@ describe("AdminShell", () => {
     expect(details).not.toHaveAttribute("open");
   });
 
-  it("navigates to the selected clients/statistics section from the mobile dropdown", async () => {
+  it("opens clients/statistics as a mobile popup and navigates from it", async () => {
     const user = userEvent.setup();
     pathname.value = "/admin/acme/reservations";
     render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Clients & Statistics" }), "/admin/acme/customers");
+    const mobileButton = screen.getAllByRole("button", { name: /Clients & Statistics/i }).find((button) =>
+      button.className.includes("min-h-[36px]"),
+    );
+    expect(mobileButton).toBeTruthy();
 
-    expect(push).toHaveBeenCalledWith("/admin/acme/customers");
+    await user.click(mobileButton!);
+    const mobileClientsLink = screen.getAllByRole("link", { name: "Clients" }).find((link) =>
+      link.className.includes("min-h-10"),
+    );
+
+    expect(screen.getByRole("menu", { name: "Clients & Statistics" })).toBeInTheDocument();
+    expect(mobileClientsLink?.getAttribute("href")).toBe("/admin/acme/customers");
   });
 
   it("renders a logo image when logoUrl is set (instead of the wordmark)", () => {

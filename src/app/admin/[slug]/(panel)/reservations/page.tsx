@@ -251,9 +251,9 @@ export default function ReservationsPage() {
 
   return (
     <div className="space-y-3 sm:space-y-5">
-      <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <h1 className="min-w-0 flex-1 truncate text-xl sm:text-2xl font-semibold">{am.reservations.title}</h1>
-        <div className="grid shrink-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex">
+        <div className="grid w-full shrink-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:w-auto sm:flex">
           <button
             onClick={() => { setShowWalkIn(true); setShowForm(false); }}
             className="inline-flex items-center justify-center gap-2 border border-outline-variant/40 text-on-surface-variant hover:text-primary px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition"
@@ -292,11 +292,11 @@ export default function ReservationsPage() {
                 <ChevronRightIcon className="h-4 w-4" />
               </button>
             </div>
-            <button onClick={() => setDate(dateShortcutTarget)} className={`${NAVBTN} px-3 text-sm font-medium`}>
+            <button onClick={() => setDate(dateShortcutTarget)} className={`${NAVBTN} hidden px-3 text-sm font-medium sm:flex`}>
               {dateShortcutLabel}
             </button>
             <div className="col-span-3 flex min-w-0 flex-wrap items-center gap-2 sm:ml-1">
-              <span className="min-w-0 truncate text-sm font-medium text-on-surface-variant">
+              <span className="hidden min-w-0 truncate text-sm font-medium text-on-surface-variant sm:block">
                 {formatDateLong(date)}
               </span>
               <DayMetric

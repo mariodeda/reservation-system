@@ -39,7 +39,6 @@ export default function AdminShell({
     { href: `${base}/analytics`, label: am.nav.analytics },
   ];
   const clientStatsActive = clientStatsSections.some((s) => isActivePath(currentPath, s.href));
-  const clientStatsValue = clientStatsActive ? clientStatsSections.find((s) => isActivePath(currentPath, s.href))?.href : "";
   const settingsHref = `${base}/settings`;
   const settingsActive = isActivePath(currentPath, settingsHref);
   const docsHref = `${base}/docs`;
@@ -360,32 +359,51 @@ export default function AdminShell({
                   href={n.href}
                   aria-current={active ? "page" : undefined}
                   className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition min-h-[36px] flex items-center ${
-                    active ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
+                    active ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
                   }`}
                 >
                   {n.label}
                 </Link>
               );
             })}
-            <label className={`shrink-0 min-h-[36px] flex items-center rounded-lg text-sm transition ${
-              clientStatsActive ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
-            }`}>
-              <span className="sr-only">{am.nav.clientsAndStatistics}</span>
-              <select
-                aria-label={am.nav.clientsAndStatistics}
-                value={clientStatsValue ?? ""}
-                onChange={(event) => {
-                  if (event.target.value) router.push(event.target.value);
-                }}
-                className="bg-transparent px-3 py-2 rounded-lg outline-none"
-              >
-                <option value="" disabled>{am.nav.clientsAndStatistics}</option>
-                {clientStatsSections.map((section) => (
-                  <option key={section.href} value={section.href}>{section.label}</option>
-                ))}
-              </select>
-            </label>
+            <button
+              type="button"
+              onClick={() => setClientStatsOpen((open) => !open)}
+              aria-expanded={clientStatsOpen}
+              className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition min-h-[36px] flex items-center gap-1.5 ${
+                clientStatsActive ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+              }`}
+            >
+              {am.nav.clientsAndStatistics}
+              <ChevronDownIcon />
+            </button>
           </nav>
+          {clientStatsOpen && (
+            <div
+              className="absolute left-3 right-3 top-full z-50 mt-1 rounded-xl border border-outline-variant/40 bg-surface-container p-1.5 shadow-2xl sm:hidden"
+              role="menu"
+              aria-label={am.nav.clientsAndStatistics}
+            >
+              {clientStatsSections.map((section) => {
+                const active = isActivePath(currentPath, section.href);
+                return (
+                  <Link
+                    key={section.href}
+                    href={section.href}
+                    onClick={() => setClientStatsOpen(false)}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex min-h-10 items-center rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      active
+                        ? "bg-primary text-on-primary shadow-sm"
+                        : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                    }`}
+                  >
+                    {section.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
           {/* fade hint — masked by the header bg so it's subtle */}
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface-container/95 to-transparent" aria-hidden="true" />
         </div>
