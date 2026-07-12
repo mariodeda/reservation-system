@@ -476,6 +476,13 @@ describe("canBook", () => {
     expect(canBook(cfg, [], input({ partySize: 9 })).ok).toBe(false);
     expect(canBook(cfg, [], input({ partySize: 2.5 })).ok).toBe(false);
   });
+  it("allows over-max party size only when explicitly requested and capacity exists", () => {
+    setup();
+    const cfg = makeConfig({ minPartySize: 2, maxPartySize: 8 });
+    expect(canBook(cfg, [], input({ partySize: 9 })).ok).toBe(false);
+    expect(canBook(cfg, [], input({ partySize: 9 }), undefined, { allowOverMaxPartySize: true })).toEqual({ ok: true });
+    expect(canBook(cfg, [], input({ partySize: 11 }), undefined, { allowOverMaxPartySize: true }).ok).toBe(false);
+  });
   it("rejects past and too-far-ahead dates", () => {
     setup();
     expect(canBook(makeConfig(), [], input({ date: "2026-06-10" })).ok).toBe(false);

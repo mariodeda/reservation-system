@@ -114,6 +114,20 @@ describe("useReservationEvents", () => {
     window.removeEventListener("reservation:new", dispatched);
   });
 
+  it("preserves reservation origin from durable web notifications", () => {
+    const { result } = renderHook(() => useReservationEvents());
+    const source = FakeEventSource.instances[0];
+
+    act(() => {
+      source.emit("notification.created", notificationPayload({ reservationOrigin: "facebook" }));
+    });
+
+    expect(result.current.notifications[0]).toMatchObject({
+      source: "web",
+      reservationOrigin: "facebook",
+    });
+  });
+
   it("ignores legacy local reservation update events", () => {
     const dispatched = vi.fn();
     window.addEventListener("reservation:new", dispatched);
@@ -242,6 +256,52 @@ describe("useReservationEvents", () => {
     expect(api.adminJson).toHaveBeenCalledWith("/api/admin/notifications?unread=1&limit=50");
   });
 
+  it("maps manual-confirmation notifications without dispatching generic new-booking events", () => {
+    const dispatched = vi.fn();
+    const changed = vi.fn();
+    window.addEventListener("reservation:new", dispatched);
+    window.addEventListener("reservation:changed", changed);
+    const { result } = renderHook(() => useReservationEvents());
+    const source = FakeEventSource.instances[0];
+
+    act(() => {
+      source.emit("notification.created", notificationPayload(
+        { status: "pending", partySize: 12 },
+        {
+          id: "manual-large-party",
+          type: "reservation.manual_confirmation_required",
+          title: "Manual confirmation required",
+          severity: "warning",
+          metadata: {
+            maxPartySize: 8,
+            reservation: event({ status: "pending", partySize: 12 }),
+          },
+        },
+      ));
+    });
+
+    expect(result.current.notifications).toHaveLength(1);
+    expect(result.current.notifications[0]).toMatchObject({
+      notificationId: "manual-large-party",
+      type: "reservation.manual_confirmation_required",
+      status: "pending",
+      partySize: 12,
+      maxPartySize: 8,
+      severity: "warning",
+    });
+    expect(dispatched).not.toHaveBeenCalled();
+    expect(changed).toHaveBeenCalledOnce();
+    expect(changed.mock.calls[0][0]).toMatchObject({
+      detail: expect.objectContaining({
+        notificationId: "manual-large-party",
+        type: "reservation.manual_confirmation_required",
+      }),
+    });
+
+    window.removeEventListener("reservation:new", dispatched);
+    window.removeEventListener("reservation:changed", changed);
+  });
+
   it("persists mark-read, dismiss, and mark-all-read actions", () => {
     const { result } = renderHook(() => useReservationEvents());
     const source = FakeEventSource.instances[0];
@@ -264,6 +324,26 @@ describe("useReservationEvents", () => {
       body: JSON.stringify({ dismissed: true }),
     }));
     expect(api.adminFetch).toHaveBeenCalledWith("/api/admin/notifications", { method: "POST" });
+  });
+
+  it("persists selected mark-read actions without marking unrelated notifications", () => {
+    const { result } = renderHook(() => useReservationEvents());
+    const source = FakeEventSource.instances[0];
+
+    act(() => {
+      source.emit("notification.created", notificationPayload({}, { id: "notice-1" }));
+      source.emit("notification.created", notificationPayload({ id: "res-2" }, { id: "notice-2" }));
+    });
+    act(() => {
+      result.current.markManyRead(["notice-2"]);
+    });
+
+    expect(result.current.notifications.find((n) => n.notificationId === "notice-1")?.read).toBe(false);
+    expect(result.current.notifications.find((n) => n.notificationId === "notice-2")?.read).toBe(true);
+    expect(api.adminFetch).toHaveBeenCalledWith("/api/admin/notifications/notice-2", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ read: true }),
+    }));
   });
 
   it("does not open parallel SSE connections after repeated errors", () => {

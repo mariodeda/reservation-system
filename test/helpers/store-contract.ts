@@ -61,6 +61,20 @@ export function runStoreContract(name: string, makeStore: () => Promise<Reservat
       expect(got?.name).toBe("Guest");
     });
 
+    it("round-trips reservation origin for internal web bookings only", async () => {
+      const web = await store.createReservation(input({ reservationOrigin: "instagram" }));
+      expect((await store.getReservation(web.id))?.reservationOrigin).toBe("instagram");
+
+      const admin = await store.createReservation(input({ source: "admin", reservationOrigin: "facebook" }));
+      expect((await store.getReservation(admin.id))?.reservationOrigin).toBeUndefined();
+
+      await store.updateReservation(web.id, { reservationOrigin: "facebook" });
+      expect((await store.getReservation(web.id))?.reservationOrigin).toBe("instagram");
+
+      const invalid = await store.createReservation(input({ reservationOrigin: "raw-referrer-url" as never }));
+      expect((await store.getReservation(invalid.id))?.reservationOrigin).toBeUndefined();
+    });
+
     it("defaults admin bookings to confirmed and trims/normalises fields", async () => {
       const r = await store.createReservation(
         input({ source: "admin", name: "  Bob  ", email: " bob@x.io ", occasion: "", notes: "  " }),

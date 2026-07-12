@@ -2,16 +2,18 @@ import { randomUUID } from "node:crypto";
 import type { RowDataPacket } from "mysql2/promise";
 import { getPool } from "./mysql-pool";
 import { ensureSchema } from "./mysql-schema";
-import type { CustomerProfile, Reservation } from "./types";
+import type { CustomerProfile, Reservation, ReservationOrigin } from "./types";
+import { sanitizeReservationOrigin } from "./reservation-origin";
 
 const RES_COLS =
-  "id, `date`, `time`, offering, service, party_size AS partySize, name, email, phone, occasion, notes, table_label AS tableLabel, status, source, created_at AS createdAt, updated_at AS updatedAt";
+  "id, `date`, `time`, offering, service, party_size AS partySize, name, email, phone, occasion, notes, table_label AS tableLabel, status, source, reservation_origin AS reservationOrigin, created_at AS createdAt, updated_at AS updatedAt";
 
 interface ResRow extends RowDataPacket {
   id: string; date: string; time: string; offering: string; service: string;
   partySize: number; name: string; email: string; phone: string;
   occasion: string | null; notes: string | null; tableLabel: string | null;
   status: Reservation["status"]; source: Reservation["source"];
+  reservationOrigin: ReservationOrigin | null;
   createdAt: string; updatedAt: string;
 }
 
@@ -21,7 +23,9 @@ function toRes(r: ResRow): Reservation {
     partySize: r.partySize, name: r.name, email: r.email, phone: r.phone,
     occasion: r.occasion ?? undefined, notes: r.notes ?? undefined,
     tableLabel: r.tableLabel ?? undefined,
-    status: r.status, source: r.source, createdAt: r.createdAt, updatedAt: r.updatedAt,
+    status: r.status, source: r.source,
+    reservationOrigin: r.source === "web" ? sanitizeReservationOrigin(r.reservationOrigin) : undefined,
+    createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
 }
 

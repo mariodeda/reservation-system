@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { am, hydrateLocale, setLocale, type Locale } from "@/i18n";
 import SystemLogo from "@/components/SystemLogo";
-import { useReservationEvents } from "./useReservationEvents";
-import { NotificationBell, ReservationToastStack } from "./NotificationBell";
+import { isManualConfirmationNotification, useReservationEvents } from "./useReservationEvents";
+import { ManualConfirmationBell, NotificationBell, ReservationToastStack } from "./NotificationBell";
 import TodayBookingControls from "./TodayBookingControls";
 import Tooltip from "@/components/ui/Tooltip";
 import LanguageFlag from "@/components/ui/LanguageFlag";
@@ -49,13 +49,16 @@ export default function AdminShell({
   const [tenantMenuOpen, setTenantMenuOpen] = useState(false);
   const clientStatsRef = useRef<HTMLDetailsElement>(null);
   const tenantMenuRef = useRef<HTMLDivElement>(null);
-  const { notifications, unreadCount, connected, markAllRead, markRead, dismiss } = useReservationEvents();
+  const { notifications, connected, markRead, markManyRead, dismiss } = useReservationEvents();
   const [toasts, setToasts] = useState<typeof notifications>([]);
+  const manualConfirmationNotifications = notifications.filter(isManualConfirmationNotification);
+  const standardNotifications = notifications.filter((n) => !isManualConfirmationNotification(n));
+  const standardUnreadCount = standardNotifications.filter((n) => !n.read).length;
 
   // Each new notification pops a toast
   useEffect(() => {
     const newest = notifications[0];
-    if (newest && !newest.read && newest.live) {
+    if (newest && !newest.read && newest.live && !isManualConfirmationNotification(newest)) {
       setToasts((prev) => {
         if (prev.some((t) => t.notificationId === newest.notificationId)) return prev;
         return [newest, ...prev].slice(0, 4);
@@ -112,9 +115,9 @@ export default function AdminShell({
     localStorage.setItem("admin-theme", next);
   }
 
-  function handleMarkAllRead() {
-    markAllRead();
-    setToasts([]);
+  function handleMarkSelectedRead(notificationIds: string[]) {
+    markManyRead(notificationIds);
+    setToasts((prev) => prev.filter((t) => !notificationIds.includes(t.notificationId)));
   }
 
   function handleMarkRead(notificationId: string) {
@@ -225,11 +228,17 @@ export default function AdminShell({
           <div className="flex items-center gap-1 shrink-0 sm:gap-2" onMouseEnter={dismissAdminTooltips}>
             <TodayBookingControls />
             <NotificationBell
-              notifications={notifications}
-              unreadCount={unreadCount}
+              notifications={standardNotifications}
+              unreadCount={standardUnreadCount}
               connected={connected}
               slug={slug}
-              onMarkAllRead={handleMarkAllRead}
+              onMarkAllRead={handleMarkSelectedRead}
+              onMarkRead={handleMarkRead}
+            />
+            <ManualConfirmationBell
+              notifications={manualConfirmationNotifications}
+              slug={slug}
+              onMarkAllRead={handleMarkSelectedRead}
               onMarkRead={handleMarkRead}
             />
             <Tooltip content={theme === "dark" ? am.theme.toggleLight : am.theme.toggleDark}>

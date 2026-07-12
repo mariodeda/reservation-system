@@ -15,14 +15,17 @@ const reservationEvents = vi.hoisted(() => ({
     service: string;
     partySize: number;
     name: string;
-    type?: "reservation.created" | "reservation.updated";
+    type?: "reservation.created" | "reservation.updated" | "reservation.manual_confirmation_required";
     status?: "pending" | "confirmed" | "seated" | "completed" | "cancelled" | "no_show";
     source: "web" | "admin" | "thefork" | "dish";
     receivedAt: number;
     read: boolean;
     live?: boolean;
+    maxPartySize?: number;
+    reservationOrigin?: "google" | "google_maps" | "instagram" | "facebook" | "external_other";
   }>,
   markRead: vi.fn(),
+  markManyRead: vi.fn(),
   dismiss: vi.fn(),
   markAllRead: vi.fn(),
 }));
@@ -33,11 +36,13 @@ vi.mock("next/navigation", () => ({
 // next/link -> plain anchor for the test environment.
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 vi.mock("@/components/admin/useReservationEvents", () => ({
+  isManualConfirmationNotification: (n: { type?: string }) => n.type === "reservation.manual_confirmation_required",
   useReservationEvents: () => ({
     notifications: reservationEvents.notifications,
     unreadCount: reservationEvents.notifications.filter((n) => !n.read).length,
     connected: true,
     markRead: reservationEvents.markRead,
+    markManyRead: reservationEvents.markManyRead,
     dismiss: reservationEvents.dismiss,
     markAllRead: reservationEvents.markAllRead,
   }),
@@ -55,6 +60,7 @@ beforeEach(() => {
   refresh.mockReset();
   reservationEvents.notifications = [];
   reservationEvents.markRead.mockReset();
+  reservationEvents.markManyRead.mockReset();
   reservationEvents.dismiss.mockReset();
   reservationEvents.markAllRead.mockReset();
   pathname.value = "/admin/acme/reservations";
@@ -239,7 +245,7 @@ describe("AdminShell", () => {
     await user.click(screen.getByRole("button", { name: /notifications/i }));
     await user.click(screen.getByRole("button", { name: /mark all read/i }));
 
-    expect(reservationEvents.markAllRead).toHaveBeenCalled();
+    expect(reservationEvents.markManyRead).toHaveBeenCalledWith(["reservation.created:res-1:1:0"]);
     expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
     expect(screen.queryByText("Jane")).not.toBeInTheDocument();
     expect(screen.getByText("No unread notifications")).toBeInTheDocument();
@@ -297,6 +303,30 @@ describe("AdminShell", () => {
     expect(screen.getAllByText("Confirmed").length).toBeGreaterThan(0);
   });
 
+  it("shows reservation origin on web booking notifications", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
+      type: "reservation.created",
+      status: "confirmed",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 2,
+      name: "Jane",
+      source: "web",
+      reservationOrigin: "facebook",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    expect(screen.getByText("Facebook")).toBeInTheDocument();
+  });
+
   it("labels external cancellation notifications with provider and status", async () => {
     const user = userEvent.setup();
     reservationEvents.notifications = [{
@@ -319,6 +349,107 @@ describe("AdminShell", () => {
     await user.click(screen.getByRole("button", { name: /notifications/i }));
     expect(screen.getAllByText("TheFork").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
+  });
+
+  it("routes over-max bookings into the manual confirmations popup", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-large",
+      notificationId: "manual-large",
+      type: "reservation.manual_confirmation_required",
+      status: "pending",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 12,
+      maxPartySize: 8,
+      name: "Large Party",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    expect(screen.getByText("No notifications yet")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /manual confirmations/i }));
+    expect(screen.getByRole("dialog", { name: "Manual confirmations" })).toBeInTheDocument();
+    expect(screen.getAllByText("Large Party").length).toBeGreaterThan(0);
+    expect(screen.getByText("Manual review")).toBeInTheDocument();
+    expect(screen.getByText("Max party 8")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Large Party/ }));
+    expect(reservationEvents.markRead).toHaveBeenCalledWith("manual-large");
+    expect(push).toHaveBeenCalledWith("/admin/acme/reservations?date=2026-07-01&reservation=res-large");
+  });
+
+  it("does not show manual confirmation alerts as generic live toasts", async () => {
+    reservationEvents.notifications = [{
+      id: "res-large",
+      notificationId: "manual-large",
+      type: "reservation.manual_confirmation_required",
+      status: "pending",
+      date: "2026-07-01",
+      time: "20:00",
+      service: "Dinner",
+      partySize: 12,
+      maxPartySize: 8,
+      name: "Large Party",
+      source: "web",
+      receivedAt: Date.now(),
+      read: false,
+      live: true,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    expect(screen.getByRole("button", { name: /manual confirmations, 1 unread/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
+  });
+
+  it("marking normal notifications read does not mark manual confirmations read", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [
+      {
+        id: "res-normal",
+        notificationId: "normal-notice",
+        type: "reservation.created",
+        status: "confirmed",
+        date: "2026-07-01",
+        time: "19:00",
+        service: "Dinner",
+        partySize: 2,
+        name: "Normal Booking",
+        source: "web",
+        receivedAt: Date.now(),
+        read: false,
+      },
+      {
+        id: "res-large",
+        notificationId: "manual-large",
+        type: "reservation.manual_confirmation_required",
+        status: "pending",
+        date: "2026-07-01",
+        time: "20:00",
+        service: "Dinner",
+        partySize: 12,
+        maxPartySize: 8,
+        name: "Large Party",
+        source: "web",
+        receivedAt: Date.now(),
+        read: false,
+      },
+    ];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /^notifications/i }));
+    await user.click(screen.getByRole("button", { name: /mark all read/i }));
+
+    expect(reservationEvents.markManyRead).toHaveBeenCalledWith(["normal-notice"]);
+    expect(reservationEvents.markManyRead).not.toHaveBeenCalledWith(["manual-large"]);
   });
 
   it("formats notification reservation dates in a readable long form", async () => {

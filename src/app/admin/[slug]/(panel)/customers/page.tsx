@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { am } from "@/i18n";
 import { adminJson, adminFetch, toast } from "@/components/admin/api";
-import type { CustomerProfile, Reservation } from "@/lib/reservations/types";
+import type { CustomerProfile, Reservation, ReservationOrigin } from "@/lib/reservations/types";
 import { STATUS_META, formatDateLong } from "@/components/admin/shared";
 import Tooltip from "@/components/ui/Tooltip";
 
@@ -19,6 +19,10 @@ function displayCustomerName(name: string): string {
   const comma = trimmed.match(/^([^,]+),\s*(.+)$/);
   if (comma) return `${comma[2]} ${comma[1]}`.replace(/\s+/g, " ").trim();
   return trimmed;
+}
+
+function originLabel(origin?: ReservationOrigin): string {
+  return origin ? am.reservationOrigin[origin] : "";
 }
 
 export default function CustomersPage() {
@@ -458,6 +462,7 @@ function ReservationTable({
                 <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Occasion</th>
                 <th className="px-3 py-2 text-left font-medium hidden md:table-cell">Ref</th>
                 <th className="px-3 py-2 text-left font-medium hidden lg:table-cell">Rating</th>
+                <th className="px-3 py-2 text-left font-medium hidden xl:table-cell">Origin</th>
               </tr>
             </thead>
             <tbody>
@@ -487,6 +492,9 @@ function ReservationTable({
                     ) : (
                       <span className="text-on-surface-variant/30 text-xs">—</span>
                     )}
+                  </td>
+                  <td className="px-3 py-2 text-on-surface-variant/70 hidden xl:table-cell">
+                    {r.source === "web" && r.reservationOrigin ? originLabel(r.reservationOrigin) : "—"}
                   </td>
                 </tr>
               ))}

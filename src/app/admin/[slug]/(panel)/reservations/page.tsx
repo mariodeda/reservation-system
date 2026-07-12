@@ -12,6 +12,7 @@ import {
   RESERVATION_STATUSES,
   type AvailabilityConfig,
   type DayAvailability,
+  type ReservationOrigin,
   type ReservationStatus,
   type RestaurantTable,
   type TableState,
@@ -118,14 +119,14 @@ export default function ReservationsPage() {
     load();
   }, [load]);
 
-  // Auto-refresh when the SSE bus fires a new reservation for the current date
+  // Auto-refresh when the SSE notification stream carries a reservation change
   useEffect(() => {
     function handler(e: Event) {
       const detail = (e as CustomEvent).detail as { date?: string };
       if (!detail?.date || detail.date === date) load();
     }
-    window.addEventListener("reservation:new", handler);
-    return () => window.removeEventListener("reservation:new", handler);
+    window.addEventListener("reservation:changed", handler);
+    return () => window.removeEventListener("reservation:changed", handler);
   }, [date, load]);
 
   useEffect(() => {
@@ -223,11 +224,12 @@ export default function ReservationsPage() {
   function exportCsv() {
     const offeringLabel = (id?: string) =>
       offerings.find((o) => o.id === (id || "main"))?.label ?? (id || "main");
+    const originLabel = (origin?: ReservationOrigin) => origin ? am.reservationOrigin[origin] : "";
     // Service ids are only unique within an offering, so include the offering
     // column for multi-offering venues to keep the export unambiguous.
     const cols = [
       "Date", "Time", ...(multiOffering ? ["Offering"] : []), "Service", "Name", "Party",
-      "Phone", "Email", "Status", "Occasion", "Notes", "Reference",
+      "Phone", "Email", "Status", "Origin", "Occasion", "Notes", "Reference",
     ];
     const esc = (v: unknown) => {
       const raw = String(v ?? "");
@@ -236,7 +238,7 @@ export default function ReservationsPage() {
     };
     const lines = [cols.join(",")].concat(
       visible.map((r) =>
-        [r.date, r.time, ...(multiOffering ? [offeringLabel(r.offering)] : []), r.service, r.name, r.partySize, r.phone, r.email, r.status, r.occasion ?? "", r.notes ?? "", r.reference]
+        [r.date, r.time, ...(multiOffering ? [offeringLabel(r.offering)] : []), r.service, r.name, r.partySize, r.phone, r.email, r.status, r.source === "web" ? originLabel(r.reservationOrigin) : "", r.occasion ?? "", r.notes ?? "", r.reference]
           .map(esc)
           .join(","),
       ),

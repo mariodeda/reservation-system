@@ -7,9 +7,11 @@ import {
   type AvailabilityConfig,
   type NewReservationInput,
   type Reservation,
+  type ReservationOrigin,
 } from "./types";
 import { defaultAvailability } from "@/reservation.config";
 import { normalizePhone } from "./availability";
+import { sanitizeReservationOrigin } from "./reservation-origin";
 
 /**
  * MySQL-backed, tenant-scoped store. Every query is filtered by tenant_id, so an
@@ -19,7 +21,7 @@ import { normalizePhone } from "./availability";
  */
 
 const RES_COLUMNS =
-  "id, `date`, `time`, offering, service, party_size AS partySize, name, email, phone, occasion, notes, table_label AS tableLabel, table_id AS tableId, table_ids AS tableIds, duration_mins_override AS durationMinsOverride, status, source, created_at AS createdAt, updated_at AS updatedAt";
+  "id, `date`, `time`, offering, service, party_size AS partySize, name, email, phone, occasion, notes, table_label AS tableLabel, table_id AS tableId, table_ids AS tableIds, duration_mins_override AS durationMinsOverride, status, source, reservation_origin AS reservationOrigin, created_at AS createdAt, updated_at AS updatedAt";
 
 interface ResRow extends RowDataPacket {
   id: string;
@@ -39,6 +41,7 @@ interface ResRow extends RowDataPacket {
   durationMinsOverride: number | null;
   status: Reservation["status"];
   source: Reservation["source"];
+  reservationOrigin: ReservationOrigin | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,6 +69,7 @@ function toReservation(r: ResRow): Reservation {
     durationMinsOverride: r.durationMinsOverride ?? undefined,
     status: r.status,
     source: r.source,
+    reservationOrigin: r.source === "web" ? sanitizeReservationOrigin(r.reservationOrigin) : undefined,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };
@@ -96,7 +100,7 @@ export async function listFeedbackRequestCandidates(tenantId: string, limit = 50
 }
 
 const INSERT_SQL =
-  "INSERT INTO reservations (id, tenant_id, `date`, `time`, offering, service, party_size, name, email, phone, occasion, notes, table_label, table_id, table_ids, duration_mins_override, status, source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+  "INSERT INTO reservations (id, tenant_id, `date`, `time`, offering, service, party_size, name, email, phone, occasion, notes, table_label, table_id, table_ids, duration_mins_override, status, source, reservation_origin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 const insertParams = (tenantId: string, r: Reservation) => [
   r.id,
   tenantId,
@@ -116,6 +120,7 @@ const insertParams = (tenantId: string, r: Reservation) => [
   r.durationMinsOverride ?? null,
   r.status,
   r.source,
+  r.source === "web" ? r.reservationOrigin ?? null : null,
   r.createdAt,
   r.updatedAt,
 ];
@@ -249,7 +254,7 @@ export class MySqlStore implements ReservationStore {
     patch: Partial<Reservation>,
   ): Promise<Reservation | null> {
     await ensureSchema();
-    const cols: Record<keyof Reservation, string> = {
+    const cols: Partial<Record<keyof Reservation, string>> = {
       date: "`date`",
       time: "`time`",
       offering: "offering",
@@ -266,7 +271,7 @@ export class MySqlStore implements ReservationStore {
       durationMinsOverride: "duration_mins_override",
       status: "status",
       source: "source",
-    } as Record<keyof Reservation, string>;
+    };
 
     const sets: string[] = [];
     const params: unknown[] = [];

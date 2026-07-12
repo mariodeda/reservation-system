@@ -61,6 +61,30 @@ type Migration = { version: number; run: (pool: Pool) => Promise<void> };
 
 const MIGRATIONS: Migration[] = [
   {
+    // Optional normalized marketing attribution for internal web reservations.
+    // This is separate from `source`: source is the ingest channel, while this
+    // records a frontend-normalized external referrer bucket for reporting.
+    version: 24,
+    run: async (pool) => {
+      await ensureColumn(
+        pool,
+        "reservations",
+        "reservation_origin",
+        "ADD COLUMN reservation_origin VARCHAR(24) NULL DEFAULT NULL AFTER source",
+      );
+      const [idx] = await pool.query<RowDataPacket[]>(
+        `SELECT 1 FROM information_schema.statistics
+         WHERE table_schema = DATABASE() AND table_name = 'reservations'
+           AND index_name = 'idx_tenant_date_origin'`,
+      );
+      if ((idx as RowDataPacket[]).length === 0) {
+        await pool.query(
+          "ALTER TABLE reservations ADD INDEX idx_tenant_date_origin (tenant_id, `date`, reservation_origin)",
+        );
+      }
+    },
+  },
+  {
     // Durable tenant notification inbox. SSE remains a live delivery channel,
     // but this table is the source of truth so staff see missed notifications
     // after login, refresh, deployments, or reconnects.

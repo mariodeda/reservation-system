@@ -135,6 +135,27 @@ describe("Availability — Special dates", () => {
     expect(mondayService.end).toBe("22:45");
   });
 
+  it("adds blocked slots with explicit 24-hour time controls", async () => {
+    const user = userEvent.setup();
+    render(<AvailabilityPage />);
+
+    const heading = await screen.findByRole("heading", { name: "Blocked time slots" });
+    const section = heading.closest("section")!;
+    expect(section.querySelector('input[type="time"]')).toBeNull();
+
+    const dateInput = section.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2026-12-31" } });
+    await user.selectOptions(within(section).getByLabelText("Time hour"), "18");
+    await user.selectOptions(within(section).getByLabelText("Time minute"), "30");
+    await user.click(within(section).getByRole("button", { name: "Block slot" }));
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(adminFetch).toHaveBeenCalled());
+    const putCall = adminFetch.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!;
+    const sent = JSON.parse((putCall[1] as RequestInit).body as string);
+    expect(sent.config.offerings[0].blockedSlots["2026-12-31"]).toEqual(["18:30"]);
+  });
+
   it("warns before leaving with unsaved availability changes and clears after save", async () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);

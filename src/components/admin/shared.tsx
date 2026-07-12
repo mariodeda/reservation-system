@@ -1,4 +1,4 @@
-import type { ReservationSource, ReservationStatus } from "@/lib/reservations/types";
+import type { ReservationOrigin, ReservationSource, ReservationStatus } from "@/lib/reservations/types";
 import { am } from "@/i18n";
 
 export interface AdminReservation {
@@ -20,6 +20,7 @@ export interface AdminReservation {
   durationMinsOverride?: number | null;
   status: ReservationStatus;
   source: ReservationSource;
+  reservationOrigin?: ReservationOrigin;
   createdAt: string;
   updatedAt: string;
   /** Populated when loading a day list — total non-cancelled visits for this email. */

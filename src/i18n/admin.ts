@@ -23,6 +23,15 @@ export const am = {
   actions: {
     reinstate: "Reinstate",
   },
+  reservationOrigin: {
+    bookingOrigin: "Booking origin",
+    hint: (origin: string) => `Booking originated from ${origin}`,
+    google: "Google",
+    google_maps: "Google Maps",
+    instagram: "Instagram",
+    facebook: "Facebook",
+    external_other: "Other referral",
+  },
   row: {
     guests: "guests",
     manual: "manual",
@@ -172,12 +181,17 @@ export const am = {
   },
   notifications: {
     title: "Notifications",
+    manualConfirmationTitle: "Manual confirmations",
     reconnecting: "Reconnecting...",
     reconnectingShort: "Reconnecting...",
     unreadAria: (n: number) => `Notifications, ${n} unread`,
+    manualConfirmationUnreadAria: (n: number) => `Manual confirmations, ${n} unread`,
     markAllRead: "Mark all read",
     noNotifications: "No notifications yet",
     noUnread: "No unread notifications",
+    noManualConfirmations: "No manual confirmations",
+    noUnreadManualConfirmations: "No unread manual confirmations",
+    manualConfirmationHint: "Large-party requests that need tenant approval appear here.",
     listening: "Listening for new reservations...",
     connecting: "Connecting...",
     viewReservations: "View reservations",
@@ -188,6 +202,8 @@ export const am = {
     theFork: "TheFork",
     dish: "DISH",
     externalUpdated: "External update",
+    manualReview: "Manual review",
+    maxParty: (n: number) => `Max party ${n}`,
     guests: (n: number) => `${n} ${n === 1 ? "guest" : "guests"}`,
     justNow: "just now",
     secondsAgo: (n: number) => `${n}s ago`,
@@ -295,6 +311,11 @@ export const am = {
     cancelled: "Cancelled",
     noShow: "No-show",
     noExternalSources: "No external bookings in this period.",
+    onlineBookingOrigins: "Online booking origins",
+    onlineBookingOriginsHint: "Attributed internal online bookings only",
+    noOnlineOrigins: "No attributed online bookings in this period.",
+    attributedOnlineBookings: "Attributed online bookings",
+    attributionRate: "Attribution rate",
     // Review request section
     feedbackTitle: "Review requests",
     feedbackNone: "No review requests sent in this period.",
@@ -469,6 +490,7 @@ export const am = {
     // Blocked slots
     blockedSlotsTitle: "Blocked time slots",
     blockedSlotsHint: "Block individual times on a specific date (e.g. a private event) without closing the whole day.",
+    blockedSlotTime: "Time",
     blockSlot: "Block slot",
     // Offerings management
     offerings: "Offerings",

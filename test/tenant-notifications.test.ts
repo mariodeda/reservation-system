@@ -175,6 +175,54 @@ describe("tenant notifications", () => {
     });
   });
 
+  it("creates dedicated manual-confirmation notifications for over-max internal bookings", async () => {
+    const notice = await notifications.createAndEmitTenantNotification({
+      tenantId: "tenant-a",
+      type: "reservation.manual_confirmation_required",
+      severity: "warning",
+      title: "Manual confirmation required",
+      source: "web",
+      reservationId: "res-large",
+      reference: "ABC123",
+      dedupeKey: "reservation.manual_confirmation_required:res-large",
+      metadata: {
+        maxPartySize: 8,
+        reason: "over_max_party_size",
+        reservation: {
+          id: "res-large",
+          name: "Large Party",
+          partySize: 12,
+          date: "2026-07-10",
+          time: "20:00",
+          service: "dinner",
+          offering: "main",
+          status: "pending",
+          source: "web",
+        },
+      },
+    });
+
+    expect(notice).toMatchObject({
+      tenantId: "tenant-a",
+      type: "reservation.manual_confirmation_required",
+      severity: "warning",
+      title: "Manual confirmation required",
+      source: "web",
+      reservationId: "res-large",
+      reference: "ABC123",
+      dedupeKey: "reservation.manual_confirmation_required:res-large",
+    });
+    expect(notice.metadata).toMatchObject({
+      maxPartySize: 8,
+      reason: "over_max_party_size",
+      reservation: {
+        status: "pending",
+        source: "web",
+        partySize: 12,
+      },
+    });
+  });
+
   it("keeps one refreshed notification per external reservation", async () => {
     await notifications.notifyReservationEvent({
       type: "reservation.created",

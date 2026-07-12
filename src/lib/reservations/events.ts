@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { notifyReservationEvent } from "./notifications";
-import type { ReservationStatus } from "./types";
+import type { ReservationOrigin, ReservationStatus } from "./types";
 
 export interface ReservationEvent {
   type: "reservation.created" | "reservation.updated";
@@ -14,6 +14,7 @@ export interface ReservationEvent {
   offering: string;
   status: ReservationStatus;
   source: "web" | "admin" | "thefork" | "dish";
+  reservationOrigin?: ReservationOrigin;
 }
 
 class ReservationBus extends EventEmitter {}
@@ -22,8 +23,9 @@ class ReservationBus extends EventEmitter {}
 export const reservationBus = new ReservationBus();
 reservationBus.setMaxListeners(500);
 
-export function emitReservation(event: ReservationEvent): void {
+export function emitReservation(event: ReservationEvent, opts: { notify?: boolean } = {}): void {
   reservationBus.emit(event.type, event);
+  if (opts.notify === false) return;
   notifyReservationEvent(event).catch((err) => {
     console.error("[notifications] reservation notification failed:", err);
   });

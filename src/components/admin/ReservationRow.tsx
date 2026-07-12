@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReservationStatus, RestaurantTable } from "@/lib/reservations/types";
+import type { ReservationOrigin, ReservationStatus, RestaurantTable } from "@/lib/reservations/types";
 import { RESERVATION_STATUSES } from "@/lib/reservations/types";
 import type { OfferingServices } from "@/lib/reservations/offerings";
 import {
@@ -47,6 +47,7 @@ export default function ReservationRow({
   const externalReadOnly = !!externalPlatform;
   const dishExternal = externalPlatform?.provider === "dish" ? externalPlatform : undefined;
   const canEditOrDelete = !externalReadOnly && r.status !== "seated" && r.status !== "completed";
+  const originLabel = r.source === "web" && r.reservationOrigin ? reservationOriginDisplay(r.reservationOrigin) : null;
 
   async function setStatus(status: ReservationStatus) {
     setBusy(true);
@@ -170,6 +171,14 @@ export default function ReservationRow({
             )}
             {r.source === "admin" && (
               <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{am.row.manual}</span>
+            )}
+            {originLabel && (
+              <Tooltip content={am.reservationOrigin.hint(originLabel)}>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-400/15 text-on-surface border border-indigo-400/30 uppercase tracking-widest">
+                  <OriginIcon />
+                  {originLabel}
+                </span>
+              </Tooltip>
             )}
             {hasUnreachableEmail(r.emails) ? (
               <Tooltip content={unreachableEmailTitle(r.emails)}>
@@ -368,6 +377,10 @@ export default function ReservationRow({
       </div>
     </div>
   );
+}
+
+function reservationOriginDisplay(origin: ReservationOrigin): string {
+  return am.reservationOrigin[origin];
 }
 
 /**
@@ -1120,6 +1133,15 @@ function ClockIcon() {
     <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="8" cy="8" r="6" />
       <path d="M8 5v3.5l2 1.5" />
+    </svg>
+  );
+}
+
+function OriginIcon() {
+  return (
+    <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 14s5-4.4 5-8.2a5 5 0 0 0-10 0C3 9.6 8 14 8 14Z" />
+      <circle cx="8" cy="5.8" r="1.5" />
     </svg>
   );
 }

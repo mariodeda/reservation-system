@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReservationEvent } from "@/lib/reservations/events";
-import { RESERVATION_STATUSES, type ReservationStatus } from "@/lib/reservations/types";
+import { RESERVATION_STATUSES, type ReservationOrigin, type ReservationStatus } from "@/lib/reservations/types";
+import { sanitizeReservationOrigin } from "@/lib/reservations/reservation-origin";
 import { adminFetch, adminJson } from "./api";
 
 interface TenantNotificationPayload {
@@ -22,13 +23,21 @@ interface TenantNotificationPayload {
   readAt?: string;
 }
 
-export interface ReservationNotification extends ReservationEvent {
+export const MANUAL_CONFIRMATION_NOTIFICATION_TYPE = "reservation.manual_confirmation_required";
+export type ReservationNotificationType =
+  | ReservationEvent["type"]
+  | typeof MANUAL_CONFIRMATION_NOTIFICATION_TYPE;
+
+export interface ReservationNotification extends Omit<ReservationEvent, "type"> {
+  type: ReservationNotificationType;
   notificationId: string;
   receivedAt: number;
   read: boolean;
   title?: string;
   severity?: TenantNotificationPayload["severity"];
   live?: boolean;
+  maxPartySize?: number;
+  reservationOrigin?: ReservationOrigin;
 }
 
 const MAX = 30;
@@ -51,7 +60,11 @@ function fromTenantNotification(n: TenantNotificationPayload, live = false): Res
   const source = reservation.source ?? n.source;
   if (source !== "web" && source !== "admin" && source !== "thefork" && source !== "dish") return null;
   return {
-    type: (n.type === "reservation.updated" ? "reservation.updated" : "reservation.created"),
+    type: n.type === MANUAL_CONFIRMATION_NOTIFICATION_TYPE
+      ? MANUAL_CONFIRMATION_NOTIFICATION_TYPE
+      : n.type === "reservation.updated"
+        ? "reservation.updated"
+        : "reservation.created",
     tenantId: n.tenantId,
     id: n.reservationId,
     name: String(reservation.name ?? n.title),
@@ -68,7 +81,13 @@ function fromTenantNotification(n: TenantNotificationPayload, live = false): Res
     title: n.title,
     severity: n.severity,
     live,
+    maxPartySize: typeof n.metadata?.maxPartySize === "number" ? n.metadata.maxPartySize : undefined,
+    reservationOrigin: source === "web" ? sanitizeReservationOrigin(reservation.reservationOrigin) : undefined,
   };
+}
+
+export function isManualConfirmationNotification(n: ReservationNotification): boolean {
+  return n.type === MANUAL_CONFIRMATION_NOTIFICATION_TYPE;
 }
 
 export function useReservationEvents() {
@@ -133,6 +152,9 @@ export function useReservationEvents() {
           const n = fromTenantNotification(data, true);
           if (!n) return;
           const pushed = pushNotification(n);
+          if (pushed) {
+            window.dispatchEvent(new CustomEvent("reservation:changed", { detail: pushed }));
+          }
           if (pushed?.type === "reservation.created") {
             window.dispatchEvent(new CustomEvent("reservation:new", { detail: pushed }));
           }
@@ -177,6 +199,19 @@ export function useReservationEvents() {
     }).catch(() => {});
   }
 
+  function markManyRead(notificationIds: string[]) {
+    const unique = [...new Set(notificationIds)];
+    if (unique.length === 0) return;
+    setNotifications((prev) => prev.map((n) => (unique.includes(n.notificationId) ? { ...n, read: true } : n)));
+    for (const id of unique) {
+      adminFetch(`/api/admin/notifications/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ read: true }),
+      }).catch(() => {});
+    }
+  }
+
   function dismiss(notificationId: string) {
     setNotifications((prev) => prev.map((n) => (n.notificationId === notificationId ? { ...n, read: true } : n)));
     adminFetch(`/api/admin/notifications/${notificationId}`, {
@@ -188,5 +223,5 @@ export function useReservationEvents() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  return { notifications, unreadCount, connected, markAllRead, markRead, dismiss };
+  return { notifications, unreadCount, connected, markAllRead, markRead, markManyRead, dismiss };
 }

@@ -25,6 +25,21 @@ interface SourceAnalytics {
   noShowRate: number;
 }
 
+interface OriginAnalytics {
+  origin: string;
+  label: string;
+  reservations: number;
+  activeReservations: number;
+  covers: number;
+  cancelled: number;
+  noShow: number;
+  completed: number;
+  reservationShare: number;
+  coverShare: number;
+  cancellationRate: number;
+  noShowRate: number;
+}
+
 interface AnalyticsData {
   period: string;
   from: string;
@@ -43,6 +58,12 @@ interface AnalyticsData {
     reservationShare: number;
     coverShare: number;
     providers: SourceAnalytics[];
+  };
+  originBreakdown?: OriginAnalytics[];
+  originSummary?: {
+    webReservations: number;
+    attributedReservations: number;
+    attributionRate: number;
   };
   byService: { offering?: string; service: string; reservations: number; covers: number }[];
   avgPartySize: number;
@@ -76,6 +97,14 @@ const SOURCE_COLORS: Record<string, string> = {
   dish: "#fb6a3a",
 };
 
+const ORIGIN_COLORS: Record<string, string> = {
+  google: "#4285f4",
+  google_maps: "#34a853",
+  instagram: "#e879f9",
+  facebook: "#60a5fa",
+  external_other: "#a78bfa",
+};
+
 const SERVICE_COLORS = [
   "#38bdf8",
   "#fbbf24",
@@ -93,6 +122,15 @@ function sourceDisplayName(source: string, fallback?: string) {
   if (source === "thefork") return am.analytics.theFork;
   if (source === "dish") return am.analytics.dish;
   return fallback || source;
+}
+
+function originDisplayName(origin: string, fallback?: string) {
+  if (origin === "google") return am.reservationOrigin.google;
+  if (origin === "google_maps") return am.reservationOrigin.google_maps;
+  if (origin === "instagram") return am.reservationOrigin.instagram;
+  if (origin === "facebook") return am.reservationOrigin.facebook;
+  if (origin === "external_other") return am.reservationOrigin.external_other;
+  return fallback || origin;
 }
 
 // ── Tooltip ──────────────────────────────────────────────────────────────────
@@ -928,6 +966,14 @@ export default function AnalyticsPage() {
     ...externalSummary.providers.map((row) => row.reservations),
     1,
   );
+  const originBreakdown = data?.originBreakdown ?? [];
+  const originTotal = originBreakdown.reduce((sum, row) => sum + row.reservations, 0);
+  const originSummary = data?.originSummary ?? {
+    webReservations: data?.bySource?.web ?? 0,
+    attributedReservations: originTotal,
+    attributionRate: data?.bySource?.web ? Math.round((originTotal / data.bySource.web) * 1000) / 10 : 0,
+  };
+  const maxOriginReservations = Math.max(...originBreakdown.map((row) => row.reservations), 1);
 
   const nvr = data?.newVsReturning;
   const nvrTotal = (nvr?.new ?? 0) + (nvr?.returning ?? 0);
@@ -1116,6 +1162,92 @@ export default function AnalyticsPage() {
                 <p className="text-on-surface-variant text-sm">{am.analytics.noData}</p>
               )}
             </div>
+          </div>
+
+          {/* Internal online booking attribution */}
+          <div className={section}>
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <h2 className="font-semibold text-sm uppercase tracking-widest text-on-surface-variant">
+                {am.analytics.onlineBookingOrigins}
+              </h2>
+              <span className="text-xs text-on-surface-variant/60">
+                {am.analytics.onlineBookingOriginsHint}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 border-y border-outline-variant/20 py-3">
+              <div>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {originSummary.attributedReservations}
+                </div>
+                <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-1">
+                  {am.analytics.attributedOnlineBookings}
+                </div>
+                <div className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                  {originSummary.webReservations} {am.analytics.web.toLowerCase()}
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {originSummary.attributionRate}%
+                </div>
+                <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mt-1">
+                  {am.analytics.attributionRate}
+                </div>
+                <div className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                  {am.analytics.ofReservations}
+                </div>
+              </div>
+              <div className="col-span-2 lg:col-span-1">
+                {originTotal ? (
+                  <DonutChart
+                    slices={originBreakdown.map((row) => ({
+                      label: originDisplayName(row.origin, row.label),
+                      value: row.reservations,
+                      color: ORIGIN_COLORS[row.origin] ?? "#94a3b8",
+                    }))}
+                  />
+                ) : (
+                  <p className="text-sm text-on-surface-variant/60">{am.analytics.noOnlineOrigins}</p>
+                )}
+              </div>
+            </div>
+            {originBreakdown.length > 0 ? (
+              <div className="space-y-2" onMouseLeave={inlineBarLeave}>
+                {originBreakdown.map((origin) => {
+                  const pct = Math.round((origin.reservations / maxOriginReservations) * 100);
+                  const key = `origin-${origin.origin}`;
+                  const label = originDisplayName(origin.origin, origin.label);
+                  return (
+                    <HoverableBarRow
+                      key={origin.origin}
+                      label={label}
+                      pct={pct}
+                      detail={`${origin.reservations} res · ${origin.covers} cov`}
+                      tipTitle={label}
+                      tipLines={[
+                        `${origin.reservations} ${am.analytics.reservations.toLowerCase()}`,
+                        `${origin.covers} ${am.analytics.covers.toLowerCase()}`,
+                        `${origin.cancelled} ${am.analytics.cancelled.toLowerCase()} · ${origin.cancellationRate}%`,
+                        `${origin.noShow} ${am.analytics.noShow.toLowerCase()} · ${origin.noShowRate}%`,
+                      ]}
+                      dimmed={pageHovered !== null && pageHovered !== key}
+                      onEnter={(e) =>
+                        inlineBarEnter(e, key, label, [
+                          `${origin.reservations} ${am.analytics.reservations.toLowerCase()}`,
+                          `${origin.covers} ${am.analytics.covers.toLowerCase()}`,
+                          `${origin.reservationShare}% ${am.analytics.ofReservations}`,
+                          `${origin.coverShare}% ${am.analytics.ofCovers}`,
+                          `${origin.cancelled} ${am.analytics.cancelled.toLowerCase()} · ${origin.cancellationRate}%`,
+                          `${origin.noShow} ${am.analytics.noShow.toLowerCase()} · ${origin.noShowRate}%`,
+                        ])
+                      }
+                      onMove={inlineBarMove}
+                      onLeave={inlineBarLeave}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           {/* External booking sources */}

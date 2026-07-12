@@ -343,6 +343,7 @@ export function canBook(
   reservations: Reservation[],
   input: NewReservationInput,
   tables?: RestaurantTable[],
+  opts: { allowOverMaxPartySize?: boolean } = {},
 ): BookCheck {
   if (!isValidDate(input.date)) return { ok: false, error: "Invalid date." };
   if (!/^\d{2}:\d{2}$/.test(input.time)) return { ok: false, error: "Invalid time." };
@@ -354,7 +355,7 @@ export function canBook(
     return { ok: false, error: "A valid phone number is required." };
   if (!Number.isInteger(input.partySize) || input.partySize < config.minPartySize)
     return { ok: false, error: `Party size must be at least ${config.minPartySize}.` };
-  if (input.partySize > config.maxPartySize)
+  if (input.partySize > config.maxPartySize && !opts.allowOverMaxPartySize)
     return { ok: false, error: `For parties over ${config.maxPartySize}, please call us.` };
 
   const offering = getOffering(config, input.offering);

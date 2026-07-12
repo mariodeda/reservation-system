@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDB } from "mysql-memory-server";
 import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
@@ -76,14 +76,20 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-06-13T12:00:00Z"));
   await poolMod.getPool().query("DELETE FROM reservations WHERE tenant_id = ?", [tenantId]);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 /* ---- helpers ---- */
 
 async function seed(overrides: {
   date?: string; time?: string; offering?: string; service?: string; partySize?: number;
-  status?: string; source?: string; email?: string; name?: string;
+  status?: string; source?: string; email?: string; name?: string; reservationOrigin?: "google" | "google_maps" | "instagram" | "facebook" | "external_other";
 }[] = []) {
   const s = store.getStore().forTenant(tenantId);
   const results = [];
@@ -97,6 +103,7 @@ async function seed(overrides: {
       name: o.name ?? "Guest",
       email: o.email ?? "g@x.io",
       phone: "1",
+      reservationOrigin: o.reservationOrigin,
     });
     if (o.status && o.status !== "pending") {
       await s.updateReservation(r.id, { status: o.status as never });
@@ -138,6 +145,12 @@ describe("GET /api/admin/analytics", () => {
       coverShare: 0,
       providers: [],
     });
+    expect(json.originBreakdown).toEqual([]);
+    expect(json.originSummary).toEqual({
+      webReservations: 0,
+      attributedReservations: 0,
+      attributionRate: 0,
+    });
   });
 
   it("groups reservations by day (excludes cancelled/no_show)", async () => {
@@ -147,7 +160,7 @@ describe("GET /api/admin/analytics", () => {
       { date: "2026-06-12", partySize: 4, status: "cancelled" }, // excluded
       { date: "2026-06-11", partySize: 5, status: "seated" },   // yesterday — within 30d window
     ]);
-    const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=30d"));
+    const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=90d"));
     const json = await res.json();
     const day12 = json.byDay.find((d: { date: string }) => d.date === "2026-06-12");
     const day11 = json.byDay.find((d: { date: string }) => d.date === "2026-06-11");
@@ -199,6 +212,46 @@ describe("GET /api/admin/analytics", () => {
     const { bySource } = await res.json();
     expect(bySource.web).toBe(2);
     expect(bySource.admin).toBe(1);
+  });
+
+  it("reports reservation origin only for attributed internal web bookings", async () => {
+    await seed([
+      { source: "web", reservationOrigin: "google", partySize: 2, status: "confirmed" },
+      { source: "web", reservationOrigin: "google", partySize: 3, status: "cancelled" },
+      { source: "web", reservationOrigin: "instagram", partySize: 4, status: "completed" },
+      { source: "web", partySize: 2, status: "confirmed" },
+      { source: "admin", reservationOrigin: "facebook", partySize: 2, status: "confirmed" },
+      { source: "thefork", reservationOrigin: "google_maps", partySize: 2, status: "confirmed" },
+    ]);
+    const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=30d"));
+    const json = await res.json();
+
+    expect(json.originSummary).toEqual({
+      webReservations: 4,
+      attributedReservations: 3,
+      attributionRate: 75,
+    });
+    expect(json.originBreakdown).toHaveLength(2);
+    expect(json.originBreakdown.find((row: { origin: string }) => row.origin === "google")).toMatchObject({
+      label: "Google",
+      reservations: 2,
+      activeReservations: 1,
+      covers: 2,
+      cancelled: 1,
+      reservationShare: 50,
+      coverShare: 25,
+      cancellationRate: 50,
+    });
+    expect(json.originBreakdown.find((row: { origin: string }) => row.origin === "instagram")).toMatchObject({
+      label: "Instagram",
+      reservations: 1,
+      activeReservations: 1,
+      covers: 4,
+      reservationShare: 25,
+      coverShare: 50,
+    });
+    expect(json.originBreakdown.some((row: { origin: string }) => row.origin === "facebook")).toBe(false);
+    expect(json.originBreakdown.some((row: { origin: string }) => row.origin === "google_maps")).toBe(false);
   });
 
   it("returns external booking source analytics for imported providers", async () => {

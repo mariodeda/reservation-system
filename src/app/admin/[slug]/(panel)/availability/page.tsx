@@ -521,7 +521,7 @@ export default function AvailabilityPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className={`${field} min-w-[9rem] flex-1 sm:flex-none`} />
-          <input type="time" value={blockTime} onChange={(e) => setBlockTime(e.target.value)} className={`${field} min-w-[7rem] flex-1 sm:flex-none`} />
+          <TimeInp label={am.availability.blockedSlotTime} value={blockTime || "00:00"} onChange={setBlockTime} compact />
           <button
             onClick={() => {
               if (!blockDate || !blockTime) return;

@@ -10,7 +10,8 @@ import {
   isExternalReservationSource,
   type ExternalReservationSource,
 } from "@/lib/reservations/external-sources";
-import type { ReservationSource } from "@/lib/reservations/types";
+import type { ReservationOrigin, ReservationSource } from "@/lib/reservations/types";
+import { RESERVATION_ORIGINS, reservationOriginLabel } from "@/lib/reservations/reservation-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,10 @@ function sourceLabel(source: string): string {
 
 function rate(part: number, total: number): number {
   return total ? Math.round((part / total) * 1000) / 10 : 0;
+}
+
+function originLabel(origin: ReservationOrigin): string {
+  return reservationOriginLabel(origin);
 }
 
 async function getAnalytics(req: NextRequest) {
@@ -145,6 +150,64 @@ async function getAnalytics(req: NextRequest) {
       reservationShare: rate(externalReservations, sourceReservationTotal),
       coverShare: rate(externalCovers, sourceCoverTotal),
       providers: externalProviders,
+    };
+
+    const validOrigins = RESERVATION_ORIGINS;
+    const originPlaceholders = validOrigins.map(() => "?").join(",");
+    const [originRows] = await pool.query<RowDataPacket[]>(
+      `SELECT reservation_origin AS origin,
+              COUNT(*) AS reservations,
+              SUM(CASE WHEN status NOT IN ('cancelled','no_show') THEN 1 ELSE 0 END) AS activeReservations,
+              SUM(CASE WHEN status NOT IN ('cancelled','no_show') THEN party_size ELSE 0 END) AS covers,
+              SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
+              SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) AS noShow,
+              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+       FROM reservations
+       WHERE tenant_id = ? AND \`date\` >= ? AND \`date\` <= ?
+         AND source = 'web'
+         AND reservation_origin IN (${originPlaceholders})
+       GROUP BY reservation_origin`,
+      [tid, from, to, ...validOrigins],
+    );
+    const [originSummaryRows] = await pool.query<RowDataPacket[]>(
+      `SELECT
+         COUNT(*) AS webReservations,
+         SUM(CASE WHEN reservation_origin IN (${originPlaceholders}) THEN 1 ELSE 0 END) AS attributedReservations
+       FROM reservations
+       WHERE tenant_id = ? AND \`date\` >= ? AND \`date\` <= ?
+         AND source = 'web'`,
+      [...validOrigins, tid, from, to],
+    );
+    const webReservations = Number(originSummaryRows[0]?.webReservations ?? 0);
+    const attributedReservations = Number(originSummaryRows[0]?.attributedReservations ?? 0);
+    const webCovers = rawSourceBreakdown.find((row) => row.source === "web")?.covers ?? 0;
+    const originBreakdown = originRows
+      .map((r) => {
+        const origin = String(r.origin) as ReservationOrigin;
+        const reservations = Number(r.reservations ?? 0);
+        const covers = Number(r.covers ?? 0);
+        const cancelledCount = Number(r.cancelled ?? 0);
+        const noShowCount = Number(r.noShow ?? 0);
+        return {
+          origin,
+          label: originLabel(origin),
+          reservations,
+          activeReservations: Number(r.activeReservations ?? 0),
+          covers,
+          cancelled: cancelledCount,
+          noShow: noShowCount,
+          completed: Number(r.completed ?? 0),
+          reservationShare: rate(reservations, webReservations),
+          coverShare: rate(covers, webCovers),
+          cancellationRate: rate(cancelledCount, reservations),
+          noShowRate: rate(noShowCount, reservations),
+        };
+      })
+      .sort((a, b) => b.reservations - a.reservations);
+    const originSummary = {
+      webReservations,
+      attributedReservations,
+      attributionRate: rate(attributedReservations, webReservations),
     };
 
     // By offering + service (service ids are only unique within an offering).
@@ -303,6 +366,8 @@ async function getAnalytics(req: NextRequest) {
       bySource,
       sourceBreakdown,
       externalSummary,
+      originBreakdown,
+      originSummary,
       byService: svcRows.map((r) => ({
         offering: (r.offering as string) || "main",
         service: r.service as string,

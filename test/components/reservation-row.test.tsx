@@ -36,6 +36,14 @@ describe("ReservationRow", () => {
     expect(screen.getByText("Pending")).toBeInTheDocument();
   });
 
+  it("shows booking origin only for internal web reservations", () => {
+    const { rerender } = render(<ReservationRow r={row({ reservationOrigin: "instagram" })} onChanged={() => {}} />);
+    expect(screen.getByText("Instagram")).toBeInTheDocument();
+
+    rerender(<ReservationRow r={row({ source: "admin", reservationOrigin: "instagram" })} onChanged={() => {}} />);
+    expect(screen.queryByText("Instagram")).not.toBeInTheDocument();
+  });
+
   it("offers the quick actions for the current status and PATCHes on click", async () => {
     const user = userEvent.setup();
     const onChanged = vi.fn();

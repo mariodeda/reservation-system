@@ -180,6 +180,31 @@ describe("POST /api/reservations", () => {
     });
   });
 
+  it("persists a valid reservation origin from public web bookings", async () => {
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), reservationOrigin: "instagram" },
+    }));
+    expect(res.status).toBe(201);
+
+    const [stored] = await routes.store.getStore().forTenant(tenantId).listReservations({ date: "2026-06-12" });
+    expect(stored).toMatchObject({ source: "web", reservationOrigin: "instagram" });
+
+    const listed = await routes.adminRes.GET(adminReq("/api/admin/reservations?date=2026-06-12"));
+    expect((await listed.json()).reservations[0]).toMatchObject({ reservationOrigin: "instagram" });
+  });
+
+  it("ignores invalid reservation origin metadata without rejecting the booking", async () => {
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), reservationOrigin: "raw-referrer-url" },
+    }));
+    expect(res.status).toBe(201);
+
+    const [stored] = await routes.store.getStore().forTenant(tenantId).listReservations({ date: "2026-06-12" });
+    expect(stored.reservationOrigin).toBeUndefined();
+  });
+
   it("does not send confirmation wording while autoConfirm=false leaves booking pending", async () => {
     const { getTenantStore } = await import("@/lib/reservations/tenant-store");
     const { clearTenantCache } = await import("@/lib/reservations/tenant-context");
@@ -194,6 +219,178 @@ describe("POST /api/reservations", () => {
     expect(sendConfirmationEmail).not.toHaveBeenCalled();
     const stored = await routes.store.getStore().forTenant(tenantId).listReservations({ date: "2026-06-12" });
     expect(stored[0].status).toBe("pending");
+  });
+
+  it("forces over-max public bookings into manual confirmation and notifies staff", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    await store.saveConfig({ ...config, maxPartySize: 4 });
+
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), partySize: 5 },
+    }));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      emailSent: false,
+      manualConfirmationRequired: true,
+    });
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
+
+    const stored = await store.listReservations({ date: "2026-06-12" });
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ status: "pending", source: "web", partySize: 5 });
+
+    const notifications = await routes.notificationStore.listTenantNotifications(tenantId);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({
+      type: "reservation.manual_confirmation_required",
+      severity: "warning",
+      title: "Manual confirmation required",
+      source: "web",
+      reservationId: stored[0].id,
+      reference: routes.store.referenceOf(stored[0].id),
+      dedupeKey: `reservation.manual_confirmation_required:${stored[0].id}`,
+    });
+    expect(notifications[0].metadata).toMatchObject({
+      maxPartySize: 4,
+      reason: "over_max_party_size",
+      reservation: {
+        id: stored[0].id,
+        status: "pending",
+        source: "web",
+        partySize: 5,
+      },
+    });
+  });
+
+  it("keeps exactly-at-max public bookings on the normal auto-confirm path", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    await store.saveConfig({ ...config, maxPartySize: 4 });
+
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), partySize: 4 },
+    }));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      emailSent: true,
+      manualConfirmationRequired: false,
+    });
+    expect(sendConfirmationEmail).toHaveBeenCalledOnce();
+
+    const stored = await store.listReservations({ date: "2026-06-12" });
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ status: "confirmed", partySize: 4 });
+    const notifications = await routes.notificationStore.listTenantNotifications(tenantId);
+    expect(notifications.some((n) => n.type === "reservation.manual_confirmation_required")).toBe(false);
+  });
+
+  it("still creates a manual-confirmation notification when over-max bookings are already pending by tenant settings", async () => {
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const { clearTenantCache } = await import("@/lib/reservations/tenant-context");
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    await store.saveConfig({ ...config, maxPartySize: 4 });
+    const ts = getTenantStore();
+    const tenant = (await ts.getById(tenantId))!;
+    await ts.updateSettings(tenantId, { ...tenant.settings, autoConfirm: false });
+    clearTenantCache();
+
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), partySize: 5 },
+    }));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      emailSent: false,
+      manualConfirmationRequired: true,
+    });
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
+
+    const [stored] = await store.listReservations({ date: "2026-06-12" });
+    expect(stored).toMatchObject({ status: "pending", partySize: 5 });
+    const notifications = await routes.notificationStore.listTenantNotifications(tenantId);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({
+      type: "reservation.manual_confirmation_required",
+      reservationId: stored.id,
+    });
+  });
+
+  it("still rejects over-max manual-confirmation bookings when slot capacity is insufficient", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    const lunch = { closed: false, services: [{ id: "lunch", label: "Lunch", start: "12:30", end: "12:30", interval: 30, capacity: 5 }] };
+    await store.saveConfig({
+      ...config,
+      maxPartySize: 4,
+      dateOverrides: { ...config.dateOverrides, "2026-06-12": lunch },
+      offerings: config.offerings?.map((offering, index) =>
+        index === 0
+          ? { ...offering, dateOverrides: { ...offering.dateOverrides, "2026-06-12": lunch } }
+          : offering,
+      ),
+    });
+
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), partySize: 6 },
+    }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/Only 5 covers left|reduce your party size/i);
+    expect(await store.listReservations({ date: "2026-06-12" })).toHaveLength(0);
+    expect(await routes.notificationStore.listTenantNotifications(tenantId)).toHaveLength(0);
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
+  });
+
+  it("sends booking confirmation when staff approves an over-max pending booking", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const config = await store.getConfig();
+    await store.saveConfig({ ...config, maxPartySize: 4 });
+    await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), partySize: 5 },
+    }));
+    const [stored] = await store.listReservations({ date: "2026-06-12" });
+    sendConfirmationEmail.mockClear();
+
+    const res = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${stored.id}`, { method: "PATCH", body: { status: "confirmed" } }),
+      { params: Promise.resolve({ id: stored.id }) },
+    );
+    expect(res.status).toBe(200);
+    expect(sendConfirmationEmail).toHaveBeenCalledOnce();
+    const [sentReservation] = sendConfirmationEmail.mock.calls[0] as unknown[];
+    expect(sentReservation).toMatchObject({ id: stored.id, status: "confirmed" });
+    expect((await store.getReservation(stored.id))?.status).toBe("confirmed");
+  });
+
+  it("does not send a booking confirmation when non-pending bookings are patched to confirmed", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const created = await store.createReservation({
+      date: "2026-06-12",
+      time: "12:30",
+      service: "lunch",
+      partySize: 2,
+      name: "Already Confirmed",
+      email: "already@example.com",
+      phone: "123456",
+      source: "web",
+      status: "confirmed",
+    });
+    sendConfirmationEmail.mockClear();
+
+    const res = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${created.id}`, { method: "PATCH", body: { status: "confirmed" } }),
+      { params: Promise.resolve({ id: created.id }) },
+    );
+    expect(res.status).toBe(200);
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
   });
 
   it("books with a legacy payload (no offering) and attributes it to 'main'", async () => {
@@ -324,7 +521,7 @@ describe("GET /api/availability", () => {
     expect(json.date).toBe("2026-06-12");
     expect(json.services.length).toBeGreaterThan(0);
     expect(json.services[0]).toMatchObject({ id: "lunch", label: "Lunch", labelEn: "Lunch", labelIt: "Pranzo" });
-    expect(json.reservationPolicy.maxPartySize).toBe(12);
+    expect(json.reservationPolicy).toMatchObject({ maxPartySize: 12, overMaxPartyMode: "manual_confirmation" });
   });
   it("derives public slot capacity from active tables when configured", async () => {
     const { getTableStore } = await import("@/lib/reservations/table-store");
@@ -402,7 +599,7 @@ describe("GET /api/availability", () => {
     const json = await res.json();
     expect(json.days).toHaveLength(30);
     expect(json.bookingWindowDays).toBeGreaterThan(0);
-    expect(json.reservationPolicy.maxPartySize).toBe(12);
+    expect(json.reservationPolicy).toMatchObject({ maxPartySize: 12, overMaxPartyMode: "manual_confirmation" });
   });
   it("returns public offerings with reservation policy from config", async () => {
     const store = routes.store.getStore().forTenant(tenantId);
@@ -414,7 +611,7 @@ describe("GET /api/availability", () => {
     const json = await res.json();
     expect(json.offerings[0]).toMatchObject({ id: "main" });
     expect(json.offerings[0].services[0]).toMatchObject({ id: "lunch", labelEn: "Lunch", labelIt: "Pranzo" });
-    expect(json.reservationPolicy).toEqual({ maxPartySize: 20 });
+    expect(json.reservationPolicy).toMatchObject({ maxPartySize: 20, overMaxPartyMode: "manual_confirmation" });
   });
   it("400s on a malformed date and month", async () => {
     expect((await routes.avail.GET(req("/api/availability?date=nope"))).status).toBe(400);
@@ -505,7 +702,7 @@ describe("public marketing-site integration", () => {
     expectMarketingCors(branding);
     expect(await branding.json()).toMatchObject({
       name: "Test Restaurant",
-      reservationPolicy: { maxPartySize: 20 },
+      reservationPolicy: { maxPartySize: 20, overMaxPartyMode: "manual_confirmation" },
     });
 
     const month = await routes.avail.GET(marketingReq(`/api/availability?month=2026-06&${tenantParam}`));
@@ -514,7 +711,7 @@ describe("public marketing-site integration", () => {
     const monthJson = await month.json();
     expect(monthJson.days).toHaveLength(30);
     expect(monthJson.offerings[0]).toMatchObject({ id: "main" });
-    expect(monthJson.reservationPolicy).toEqual({ maxPartySize: 20 });
+    expect(monthJson.reservationPolicy).toMatchObject({ maxPartySize: 20, overMaxPartyMode: "manual_confirmation" });
 
     const bookingGuest = guest();
 
@@ -536,7 +733,7 @@ describe("public marketing-site integration", () => {
     const booking = await routes.book.POST(
       marketingReq(`/api/reservations?${tenantParam}`, {
         method: "POST",
-        body: bookingGuest,
+        body: { ...bookingGuest, reservationOrigin: "google_maps" },
       }),
     );
     expect(booking.status).toBe(201);
@@ -564,6 +761,7 @@ describe("public marketing-site integration", () => {
     });
     expect(lookupJson.reservations[0].reference).toMatch(/^[A-Z0-9]{6}$/);
     expect(lookupJson.reservations[0].id).toBeUndefined();
+    expect(lookupJson.reservations[0].reservationOrigin).toBeUndefined();
 
     const cancelPreflight = await routes.lookup.OPTIONS(
       marketingReq(`/api/reservations/lookup?${tenantParam}`, {
@@ -833,6 +1031,7 @@ describe("public reservation self-service", () => {
 
     expect(res.status).toBe(409);
     expect((await res.json()).error).toMatch(/External reservations are read-only/i);
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
   });
 
   it("allows staff to assign a local table to a TheFork-imported reservation", async () => {
@@ -1139,6 +1338,16 @@ describe("admin reservations routes", () => {
     expect(json.reservation.source).toBe("admin");
     expect(json.reservation.status).toBe("confirmed");
     expect(json.reservation.reference).toMatch(/^[A-Z0-9]{6}$/);
+  });
+  it("POST ignores reservation origin on manual staff bookings", async () => {
+    const res = await routes.adminRes.POST(adminReq("/api/admin/reservations", {
+      method: "POST",
+      body: { date: "2026-06-12", time: "20:00", service: "dinner", name: "Walk In", partySize: 4, reservationOrigin: "facebook" },
+    }));
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.reservation.source).toBe("admin");
+    expect(json.reservation.reservationOrigin).toBeUndefined();
   });
   it("POST persists table assignment fields for manual bookings", async () => {
     const res = await routes.adminRes.POST(adminReq("/api/admin/reservations", {

@@ -1,15 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getStore, referenceOf } from "@/lib/reservations/store";
-import { canBook, normalizeEmail, normalizePhone, nowInTz, scheduleForDate } from "@/lib/reservations/availability";
+import { canBook, normalizeEmail, normalizePhone, nowInTz } from "@/lib/reservations/availability";
 import { getTableStore } from "@/lib/reservations/table-store";
-import { localizedServiceLabel } from "@/lib/reservations/service-catalog";
-import { getOfferings } from "@/lib/reservations/offerings";
 import { sendConfirmationEmail } from "@/lib/reservations/email";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
 import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-context";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
 import { ACTIVE_STATUSES, type NewReservationInput } from "@/lib/reservations/types";
 import { emitReservation } from "@/lib/reservations/events";
+import { createAndEmitTenantNotification } from "@/lib/reservations/notifications";
+import { requiresManualConfirmationForParty } from "@/lib/reservations/booking-policy";
+import { reservationEmailServiceLabel } from "@/lib/reservations/reservation-email-label";
+import { sanitizeReservationOrigin } from "@/lib/reservations/reservation-origin";
 import { log } from "@/lib/observability/logger";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
@@ -76,7 +78,7 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Request too large." }, { status: 413 });
   }
 
-  let body: Partial<NewReservationInput> & { _hp?: string; _t?: number };
+  let body: Partial<NewReservationInput> & { _hp?: string; _t?: number; reservationOrigin?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -139,7 +141,8 @@ async function handle(req: NextRequest) {
     occasion: body.occasion ? cap(body.occasion, 80) : undefined,
     notes: body.notes ? cap(body.notes, 1000) : undefined,
     source: "web",
-    status: tenant.settings.autoConfirm ? "confirmed" : "pending",
+    reservationOrigin: sanitizeReservationOrigin(body.reservationOrigin),
+    status: "pending",
   };
 
   const normEmail = normalizeEmail(input.email);
@@ -151,6 +154,8 @@ async function handle(req: NextRequest) {
       store.getConfig(),
       getTableStore(tenant.id).listTables({ activeOnly: true }),
     ]);
+    const manualConfirmationRequired = requiresManualConfirmationForParty(input.partySize, config, "web");
+    input.status = tenant.settings.autoConfirm && !manualConfirmationRequired ? "confirmed" : "pending";
 
     // Per-contact daily rate-limit: max 3 bookings per email or phone per 24 h.
     // Only applied when the contact field is non-empty — empty values fail canBook() anyway
@@ -211,7 +216,9 @@ async function handle(req: NextRequest) {
           ? "You already have a booking for that date and service."
           : "A booking already exists for this phone number on that date and service.";
       }
-      const check = canBook(config, existing, input, tables);
+      const check = canBook(config, existing, input, tables, {
+        allowOverMaxPartySize: manualConfirmationRequired,
+      });
       return check.ok ? null : check.error ?? "Unavailable.";
     });
 
@@ -226,23 +233,40 @@ async function handle(req: NextRequest) {
       return NextResponse.json({ error: result.error ?? "Unavailable." }, { status: 409 });
     }
 
-    const serviceWindow = scheduleForDate(config, input.date, inputOffering).services.find(
-      (s) => s.id === input.service,
-    );
-    const serviceLabel = serviceWindow ? localizedServiceLabel(serviceWindow, tenant.settings.locale) : undefined;
-    // For multi-offering venues, prefix the offering so the confirmation email
-    // reads e.g. "Cocktails · Evening". Single-offering emails are unchanged.
-    const offs = getOfferings(config, tenant.name);
-    const offeringLabel = offs.find((o) => o.id === inputOffering)?.label;
-    const emailLabel =
-      offs.length > 1 && offeringLabel
-        ? serviceLabel
-          ? `${offeringLabel} · ${serviceLabel}`
-          : offeringLabel
-        : serviceLabel;
+    const emailLabel = reservationEmailServiceLabel(result.reservation, tenant, config);
     const email = result.reservation.status === "confirmed"
       ? await sendConfirmationEmail(result.reservation, tenant, emailLabel, config)
       : { sent: false };
+
+    if (manualConfirmationRequired) {
+      await createAndEmitTenantNotification({
+        tenantId: tenant.id,
+        type: "reservation.manual_confirmation_required",
+        severity: "warning",
+        title: "Manual confirmation required",
+        body: `${result.reservation.name} - ${result.reservation.partySize} guest${result.reservation.partySize === 1 ? "" : "s"} - exceeds max party size of ${config.maxPartySize} - ${result.reservation.date} ${result.reservation.time}`,
+        source: "web",
+        reservationId: result.reservation.id,
+        reference: referenceOf(result.reservation.id),
+        dedupeKey: `reservation.manual_confirmation_required:${result.reservation.id}`,
+        metadata: {
+          reservation: {
+            id: result.reservation.id,
+            name: result.reservation.name,
+            partySize: result.reservation.partySize,
+            date: result.reservation.date,
+            time: result.reservation.time,
+            service: result.reservation.service,
+            offering: result.reservation.offering ?? "main",
+            status: result.reservation.status,
+            source: "web",
+            reservationOrigin: result.reservation.reservationOrigin,
+          },
+          maxPartySize: config.maxPartySize,
+          reason: "over_max_party_size",
+        },
+      });
+    }
 
     emitReservation({
       type: "reservation.created",
@@ -256,7 +280,8 @@ async function handle(req: NextRequest) {
       offering: result.reservation.offering ?? "main",
       status: result.reservation.status,
       source: "web",
-    });
+      reservationOrigin: result.reservation.reservationOrigin,
+    }, { notify: !manualConfirmationRequired });
 
     const reference = referenceOf(result.reservation.id);
     await recordAppEvent(eventFromRequest(obs, {
@@ -272,6 +297,9 @@ async function handle(req: NextRequest) {
         offering: result.reservation.offering ?? "main",
         partySize: result.reservation.partySize,
         status: result.reservation.status,
+        reservationOrigin: result.reservation.reservationOrigin,
+        manualConfirmationRequired,
+        maxPartySize: config.maxPartySize,
         emailSent: email.sent,
         durationMs: elapsedMs(obs),
       },
@@ -291,7 +319,7 @@ async function handle(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { ok: true, reference, emailSent: email.sent },
+      { ok: true, reference, emailSent: email.sent, manualConfirmationRequired },
       { status: 201 },
     );
   } catch (err) {

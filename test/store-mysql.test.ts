@@ -64,6 +64,18 @@ describe("MySqlStore specifics", () => {
     expect(got?.occasion).toBeUndefined();
     expect(got?.notes).toBeUndefined();
   });
+
+  it("sanitizes raw reservation_origin values when reading reservations", async () => {
+    const store = await makeStore();
+    const r = await store.createReservation({
+      date: "2026-06-12", time: "13:00", service: "lunch", partySize: 2,
+      name: "Origin", email: "origin@x.io", phone: "1", reservationOrigin: "instagram",
+    });
+    await getPool().query("UPDATE reservations SET reservation_origin = ? WHERE id = ?", ["raw-referrer-url", r.id]);
+
+    const got = await store.getReservation(r.id);
+    expect(got?.reservationOrigin).toBeUndefined();
+  });
 });
 
 describe("MySQL-backed rate limiter (shared store)", () => {

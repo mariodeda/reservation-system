@@ -103,6 +103,7 @@ export async function notifyReservationEvent(
         offering: event.offering,
         status: event.status,
         source: event.source,
+        reservationOrigin: event.reservationOrigin,
       },
     },
     refreshOnDuplicate: external,

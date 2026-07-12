@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { offeringOf } from "./offerings";
 import { MySqlStore } from "./mysql-store";
+import { sanitizeReservationOrigin } from "./reservation-origin";
 
 /**
  * Storage interface — the rest of the system depends only on this.
@@ -98,6 +99,9 @@ export function buildReservation(input: NewReservationInput): Reservation {
     tableIds: input.tableIds?.length ? input.tableIds : input.tableId ? [input.tableId] : undefined,
     status: input.status ?? (input.source === "admin" ? "confirmed" : "pending"),
     source: input.source ?? "web",
+    reservationOrigin: input.source === "web" || input.source === undefined
+      ? sanitizeReservationOrigin(input.reservationOrigin)
+      : undefined,
     createdAt: now,
     updatedAt: now,
   };

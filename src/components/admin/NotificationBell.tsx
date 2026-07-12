@@ -6,6 +6,7 @@ import { type ReservationNotification } from "./useReservationEvents";
 import Tooltip from "@/components/ui/Tooltip";
 import { am } from "@/i18n";
 import { dismissAdminTooltips } from "./tooltip-events";
+import type { ReservationOrigin } from "@/lib/reservations/types";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,10 @@ function sourceLabel(source: ReservationNotification["source"]) {
 
 function eventLabel(n: ReservationNotification) {
   return sourceLabel(n.source);
+}
+
+function originLabel(origin: ReservationOrigin): string {
+  return am.reservationOrigin[origin];
 }
 
 function statusLabel(status: ReservationNotification["status"] | undefined) {
@@ -141,6 +146,11 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
                 {eventLabel(n)}
               </span>
+              {n.source === "web" && n.reservationOrigin && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-400/15 text-on-surface">
+                  {originLabel(n.reservationOrigin)}
+                </span>
+              )}
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusBadgeClass(n.status)}`}>
                 {statusLabel(n.status)}
               </span>
@@ -204,7 +214,7 @@ interface BellProps {
   unreadCount: number;
   connected: boolean;
   slug: string;
-  onMarkAllRead: () => void;
+  onMarkAllRead: (ids: string[]) => void;
   onMarkRead: (id: string) => void;
 }
 
@@ -274,8 +284,9 @@ export function NotificationBell({
   }
 
   function markAllReadNow() {
-    setLocallyRead(new Set(notifications.map((n) => n.notificationId)));
-    onMarkAllRead();
+    const ids = unreadNotifications.map((n) => n.notificationId);
+    setLocallyRead(new Set(ids));
+    onMarkAllRead(ids);
   }
 
   return (
@@ -361,6 +372,11 @@ export function NotificationBell({
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
                           {eventLabel(n)}
                         </span>
+                        {n.source === "web" && n.reservationOrigin && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-400/15 text-on-surface">
+                            {originLabel(n.reservationOrigin)}
+                          </span>
+                        )}
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusBadgeClass(n.status)}`}>
                           {statusLabel(n.status)}
                         </span>
@@ -392,11 +408,197 @@ export function NotificationBell({
   );
 }
 
+interface ManualConfirmationBellProps {
+  notifications: ReservationNotification[];
+  slug: string;
+  onMarkAllRead: (ids: string[]) => void;
+  onMarkRead: (id: string) => void;
+}
+
+export function ManualConfirmationBell({
+  notifications, slug, onMarkAllRead, onMarkRead,
+}: ManualConfirmationBellProps) {
+  const [open, setOpen] = useState(false);
+  const [locallyRead, setLocallyRead] = useState<Set<string>>(() => new Set());
+  const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    setLocallyRead((prev) => {
+      const active = new Set(notifications.map((n) => n.notificationId));
+      const next = new Set([...prev].filter((id) => active.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [notifications]);
+
+  const { visibleUnreadCount, unreadNotifications } = useMemo(() => {
+    let unreadCount = 0;
+    const unread: ReservationNotification[] = [];
+    for (const notification of notifications) {
+      const visible = locallyRead.has(notification.notificationId)
+        ? { ...notification, read: true }
+        : notification;
+      if (!visible.read) {
+        unreadCount += 1;
+        unread.push(visible);
+      }
+    }
+    return { visibleUnreadCount: unreadCount, unreadNotifications: unread };
+  }, [locallyRead, notifications]);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  function toggleOpen() {
+    dismissAdminTooltips();
+    setOpen((v) => !v);
+  }
+
+  function goTo(n: ReservationNotification) {
+    setLocallyRead((prev) => new Set(prev).add(n.notificationId));
+    onMarkRead(n.notificationId);
+    setOpen(false);
+    router.push(reservationHref(slug, n));
+  }
+
+  function markAllReadNow() {
+    const ids = unreadNotifications.map((n) => n.notificationId);
+    setLocallyRead(new Set(ids));
+    onMarkAllRead(ids);
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <Tooltip content={am.notifications.manualConfirmationTitle}>
+        <button
+          onClick={toggleOpen}
+          onMouseEnter={dismissAdminTooltips}
+          aria-label={visibleUnreadCount > 0 ? am.notifications.manualConfirmationUnreadAria(visibleUnreadCount) : am.notifications.manualConfirmationTitle}
+          className="relative w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-amber-300 hover:bg-surface-container-high transition"
+        >
+          <ManualConfirmIcon />
+          {visibleUnreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none tabular-nums">
+              {visibleUnreadCount > 99 ? "99+" : visibleUnreadCount}
+            </span>
+          )}
+        </button>
+      </Tooltip>
+
+      {open && (
+        <div
+          className="fixed inset-x-3 top-[4.25rem] z-50 max-h-[calc(100dvh-5rem)] overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-10 sm:w-[calc(100vw-1.5rem)] sm:max-w-md"
+          role="dialog"
+          aria-modal="false"
+          aria-label={am.notifications.manualConfirmationTitle}
+          onMouseEnter={dismissAdminTooltips}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-outline-variant/20">
+            <span className="text-sm font-semibold text-on-surface">{am.notifications.manualConfirmationTitle}</span>
+            {visibleUnreadCount > 0 && (
+              <button
+                onClick={markAllReadNow}
+                className="text-[11px] text-primary hover:text-primary/70 font-medium transition"
+              >
+                {am.notifications.markAllRead}
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto sm:max-h-[420px]">
+            {unreadNotifications.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-on-surface-variant/50">
+                <ManualConfirmIcon className="w-6 h-6 mx-auto mb-2" />
+                <p>{notifications.length === 0 ? am.notifications.noManualConfirmations : am.notifications.noUnreadManualConfirmations}</p>
+                <p className="text-xs mt-1 text-on-surface-variant/40">
+                  {am.notifications.manualConfirmationHint}
+                </p>
+              </div>
+            ) : (
+              unreadNotifications.map((n) => (
+                <button
+                  key={n.notificationId}
+                  onClick={() => goTo(n)}
+                  className={`w-full text-left px-4 py-3 border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-high transition group ${
+                    !n.read ? "bg-amber-400/[0.06]" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
+                      !n.read ? "bg-amber-400" : "bg-transparent"
+                    }`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <Tooltip content={n.name} className="min-w-0 flex-1">
+                          <span className="text-sm font-semibold text-on-surface truncate">{n.name}</span>
+                        </Tooltip>
+                        <span className="text-[10px] text-on-surface-variant/50 shrink-0">{timeAgo(n.receivedAt)}</span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-400/15 text-on-surface">
+                          {am.notifications.manualReview}
+                        </span>
+                        {typeof n.maxPartySize === "number" && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
+                            {am.notifications.maxParty(n.maxPartySize)}
+                          </span>
+                        )}
+                        {n.source === "web" && n.reservationOrigin && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-400/15 text-on-surface">
+                            {originLabel(n.reservationOrigin)}
+                          </span>
+                        )}
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusBadgeClass(n.status)}`}>
+                          {statusLabel(n.status)}
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-on-surface-variant">
+                          {formatNotificationDate(n.date)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BellIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M10 2a6 6 0 0 0-6 6v2.5l-1.5 2.5h15L16 10.5V8a6 6 0 0 0-6-6Z" />
       <path d="M8 16a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
+function ManualConfirmIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 2.5 18 16H2L10 2.5Z" />
+      <path d="M10 7v4" />
+      <path d="M10 14h.01" />
     </svg>
   );
 }

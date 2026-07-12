@@ -51,6 +51,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-07-09T09:00:00Z"));
   resetPool();
   resetStoreCache();
   resetTenantStore();
@@ -122,6 +124,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   clearTheForkTokenCache();
   await getPool().end().catch(() => {});

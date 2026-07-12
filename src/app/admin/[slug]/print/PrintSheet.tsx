@@ -6,7 +6,7 @@ import { adminJson } from "@/components/admin/api";
 import { type AdminReservation, formatDateLong, STATUS_META, todayInTz } from "@/components/admin/shared";
 import { am } from "@/i18n";
 import { offeringSummaries } from "@/lib/reservations/offerings";
-import type { AvailabilityConfig } from "@/lib/reservations/types";
+import type { AvailabilityConfig, ReservationOrigin } from "@/lib/reservations/types";
 
 function Sheet({ restaurantName }: { restaurantName: string }) {
   const params = useSearchParams();
@@ -61,6 +61,7 @@ function Sheet({ restaurantName }: { restaurantName: string }) {
   const distinctOfferings = new Set((rows ?? []).map((r) => r.offering || "main"));
   const showOffering = distinctOfferings.size > 1;
   const offeringLabel = (id: string) => offeringLabels[id] ?? id;
+  const originLabel = (origin?: ReservationOrigin) => origin ? am.reservationOrigin[origin] : "";
 
   const dietary = (rows ?? []).filter((r) => r.dietaryNotes);
   const vips = (rows ?? []).filter((r) => r.customerVip);
@@ -158,6 +159,11 @@ function Sheet({ restaurantName }: { restaurantName: string }) {
                           {r.customerVip && <span className="text-amber-600 font-bold mr-1">★</span>}
                           {r.name}
                           {r.occasion ? <span className="text-neutral-500 text-xs ml-1">· {r.occasion}</span> : null}
+                          {r.source === "web" && r.reservationOrigin ? (
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-500">
+                              {am.reservationOrigin.bookingOrigin}: {originLabel(r.reservationOrigin)}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="py-2 pr-3 text-neutral-700">{r.tableLabel ?? <span className="text-neutral-300">—</span>}</td>
                         <td className="py-2 pr-3 whitespace-nowrap text-neutral-700">{r.phone}</td>

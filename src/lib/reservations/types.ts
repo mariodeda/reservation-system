@@ -149,6 +149,13 @@ export const ACTIVE_STATUSES: ReservationStatus[] = [
 
 export type ReservationSource = "web" | "admin" | "thefork" | "dish";
 
+export type ReservationOrigin =
+  | "google"
+  | "google_maps"
+  | "instagram"
+  | "facebook"
+  | "external_other";
+
 export interface Reservation {
   id: string;
   date: string; // YYYY-MM-DD
@@ -172,6 +179,8 @@ export interface Reservation {
   durationMinsOverride?: number | null;
   status: ReservationStatus;
   source: ReservationSource;
+  /** Optional normalized marketing attribution for internal web bookings only. */
+  reservationOrigin?: ReservationOrigin;
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
@@ -192,6 +201,7 @@ export interface NewReservationInput {
   tableId?: string;
   tableIds?: string[];
   source?: ReservationSource;
+  reservationOrigin?: ReservationOrigin;
   status?: ReservationStatus;
 }
 
