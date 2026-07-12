@@ -184,6 +184,46 @@ describe("GET /api/admin/analytics", () => {
     expect(dinner).toMatchObject({ offering: "main", reservations: 1, covers: 5 });
   });
 
+  it("normalizes analytics service buckets to schedule labels before aggregating", async () => {
+    const s = store.getStore().forTenant(tenantId);
+    const originalConfig = await s.getConfig();
+    await s.saveConfig({
+      ...originalConfig,
+      dateOverrides: {
+        ...originalConfig.dateOverrides,
+        "2026-06-12": {
+          closed: false,
+          services: [
+            { id: "service-1783269105477", label: "Lunch", start: "12:00", end: "14:30", interval: 30, capacity: 25 },
+            { id: "service-1783269141735", label: "Dinner", start: "18:00", end: "22:00", interval: 30, capacity: 25 },
+          ],
+        },
+      },
+    });
+    try {
+      await seed([
+        { date: "2026-06-12", time: "13:30", service: "service-1783269105477", partySize: 6, status: "completed" },
+        { date: "2026-06-12", time: "20:00", service: "dish", source: "dish", partySize: 4, status: "completed" },
+      ]);
+
+      const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=30d"));
+      const { byDayService, byService } = await res.json();
+      const dayLunch = byDayService.find((d: { serviceLabel?: string }) => d.serviceLabel === "Lunch");
+      const dayDinner = byDayService.find((d: { serviceLabel?: string }) => d.serviceLabel === "Dinner");
+      const serviceLabels = byService.map((row: { serviceLabel?: string; service: string }) => row.serviceLabel ?? row.service);
+
+      expect(dayLunch).toMatchObject({ service: "service-1783269105477", reservations: 1, covers: 6, serviceLabel: "Lunch" });
+      expect(dayDinner).toMatchObject({ service: "service-1783269141735", reservations: 1, covers: 4, serviceLabel: "Dinner" });
+      expect(serviceLabels).toContain("Lunch");
+      expect(serviceLabels).toContain("Dinner");
+      expect(serviceLabels).not.toContain("dish");
+      expect(serviceLabels).not.toContain("service-1783269105477");
+      expect(serviceLabels).not.toContain("service-1783269141735");
+    } finally {
+      await s.saveConfig(originalConfig);
+    }
+  });
+
   it("builds byStatus breakdown including all statuses", async () => {
     await seed([
       { status: "confirmed" },

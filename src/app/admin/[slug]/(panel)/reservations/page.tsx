@@ -21,6 +21,7 @@ import { scheduleForDate } from "@/lib/reservations/availability";
 import { getOfferings, offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
 import Tooltip from "@/components/ui/Tooltip";
 import { useBodyScrollLock } from "@/components/ui/useBodyScrollLock";
+import { serviceLabelFromOfferings } from "@/components/admin/service-labels";
 
 /** Floor-view entry returned by GET /api/admin/tables?date= */
 interface FloorEntry {
@@ -224,6 +225,8 @@ export default function ReservationsPage() {
   function exportCsv() {
     const offeringLabel = (id?: string) =>
       offerings.find((o) => o.id === (id || "main"))?.label ?? (id || "main");
+    const serviceLabel = (r: AdminReservation) =>
+      serviceLabelFromOfferings(offerings, r.offering, r.service);
     const originLabel = (origin?: ReservationOrigin) => origin ? am.reservationOrigin[origin] : "";
     // Service ids are only unique within an offering, so include the offering
     // column for multi-offering venues to keep the export unambiguous.
@@ -238,7 +241,7 @@ export default function ReservationsPage() {
     };
     const lines = [cols.join(",")].concat(
       visible.map((r) =>
-        [r.date, r.time, ...(multiOffering ? [offeringLabel(r.offering)] : []), r.service, r.name, r.partySize, r.phone, r.email, r.status, r.source === "web" ? originLabel(r.reservationOrigin) : "", r.occasion ?? "", r.notes ?? "", r.reference]
+        [r.date, r.time, ...(multiOffering ? [offeringLabel(r.offering)] : []), serviceLabel(r), r.name, r.partySize, r.phone, r.email, r.status, r.source === "web" ? originLabel(r.reservationOrigin) : "", r.occasion ?? "", r.notes ?? "", r.reference]
           .map(esc)
           .join(","),
       ),

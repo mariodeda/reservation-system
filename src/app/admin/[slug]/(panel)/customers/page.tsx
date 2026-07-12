@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { am } from "@/i18n";
 import { adminJson, adminFetch, toast } from "@/components/admin/api";
-import type { CustomerProfile, Reservation, ReservationOrigin } from "@/lib/reservations/types";
+import type { AvailabilityConfig, CustomerProfile, Reservation, ReservationOrigin } from "@/lib/reservations/types";
 import { STATUS_META, formatDateLong } from "@/components/admin/shared";
 import Tooltip from "@/components/ui/Tooltip";
+import { offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
+import { serviceLabelFromOfferings } from "@/components/admin/service-labels";
 
 type SortBy = "lastVisit" | "name" | "visits";
 
@@ -33,6 +35,13 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [expandedEmail, setExpandedEmail] = useState<string | null>(null);
+  const [offerings, setOfferings] = useState<OfferingServices[]>([]);
+
+  useEffect(() => {
+    adminJson<{ config: AvailabilityConfig }>("/api/admin/config")
+      .then((d) => setOfferings(offeringServiceMap(d.config)))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +168,7 @@ export default function CustomersPage() {
               expanded={expandedEmail === c.email}
               onToggle={() => setExpandedEmail(expandedEmail === c.email ? null : c.email)}
               onUpdated={load}
+              offerings={offerings}
             />
           ))}
         </div>
@@ -199,11 +209,13 @@ function CustomerRow({
   expanded,
   onToggle,
   onUpdated,
+  offerings,
 }: {
   customer: CustomerProfile;
   expanded: boolean;
   onToggle: () => void;
   onUpdated: () => void;
+  offerings: OfferingServices[];
 }) {
   const [detail, setDetail] = useState<{ profile: CustomerProfile; reservations: ReservationWithDetail[] } | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -326,6 +338,7 @@ function CustomerRow({
                 profile={detail.profile}
                 reservations={detail.reservations}
                 onEdit={() => setEditing(true)}
+                offerings={offerings}
               />
             )
           ) : null}
@@ -341,10 +354,12 @@ function ProfileView({
   profile,
   reservations,
   onEdit,
+  offerings,
 }: {
   profile: CustomerProfile;
   reservations: ReservationWithDetail[];
   onEdit: () => void;
+  offerings: OfferingServices[];
 }) {
   const now = new Date().toISOString().slice(0, 10);
   const past = reservations.filter((r) => r.date < now || ["completed", "cancelled", "no_show"].includes(r.status));
@@ -420,7 +435,7 @@ function ProfileView({
 
       {/* Upcoming */}
       {upcoming.length > 0 && (
-        <ReservationTable title="Upcoming" reservations={upcoming} />
+        <ReservationTable title="Upcoming" reservations={upcoming} offerings={offerings} />
       )}
 
       {/* History */}
@@ -428,6 +443,7 @@ function ProfileView({
         title={am.customers.visitHistory}
         reservations={past}
         emptyText={am.customers.noHistory}
+        offerings={offerings}
       />
     </div>
   );
@@ -439,10 +455,12 @@ function ReservationTable({
   title,
   reservations,
   emptyText,
+  offerings = [],
 }: {
   title: string;
   reservations: ReservationWithDetail[];
   emptyText?: string;
+  offerings?: OfferingServices[];
 }) {
   return (
     <div>
@@ -475,7 +493,7 @@ function ReservationTable({
                     {formatDateLong(r.date).replace(/, \d{4}$/, "")}
                   </td>
                   <td className="px-3 py-2 tabular-nums">{r.time}</td>
-                  <td className="px-3 py-2 capitalize hidden sm:table-cell">{r.service}</td>
+                  <td className="px-3 py-2 capitalize hidden sm:table-cell">{serviceLabelFromOfferings(offerings, r.offering, r.service)}</td>
                   <td className="px-3 py-2 tabular-nums">{r.partySize}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_META[r.status].badge}`}>

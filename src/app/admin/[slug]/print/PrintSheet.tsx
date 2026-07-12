@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { adminJson } from "@/components/admin/api";
 import { type AdminReservation, formatDateLong, STATUS_META, todayInTz } from "@/components/admin/shared";
 import { am } from "@/i18n";
-import { offeringSummaries } from "@/lib/reservations/offerings";
+import { offeringServiceMap, offeringSummaries, type OfferingServices } from "@/lib/reservations/offerings";
 import type { AvailabilityConfig, ReservationOrigin } from "@/lib/reservations/types";
+import { serviceLabelFromOfferings } from "@/components/admin/service-labels";
 
 function Sheet({ restaurantName }: { restaurantName: string }) {
   const params = useSearchParams();
@@ -14,6 +15,7 @@ function Sheet({ restaurantName }: { restaurantName: string }) {
   const autoPrint = params.get("print") !== "0";
   const [rows, setRows] = useState<AdminReservation[] | null>(null);
   const [offeringLabels, setOfferingLabels] = useState<Record<string, string>>({});
+  const [offerings, setOfferings] = useState<OfferingServices[]>([]);
 
   useEffect(() => {
     adminJson<{ reservations: AdminReservation[] }>(`/api/admin/reservations?date=${date}`)
@@ -27,11 +29,12 @@ function Sheet({ restaurantName }: { restaurantName: string }) {
 
   useEffect(() => {
     adminJson<{ config: AvailabilityConfig }>("/api/admin/config")
-      .then((d) =>
+      .then((d) => {
         setOfferingLabels(
           Object.fromEntries(offeringSummaries(d.config, restaurantName).map((o) => [o.id, o.label])),
-        ),
-      )
+        );
+        setOfferings(offeringServiceMap(d.config, restaurantName));
+      })
       .catch(() => {});
   }, [restaurantName]);
 
@@ -128,7 +131,8 @@ function Sheet({ restaurantName }: { restaurantName: string }) {
             const sepIdx = key.indexOf(SEP);
             const offId = key.slice(0, sepIdx);
             const service = key.slice(sepIdx + SEP.length);
-            const heading = showOffering ? `${offeringLabel(offId)} · ${service}` : service;
+            const serviceLabel = serviceLabelFromOfferings(offerings, offId, service);
+            const heading = showOffering ? `${offeringLabel(offId)} · ${serviceLabel}` : serviceLabel;
             return (
               <div key={key}>
                 <div className="flex items-baseline justify-between border-b border-neutral-400 mb-1 pb-0.5">

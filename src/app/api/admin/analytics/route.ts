@@ -3,14 +3,15 @@ import type { RowDataPacket } from "mysql2/promise";
 import { requireAdmin } from "@/lib/reservations/tenant-context";
 import { getPool } from "@/lib/reservations/mysql-pool";
 import { ensureSchema } from "@/lib/reservations/mysql-schema";
-import { nowInTz } from "@/lib/reservations/availability";
+import { generateSlots, nowInTz, scheduleForDate, toMinutes } from "@/lib/reservations/availability";
 import { observeAdminRoute } from "@/lib/observability/route-events";
+import { getStore } from "@/lib/reservations/store";
 import {
   externalReservationLabel,
   isExternalReservationSource,
   type ExternalReservationSource,
 } from "@/lib/reservations/external-sources";
-import type { ReservationOrigin, ReservationSource } from "@/lib/reservations/types";
+import type { AvailabilityConfig, ReservationOrigin, ReservationSource, ServiceWindow } from "@/lib/reservations/types";
 import { RESERVATION_ORIGINS, reservationOriginLabel } from "@/lib/reservations/reservation-origin";
 
 export const runtime = "nodejs";
@@ -48,6 +49,31 @@ function originLabel(origin: ReservationOrigin): string {
   return reservationOriginLabel(origin);
 }
 
+function serviceForTime(services: ServiceWindow[], time: string): ServiceWindow | undefined {
+  const exact = services.find((s) => generateSlots(s).includes(time));
+  if (exact) return exact;
+  const mins = toMinutes(time);
+  if (!Number.isFinite(mins)) return undefined;
+  return services.find((s) => mins >= toMinutes(s.start) && mins <= toMinutes(s.end));
+}
+
+function analyticsServiceBucket(
+  config: AvailabilityConfig,
+  row: { date: string; time: string; offering: string; service: string },
+): { service: string; serviceLabel: string } {
+  const schedule = scheduleForDate(config, row.date, row.offering);
+  const direct = schedule.services.find((s) => s.id === row.service);
+  if (direct) return { service: direct.id, serviceLabel: direct.label };
+
+  // Historical external rows could carry provider fallback ids such as "dish"
+  // when import-time service inference failed. For analytics only, bucket those
+  // by the schedule window matching the stored reservation time.
+  const inferred = serviceForTime(schedule.services, row.time);
+  if (inferred) return { service: inferred.id, serviceLabel: inferred.label };
+
+  return { service: row.service, serviceLabel: row.service };
+}
+
 async function getAnalytics(req: NextRequest) {
   const ctx = await requireAdmin(req);
   if (!ctx.ok) return ctx.res;
@@ -58,6 +84,7 @@ async function getAnalytics(req: NextRequest) {
   try {
     await ensureSchema();
     const pool = getPool();
+    const config = await getStore().forTenant(tid).getConfig();
 
     // Daily covers + reservations
     const [dayRows] = await pool.query<RowDataPacket[]>(
@@ -70,13 +97,13 @@ async function getAnalytics(req: NextRequest) {
     );
 
     const [dayServiceRows] = await pool.query<RowDataPacket[]>(
-      `SELECT \`date\`, COALESCE(NULLIF(offering,''),'main') AS offering, service,
+      `SELECT \`date\`, \`time\`, COALESCE(NULLIF(offering,''),'main') AS offering, service,
               COUNT(*) AS reservations, SUM(party_size) AS covers
        FROM reservations
        WHERE tenant_id = ? AND \`date\` >= ? AND \`date\` <= ?
          AND status NOT IN ('cancelled','no_show')
-       GROUP BY \`date\`, COALESCE(NULLIF(offering,''),'main'), service
-       ORDER BY \`date\`, offering, service`,
+       GROUP BY \`date\`, \`time\`, COALESCE(NULLIF(offering,''),'main'), service
+       ORDER BY \`date\`, \`time\`, offering, service`,
       [tid, from, to],
     );
 
@@ -210,18 +237,6 @@ async function getAnalytics(req: NextRequest) {
       attributionRate: rate(attributedReservations, webReservations),
     };
 
-    // By offering + service (service ids are only unique within an offering).
-    // COALESCE so any pre-migration NULL/'' rows fold into 'main' rather than
-    // forming a separate duplicate bucket.
-    const [svcRows] = await pool.query<RowDataPacket[]>(
-      `SELECT COALESCE(NULLIF(offering,''),'main') AS offering, service, COUNT(*) AS reservations, SUM(party_size) AS covers
-       FROM reservations
-       WHERE tenant_id = ? AND \`date\` >= ? AND \`date\` <= ?
-         AND status NOT IN ('cancelled','no_show')
-       GROUP BY COALESCE(NULLIF(offering,''),'main'), service ORDER BY reservations DESC`,
-      [tid, from, to],
-    );
-
     // By offering (rolled up)
     const [offRows] = await pool.query<RowDataPacket[]>(
       `SELECT COALESCE(NULLIF(offering,''),'main') AS offering, COUNT(*) AS reservations, SUM(party_size) AS covers
@@ -346,6 +361,40 @@ async function getAnalytics(req: NextRequest) {
       conversionRate: wlTotal ? Math.round((wlSeated / wlTotal) * 1000) / 10 : 0,
     };
 
+    const dayServiceBuckets = new Map<string, {
+      date: string; offering: string; service: string; serviceLabel: string; reservations: number; covers: number;
+    }>();
+    const serviceBuckets = new Map<string, {
+      offering: string; service: string; serviceLabel: string; reservations: number; covers: number;
+    }>();
+    for (const r of dayServiceRows) {
+      const date = r.date as string;
+      const offering = (r.offering as string) || "main";
+      const { service, serviceLabel } = analyticsServiceBucket(config, {
+        date,
+        time: r.time as string,
+        offering,
+        service: r.service as string,
+      });
+      const reservations = Number(r.reservations);
+      const covers = Number(r.covers);
+      const dayKey = `${date}\u0000${offering}\u0000${service}`;
+      const dayBucket = dayServiceBuckets.get(dayKey) ?? { date, offering, service, serviceLabel, reservations: 0, covers: 0 };
+      dayBucket.reservations += reservations;
+      dayBucket.covers += covers;
+      dayServiceBuckets.set(dayKey, dayBucket);
+
+      const serviceKey = `${offering}\u0000${service}`;
+      const serviceBucket = serviceBuckets.get(serviceKey) ?? { offering, service, serviceLabel, reservations: 0, covers: 0 };
+      serviceBucket.reservations += reservations;
+      serviceBucket.covers += covers;
+      serviceBuckets.set(serviceKey, serviceBucket);
+    }
+    const byDayService = [...dayServiceBuckets.values()]
+      .sort((a, b) => a.date.localeCompare(b.date) || a.offering.localeCompare(b.offering) || a.serviceLabel.localeCompare(b.serviceLabel));
+    const byService = [...serviceBuckets.values()]
+      .sort((a, b) => b.reservations - a.reservations || b.covers - a.covers || a.serviceLabel.localeCompare(b.serviceLabel));
+
     return NextResponse.json({
       period,
       from,
@@ -355,25 +404,14 @@ async function getAnalytics(req: NextRequest) {
         reservations: Number(r.reservations),
         covers: Number(r.covers),
       })),
-      byDayService: dayServiceRows.map((r) => ({
-        date: r.date as string,
-        offering: (r.offering as string) || "main",
-        service: r.service as string,
-        reservations: Number(r.reservations),
-        covers: Number(r.covers),
-      })),
+      byDayService,
       byStatus,
       bySource,
       sourceBreakdown,
       externalSummary,
       originBreakdown,
       originSummary,
-      byService: svcRows.map((r) => ({
-        offering: (r.offering as string) || "main",
-        service: r.service as string,
-        reservations: Number(r.reservations),
-        covers: Number(r.covers),
-      })),
+      byService,
       byOffering: offRows.map((r) => ({
         offering: (r.offering as string) || "main",
         reservations: Number(r.reservations),

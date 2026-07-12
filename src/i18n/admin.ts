@@ -22,6 +22,7 @@ export const am = {
   },
   actions: {
     reinstate: "Reinstate",
+    confirmReservation: ["Confirm", "Reservation"],
   },
   reservationOrigin: {
     bookingOrigin: "Booking origin",

@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { am } from "@/i18n";
 import { adminJson, toast } from "@/components/admin/api";
 import { DISMISS_ADMIN_TOOLTIPS_EVENT } from "@/components/admin/tooltip-events";
-import { offeringSummaries } from "@/lib/reservations/offerings";
+import { offeringServiceMap, offeringSummaries, type OfferingServices } from "@/lib/reservations/offerings";
 import type { AvailabilityConfig } from "@/lib/reservations/types";
+import { serviceLabelFromOfferings } from "@/components/admin/service-labels";
 
 type Period = "7d" | "30d" | "90d" | "365d";
 
@@ -45,7 +46,7 @@ interface AnalyticsData {
   from: string;
   to: string;
   byDay: { date: string; reservations: number; covers: number }[];
-  byDayService?: { date: string; offering?: string; service: string; reservations: number; covers: number }[];
+  byDayService?: { date: string; offering?: string; service: string; serviceLabel?: string; reservations: number; covers: number }[];
   byStatus: Record<string, number>;
   bySource: Record<string, number>;
   sourceBreakdown?: SourceAnalytics[];
@@ -65,7 +66,7 @@ interface AnalyticsData {
     attributedReservations: number;
     attributionRate: number;
   };
-  byService: { offering?: string; service: string; reservations: number; covers: number }[];
+  byService: { offering?: string; service: string; serviceLabel?: string; reservations: number; covers: number }[];
   avgPartySize: number;
   avgLeadDays: number;
   newVsReturning: { new: number; returning: number };
@@ -171,10 +172,12 @@ function BarChart({
   data,
   metric,
   serviceData = [],
+  offerings = [],
 }: {
   data: { date: string; reservations: number; covers: number }[];
-  serviceData?: { date: string; offering?: string; service: string; reservations: number; covers: number }[];
+  serviceData?: { date: string; offering?: string; service: string; serviceLabel?: string; reservations: number; covers: number }[];
   metric: "covers" | "reservations";
+  offerings?: OfferingServices[];
 }) {
   const [tip, setTip] = useState<TipState>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
@@ -221,8 +224,18 @@ function BarChart({
   const serviceKeys = Array.from(
     new Set(serviceData.map((row) => `${row.offering || "main"}:${row.service}`)),
   ).sort();
+  const serviceLabels = new Map(
+    serviceData.map((row) => [`${row.offering || "main"}:${row.service}`, row.serviceLabel]),
+  );
   const serviceColor = (key: string) => SERVICE_COLORS[Math.abs(hashString(key)) % SERVICE_COLORS.length];
-  const serviceLabel = (key: string) => key.split(":").slice(1).join(":") || key;
+  const serviceLabel = (key: string) => {
+    const apiLabel = serviceLabels.get(key);
+    if (apiLabel) return apiLabel;
+    const sep = key.indexOf(":");
+    const offeringId = sep >= 0 ? key.slice(0, sep) : "main";
+    const serviceId = sep >= 0 ? key.slice(sep + 1) : key;
+    return serviceLabelFromOfferings(offerings, offeringId, serviceId);
+  };
   const byDate = serviceData.reduce<Map<string, typeof serviceData>>((acc, row) => {
     const rows = acc.get(row.date) ?? [];
     rows.push(row);
@@ -868,6 +881,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [metric, setMetric] = useState<"covers" | "reservations">("covers");
   const [offeringLabels, setOfferingLabels] = useState<Record<string, string>>({});
+  const [offerings, setOfferings] = useState<OfferingServices[]>([]);
 
   // Page-level tooltip for inline bar rows (offering, service, feedback)
   const [pageTip, setPageTip] = useState<TipState>(null);
@@ -902,14 +916,17 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     adminJson<{ config: AvailabilityConfig }>("/api/admin/config")
-      .then((d) =>
-        setOfferingLabels(Object.fromEntries(offeringSummaries(d.config).map((o) => [o.id, o.label]))),
-      )
+      .then((d) => {
+        setOfferingLabels(Object.fromEntries(offeringSummaries(d.config).map((o) => [o.id, o.label])));
+        setOfferings(offeringServiceMap(d.config));
+      })
       .catch(() => {});
   }, []);
 
   const multiOffering = (data?.byOffering?.length ?? 0) > 1;
   const offeringName = (id?: string) => offeringLabels[id || "main"] ?? (id || "main");
+  const serviceName = (offeringId?: string, serviceId?: string) =>
+    serviceLabelFromOfferings(offerings, offeringId, serviceId);
 
   const totalReservations = data?.byDay.reduce((s, d) => s + d.reservations, 0) ?? 0;
   const totalCovers = data?.byDay.reduce((s, d) => s + d.covers, 0) ?? 0;
@@ -1112,7 +1129,7 @@ export default function AnalyticsPage() {
                 ))}
               </div>
             </div>
-            <BarChart data={data.byDay} serviceData={data.byDayService} metric={metric} />
+            <BarChart data={data.byDay} serviceData={data.byDayService} metric={metric} offerings={offerings} />
           </div>
 
           {/* Peak demand heatmap */}
@@ -1422,9 +1439,10 @@ export default function AnalyticsPage() {
                   );
                   const pct = Math.round((s.covers / maxCovers) * 100);
                   const key = `service-${s.offering || "main"}-${s.service}`;
+                  const resolvedService = s.serviceLabel || serviceName(s.offering, s.service);
                   const label = multiOffering
-                    ? `${offeringName(s.offering)} · ${s.service}`
-                    : s.service;
+                    ? `${offeringName(s.offering)} · ${resolvedService}`
+                    : resolvedService;
                   return (
                     <HoverableBarRow
                       key={key}

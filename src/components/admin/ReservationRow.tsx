@@ -17,6 +17,7 @@ import { am } from "@/i18n";
 import { adminFetch, adminJson, toast } from "./api";
 import Tooltip from "@/components/ui/Tooltip";
 import { externalReservationLabel, isExternalReservationSource } from "@/lib/reservations/external-sources";
+import { serviceLabelFromOfferings } from "./service-labels";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
@@ -36,6 +37,7 @@ export default function ReservationRow({
 }) {
   const multiOffering = offerings.length > 1;
   const offeringLabel = offerings.find((o) => o.id === (r.offering || "main"))?.label;
+  const serviceLabel = serviceLabelFromOfferings(offerings, r.offering, r.service);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(r.status !== "completed" && r.status !== "cancelled");
   const [editing, setEditing] = useState(false);
@@ -125,7 +127,7 @@ export default function ReservationRow({
           <div className="flex items-center gap-2 md:block">
             <div className="text-lg font-semibold text-primary tabular-nums">{r.time}</div>
             {!externalPlatform && (
-              <div className="text-[10px] uppercase tracking-widest text-on-surface-variant md:mt-0">{r.service}</div>
+              <div className="text-[10px] uppercase tracking-widest text-on-surface-variant md:mt-0">{serviceLabel}</div>
             )}
           </div>
           {externalPlatform && (
@@ -365,10 +367,11 @@ export default function ReservationRow({
                   key={s}
                   disabled={busy}
                   onClick={() => setStatus(s)}
+                  aria-label={actionLabelParts(r.status, s).join(" ")}
                   className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition disabled:opacity-50 ${STATUS_META[s].badge} hover:brightness-125`}
                 >
                   <ActionIcon from={r.status} to={s} />
-                  {actionLabel(r.status, s)}
+                  <ActionLabel from={r.status} to={s} />
                 </button>
               ))}
             </div>
@@ -1044,6 +1047,22 @@ function ExternalPlatformIcon({ provider }: { provider: ExternalReservation["pro
 function actionLabel(from: ReservationStatus, to: ReservationStatus): string {
   if (to === "confirmed" && (from === "cancelled" || from === "no_show")) return am.actions.reinstate;
   return STATUS_META[to].label;
+}
+
+function actionLabelParts(from: ReservationStatus, to: ReservationStatus): string[] {
+  if (from === "pending" && to === "confirmed") return am.actions.confirmReservation;
+  return [actionLabel(from, to)];
+}
+
+function ActionLabel({ from, to }: { from: ReservationStatus; to: ReservationStatus }) {
+  const parts = actionLabelParts(from, to);
+  return (
+    <span className="leading-tight text-center">
+      {parts.map((part) => (
+        <span key={part} className="block">{part}</span>
+      ))}
+    </span>
+  );
 }
 
 function ActionIcon({ from, to }: { from: ReservationStatus; to: ReservationStatus }) {

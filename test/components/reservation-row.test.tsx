@@ -10,6 +10,7 @@ vi.mock("@/components/admin/api", () => ({ adminFetch, toast }));
 
 import ReservationRow from "@/components/admin/ReservationRow";
 import type { AdminReservation } from "@/components/admin/shared";
+import type { OfferingServices } from "@/lib/reservations/offerings";
 
 function row(over: Partial<AdminReservation> = {}): AdminReservation {
   return {
@@ -36,6 +37,25 @@ describe("ReservationRow", () => {
     expect(screen.getByText("Pending")).toBeInTheDocument();
   });
 
+  it("resolves generated service ids to configured service labels", () => {
+    const offerings: OfferingServices[] = [{
+      id: "main",
+      label: "Dining",
+      services: [{ id: "service-1783269105477", label: "Lunch" }],
+    }];
+
+    render(
+      <ReservationRow
+        r={row({ service: "service-1783269105477" })}
+        offerings={offerings}
+        onChanged={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Lunch")).toBeInTheDocument();
+    expect(screen.queryByText("service-1783269105477")).not.toBeInTheDocument();
+  });
+
   it("shows booking origin only for internal web reservations", () => {
     const { rerender } = render(<ReservationRow r={row({ reservationOrigin: "instagram" })} onChanged={() => {}} />);
     expect(screen.getByText("Instagram")).toBeInTheDocument();
@@ -49,8 +69,8 @@ describe("ReservationRow", () => {
     const onChanged = vi.fn();
     render(<ReservationRow r={row({ status: "pending" })} onChanged={onChanged} />);
 
-    // pending -> Confirmed | Cancelled
-    await user.click(screen.getByRole("button", { name: "Confirmed" }));
+    // pending -> Confirm Reservation
+    await user.click(screen.getByRole("button", { name: "Confirm Reservation" }));
 
     expect(adminFetch).toHaveBeenCalledWith(
       "/api/admin/reservations/id-1",
