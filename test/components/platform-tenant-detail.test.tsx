@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { platformJson, platformFetch, toast, push } = vi.hoisted(() => ({
@@ -143,5 +143,33 @@ describe("TenantDetail", () => {
       body: JSON.stringify({ operatorPassword: "operator-pass" }),
     });
     expect(open).toHaveBeenCalledWith("/admin/acme", "_blank", "noopener");
+  });
+
+  it("uses an in-app confirmation dialog before disabling a restaurant", async () => {
+    const user = userEvent.setup();
+    platformFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true }),
+    });
+
+    render(<TenantDetail />);
+
+    await screen.findByRole("heading", { name: "Acme Osteria" });
+    await user.click(screen.getByRole("button", { name: "Disabilita" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Disabilitare il ristorante?" });
+    expect(within(dialog).getByText(/Gli ospiti non potranno prenotare/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Chiudi" }));
+    expect(platformFetch).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Disabilita" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Disabilitare il ristorante?" })).getByRole("button", { name: "Disabilita" }));
+
+    expect(platformFetch).toHaveBeenCalledWith("/api/platform/tenants/tenant-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "disabled" }),
+    });
   });
 });

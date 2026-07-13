@@ -65,6 +65,11 @@ export const am = {
     markedAs: (s: string) => `Marked ${s}`,
     deleteConfirm: (name: string) =>
       `Delete reservation for ${name}? This cannot be undone.`,
+    deleteDialogTitle: "Delete reservation?",
+    deleteDialogBody: (name: string) =>
+      `You are about to permanently delete the reservation for ${name}. This removes it from the calendar and staff views.`,
+    deleteDialogWarning: "This is a destructive operation and cannot be undone.",
+    deleteDialogAction: "Delete reservation",
     deleted: "Reservation deleted",
     updated: "Reservation updated",
     updateError: "Could not update reservation.",
@@ -347,6 +352,8 @@ export const am = {
     deactivate: "Deactivate",
     deactivateConfirm: (label: string) =>
       `Deactivate table ${label}? It will drop off pickers but keep its history.`,
+    deactivateDialogTitle: "Deactivate table?",
+    deactivateDialogWarning: "The table will no longer appear in assignment pickers. Existing reservation history is preserved.",
     deactivated: "Table deactivated",
     created: "Table created",
     updated: "Table updated",
@@ -405,6 +412,8 @@ export const am = {
     markedLeft: "Removed from waitlist",
     remove: "Remove",
     removeConfirm: (name: string) => `Remove ${name} from the waitlist?`,
+    removeDialogTitle: "Remove from waitlist?",
+    removeDialogWarning: "This removes the party from the active waitlist. Use Mark left instead when you want to keep that specific outcome.",
     confirm: "Confirm",
     cancel: "Cancel",
     time: "Time",
@@ -501,6 +510,8 @@ export const am = {
     removeOffering: "Remove offering",
     removeOfferingConfirm: (label: string) =>
       `Remove the "${label}" offering? Its schedule will be deleted. Existing reservations are kept.`,
+    removeOfferingDialogTitle: "Remove offering?",
+    removeOfferingDialogWarning: "This deletes the offering schedule from availability. Existing reservations are not deleted.",
     offeringName: "Name",
     // Table duration
     tableDuration: "Default table duration",
@@ -676,6 +687,17 @@ export const am = {
       disableConfirm: (name: string) => `Disable ${name}? Guests will no longer be able to book until re-enabled.`,
       enableConfirm: (name: string) => `Enable ${name}? Bookings will resume immediately.`,
       deleteConfirm: (name: string) => `Delete ${name}? This removes all reservations and cannot be undone.`,
+      disableDialogTitle: "Disable restaurant?",
+      enableDialogTitle: "Enable restaurant?",
+      removeHostDialogTitle: "Remove host?",
+      deleteDialogTitle: "Delete restaurant?",
+      deleteDialogWarning: "This is destructive and requires platform password confirmation.",
+      clearDialogTitle: "Clear tenant data?",
+      clearDialogWarning: "This deletes generated operational data for this tenant and cannot be undone.",
+      firstTheForkSyncTitle: "Run first TheFork sync?",
+      firstTheForkSyncBody: "This imports upcoming TheFork reservations through the tenant booking window without sending tenant popup notifications.",
+      dishHistorySyncTitle: "Sync DISH history?",
+      dishHistorySyncBody: "This imports DISH reservations from the last 60 days. Existing imports will be skipped and tenant popup notifications will not be sent.",
       // Sections
       identity: "Identity & branding",
       bookingApi: "Booking API",

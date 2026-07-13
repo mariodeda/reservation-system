@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { adminFetch, adminJson, toast } = vi.hoisted(() => ({
@@ -98,5 +98,26 @@ describe("WaitlistPanel", () => {
     adminJson.mockResolvedValue({ waitlist: [] });
     renderPanel();
     expect(await screen.findByText(/No one waiting/i)).toBeInTheDocument();
+  });
+
+  it("removes a party only after in-app confirmation", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await screen.findByText("Rossi");
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Remove from waitlist?" });
+    expect(within(dialog).getByText(/active waitlist/i)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(adminFetch).not.toHaveBeenCalledWith("/api/admin/waitlist/w1", expect.objectContaining({ method: "DELETE" }));
+
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Remove from waitlist?" })).getByRole("button", { name: "Remove" }));
+
+    await waitFor(() =>
+      expect(adminFetch).toHaveBeenCalledWith("/api/admin/waitlist/w1", expect.objectContaining({ method: "DELETE" })),
+    );
   });
 });

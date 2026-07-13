@@ -5,6 +5,7 @@ import { am } from "@/i18n";
 import { adminJson, toast } from "@/components/admin/api";
 import type { AvailabilityConfig, RestaurantTable } from "@/lib/reservations/types";
 import { offeringServiceMap, type OfferingServices } from "@/lib/reservations/offerings";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const field =
   "h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm w-full focus:border-primary outline-none [color-scheme:dark]";
@@ -130,14 +131,15 @@ function TableCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const offeringLabel = offerings.find((o) => o.id === table.offering)?.label;
 
   async function deactivate() {
-    if (!confirm(am.tables.deactivateConfirm(table.label))) return;
     setBusy(true);
     try {
       await adminJson(`/api/admin/tables/${table.id}`, { method: "DELETE" });
       toast(am.tables.deactivated);
+      setDeactivateOpen(false);
       onChanged();
     } catch {
       toast(am.tables.couldNotSave, "error");
@@ -187,6 +189,7 @@ function TableCard({
   })();
 
   return (
+    <>
     <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface-container p-3 ${table.active ? "" : "opacity-50"}`}>
       {/* Avatar chip — short abbreviation, never overflows */}
       <div className="w-10 h-10 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-bold shrink-0 text-xs text-center leading-tight overflow-hidden">
@@ -219,7 +222,7 @@ function TableCard({
           {am.tables.edit}
         </button>
         {table.active ? (
-          <button onClick={deactivate} disabled={busy} className="text-rose-400 hover:text-rose-300 text-xs disabled:opacity-50 whitespace-nowrap">
+          <button onClick={() => setDeactivateOpen(true)} disabled={busy} className="text-rose-400 hover:text-rose-300 text-xs disabled:opacity-50 whitespace-nowrap">
             {am.tables.deactivate}
           </button>
         ) : (
@@ -229,6 +232,20 @@ function TableCard({
         )}
       </div>
     </div>
+    <ConfirmDialog
+      open={deactivateOpen}
+      title={am.tables.deactivateDialogTitle}
+      body={am.tables.deactivateConfirm(table.label)}
+      warning={am.tables.deactivateDialogWarning}
+      confirmLabel={am.tables.deactivate}
+      cancelLabel={am.tables.cancel}
+      busyLabel={am.tables.saving}
+      destructive
+      busy={busy}
+      onCancel={() => setDeactivateOpen(false)}
+      onConfirm={deactivate}
+    />
+    </>
   );
 }
 

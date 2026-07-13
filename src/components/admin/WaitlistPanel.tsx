@@ -6,6 +6,7 @@ import { adminFetch, adminJson, toast } from "./api";
 import type { OfferingServices } from "@/lib/reservations/offerings";
 import type { RestaurantTable, WaitlistEntry } from "@/lib/reservations/types";
 import Tooltip from "@/components/ui/Tooltip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const field =
   "h-9 bg-surface-container-high border border-outline-variant/30 rounded-lg px-3 py-1.5 text-sm w-full focus:border-primary outline-none [color-scheme:dark]";
@@ -149,6 +150,7 @@ function WaitRow({
 }) {
   const [busy, setBusy] = useState(false);
   const [seating, setSeating] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
   void tick; // re-render trigger for the live elapsed counter
   const waited = elapsedMin(entry.createdAt);
   const offeringLabel = offerings.find((o) => o.id === entry.offering)?.label;
@@ -173,11 +175,11 @@ function WaitRow({
   }
 
   async function remove() {
-    if (!confirm(am.waitlist.removeConfirm(entry.name))) return;
     setBusy(true);
     try {
       const res = await adminFetch(`/api/admin/waitlist/${entry.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
+      setRemoveOpen(false);
       onChanged();
     } catch {
       toast(am.waitlist.couldNotSave, "error");
@@ -187,6 +189,7 @@ function WaitRow({
   }
 
   return (
+    <>
     <div className="rounded-lg border border-outline-variant/30 bg-surface-container-high p-2.5">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="font-semibold">{entry.name}</span>
@@ -260,12 +263,26 @@ function WaitRow({
           <button onClick={() => patch({ status: "left" }, am.waitlist.markedLeft)} disabled={busy} title={am.waitlist.leftHint} className="text-xs text-on-surface-variant hover:text-on-surface disabled:opacity-50">
             {am.waitlist.left}
           </button>
-          <button onClick={remove} disabled={busy} className="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-50 ml-auto">
+          <button onClick={() => setRemoveOpen(true)} disabled={busy} className="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-50 ml-auto">
             {am.waitlist.remove}
           </button>
         </div>
       )}
     </div>
+    <ConfirmDialog
+      open={removeOpen}
+      title={am.waitlist.removeDialogTitle}
+      body={am.waitlist.removeConfirm(entry.name)}
+      warning={am.waitlist.removeDialogWarning}
+      confirmLabel={am.waitlist.remove}
+      cancelLabel={am.waitlist.cancel}
+      busyLabel={am.row.saving}
+      destructive
+      busy={busy}
+      onCancel={() => setRemoveOpen(false)}
+      onConfirm={remove}
+    />
+    </>
   );
 }
 
@@ -310,7 +327,7 @@ function SeatForm({
   const [tableId, setTableId] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function confirm() {
+  async function seatParty() {
     setBusy(true);
     try {
       const res = await adminFetch(`/api/admin/waitlist/${entry.id}/seat`, {
@@ -353,7 +370,7 @@ function SeatForm({
         </select>
       </label>
       <div className="col-span-2 sm:col-span-4 flex gap-2">
-        <button onClick={confirm} disabled={busy} className="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
+        <button onClick={seatParty} disabled={busy} className="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:brightness-110 disabled:opacity-60">
           {busy ? am.waitlist.seating : am.waitlist.confirm}
         </button>
         <button onClick={onCancel} className="px-4 py-1.5 rounded-lg text-sm border border-outline-variant/40 text-on-surface-variant hover:text-on-surface">

@@ -57,19 +57,36 @@ function serviceForTime(services: ServiceWindow[], time: string): ServiceWindow 
   return services.find((s) => mins >= toMinutes(s.start) && mins <= toMinutes(s.end));
 }
 
+function serviceBucketId(label: string, fallback: string): string {
+  const slug = label
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return slug || fallback;
+}
+
 function analyticsServiceBucket(
   config: AvailabilityConfig,
-  row: { date: string; time: string; offering: string; service: string },
+  row: { date: string; time: string; offering: string; service: string; source: string },
 ): { service: string; serviceLabel: string } {
+  if (isExternalReservationSource(row.source as ReservationSource)) {
+    return {
+      service: `external:${row.source}`,
+      serviceLabel: externalReservationLabel(row.source as ExternalReservationSource),
+    };
+  }
+
   const schedule = scheduleForDate(config, row.date, row.offering);
   const direct = schedule.services.find((s) => s.id === row.service);
-  if (direct) return { service: direct.id, serviceLabel: direct.label };
+  if (direct) return { service: serviceBucketId(direct.label, direct.id), serviceLabel: direct.label };
 
-  // Historical external rows could carry provider fallback ids such as "dish"
-  // when import-time service inference failed. For analytics only, bucket those
-  // by the schedule window matching the stored reservation time.
+  // Historical rows can carry generated service ids or provider fallback ids
+  // from older imports. For internal reporting only, bucket those by the
+  // schedule window matching the stored reservation time.
   const inferred = serviceForTime(schedule.services, row.time);
-  if (inferred) return { service: inferred.id, serviceLabel: inferred.label };
+  if (inferred) return { service: serviceBucketId(inferred.label, inferred.id), serviceLabel: inferred.label };
 
   return { service: row.service, serviceLabel: row.service };
 }
@@ -97,13 +114,13 @@ async function getAnalytics(req: NextRequest) {
     );
 
     const [dayServiceRows] = await pool.query<RowDataPacket[]>(
-      `SELECT \`date\`, \`time\`, COALESCE(NULLIF(offering,''),'main') AS offering, service,
+      `SELECT \`date\`, \`time\`, COALESCE(NULLIF(offering,''),'main') AS offering, service, source,
               COUNT(*) AS reservations, SUM(party_size) AS covers
        FROM reservations
        WHERE tenant_id = ? AND \`date\` >= ? AND \`date\` <= ?
          AND status NOT IN ('cancelled','no_show')
-       GROUP BY \`date\`, \`time\`, COALESCE(NULLIF(offering,''),'main'), service
-       ORDER BY \`date\`, \`time\`, offering, service`,
+       GROUP BY \`date\`, \`time\`, COALESCE(NULLIF(offering,''),'main'), service, source
+       ORDER BY \`date\`, \`time\`, offering, service, source`,
       [tid, from, to],
     );
 
@@ -375,6 +392,7 @@ async function getAnalytics(req: NextRequest) {
         time: r.time as string,
         offering,
         service: r.service as string,
+        source: (r.source as string) || "web",
       });
       const reservations = Number(r.reservations);
       const covers = Number(r.covers);

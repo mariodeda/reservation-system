@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { platformFetch, platformJson, toast, type TenantView } from "@/components/platform/api";
 import { formatPlatformDateTime } from "@/components/platform/date-format";
 import { usePlatformUnsavedChanges } from "@/components/platform/usePlatformUnsavedChanges";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import Tooltip from "@/components/ui/Tooltip";
 import { useBodyScrollLock } from "@/components/ui/useBodyScrollLock";
 import {
@@ -72,6 +73,15 @@ type DishForm = {
   email: string;
   password: string;
   establishmentId: string;
+};
+
+type PendingConfirm = {
+  title: string;
+  body: string;
+  warning?: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  onConfirm: () => void | Promise<void>;
 };
 
 const EXTERNAL_SYNC_CLIENT_TIMEOUT_MS = 115_000;
@@ -231,6 +241,7 @@ export default function TenantDetail() {
   });
   const [dishBusy, setDishBusy] = useState<string | null>(null);
   const [dishSyncStatus, setDishSyncStatus] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -351,12 +362,20 @@ export default function TenantDetail() {
     }
   }
 
-  async function toggleStatus() {
+  function toggleStatus() {
     const next = view!.status === "active" ? "disabled" : "active";
-    const confirmMsg = next === "disabled"
-      ? am.platform.tenant.disableConfirm(view!.name)
-      : am.platform.tenant.enableConfirm(view!.name);
-    if (!confirm(confirmMsg)) return;
+    setPendingConfirm({
+      title: next === "disabled" ? am.platform.tenant.disableDialogTitle : am.platform.tenant.enableDialogTitle,
+      body: next === "disabled"
+        ? am.platform.tenant.disableConfirm(view!.name)
+        : am.platform.tenant.enableConfirm(view!.name),
+      confirmLabel: next === "disabled" ? am.platform.tenant.disable : am.platform.tenant.enable,
+      destructive: next === "disabled",
+      onConfirm: () => applyStatus(next),
+    });
+  }
+
+  async function applyStatus(next: TenantView["status"]) {
     const res = await platformFetch(`/api/platform/tenants/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }),
     });
@@ -376,8 +395,17 @@ export default function TenantDetail() {
     else toast(data.error || am.platform.tenant.couldNotMapHost, "error");
   }
 
-  async function removeHost(host: string) {
-    if (!confirm(am.platform.tenant.removeHostConfirm(host, view!.name))) return;
+  function removeHost(host: string) {
+    setPendingConfirm({
+      title: am.platform.tenant.removeHostDialogTitle,
+      body: am.platform.tenant.removeHostConfirm(host, view!.name),
+      confirmLabel: am.platform.tenant.delete,
+      destructive: true,
+      onConfirm: () => applyRemoveHost(host),
+    });
+  }
+
+  async function applyRemoveHost(host: string) {
     const res = await platformFetch(`/api/platform/tenants/${id}/domains`, {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ host }),
     });
@@ -396,8 +424,18 @@ export default function TenantDetail() {
     if (res.ok) { setNewPass(""); toast(am.platform.tenant.passwordUpdated); } else toast(data.error || am.platform.tenant.couldNotSetPassword, "error");
   }
 
-  async function remove() {
-    if (!confirm(am.platform.tenant.deleteConfirm(view!.name))) return;
+  function remove() {
+    setPendingConfirm({
+      title: am.platform.tenant.deleteDialogTitle,
+      body: am.platform.tenant.deleteConfirm(view!.name),
+      warning: am.platform.tenant.deleteDialogWarning,
+      confirmLabel: am.platform.tenant.delete,
+      destructive: true,
+      onConfirm: deleteTenant,
+    });
+  }
+
+  async function deleteTenant() {
     const operatorPassword = window.prompt(am.platform.tenant.platformPasswordPrompt);
     if (!operatorPassword) return;
     const res = await platformFetch(`/api/platform/tenants/${id}`, {
@@ -424,8 +462,22 @@ export default function TenantDetail() {
     }
   }
 
-  async function mockRun(action: string, label: string, confirmMsg?: string) {
-    if (confirmMsg && !confirm(confirmMsg)) return;
+  function mockRun(action: string, label: string, confirmMsg?: string) {
+    if (confirmMsg) {
+      setPendingConfirm({
+        title: am.platform.tenant.clearDialogTitle,
+        body: confirmMsg,
+        warning: am.platform.tenant.clearDialogWarning,
+        confirmLabel: am.platform.tenant.clearData,
+        destructive: true,
+        onConfirm: () => runMock(action, label),
+      });
+      return;
+    }
+    void runMock(action, label);
+  }
+
+  async function runMock(action: string, label: string) {
     setMockBusy(action);
     try {
       const res = await platformFetch(`/api/platform/tenants/${id}/mock`, {
@@ -507,8 +559,16 @@ export default function TenantDetail() {
     }
   }
 
-  async function firstSyncTheFork() {
-    if (!confirm("Run the first TheFork sync now? This imports upcoming TheFork reservations through the tenant booking window without sending tenant popup notifications.")) return;
+  function firstSyncTheFork() {
+    setPendingConfirm({
+      title: am.platform.tenant.firstTheForkSyncTitle,
+      body: am.platform.tenant.firstTheForkSyncBody,
+      confirmLabel: "First sync",
+      onConfirm: runFirstSyncTheFork,
+    });
+  }
+
+  async function runFirstSyncTheFork() {
     setTfBusy("firstSync");
     setTfSyncStatus("First sync running. Importing upcoming TheFork reservations; existing imports will be skipped.");
     try {
@@ -597,8 +657,16 @@ export default function TenantDetail() {
     }
   }
 
-  async function syncDishHistory() {
-    if (!confirm("Sync DISH reservations from the last 60 days? Existing imports will be skipped and tenant popup notifications will not be sent.")) return;
+  function syncDishHistory() {
+    setPendingConfirm({
+      title: am.platform.tenant.dishHistorySyncTitle,
+      body: am.platform.tenant.dishHistorySyncBody,
+      confirmLabel: "Sync last 60 days",
+      onConfirm: runDishHistorySync,
+    });
+  }
+
+  async function runDishHistorySync() {
     setDishBusy("history60");
     setDishSyncStatus("DISH 60-day sync starting in 7-day batches. Existing imports will be skipped.");
     try {
@@ -1261,6 +1329,24 @@ export default function TenantDetail() {
           </button>
         </div>
       </section>
+
+      <ConfirmDialog
+        open={pendingConfirm !== null}
+        title={pendingConfirm?.title ?? ""}
+        body={pendingConfirm?.body ?? ""}
+        warning={pendingConfirm?.warning}
+        confirmLabel={pendingConfirm?.confirmLabel ?? am.platform.tenant.working}
+        cancelLabel={am.platform.close}
+        destructive={pendingConfirm?.destructive}
+        busy={busy || Boolean(mockBusy) || Boolean(tfBusy) || Boolean(dishBusy)}
+        busyLabel={am.platform.tenant.working}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => {
+          const action = pendingConfirm?.onConfirm;
+          setPendingConfirm(null);
+          void action?.();
+        }}
+      />
     </div>
   );
 }

@@ -111,22 +111,23 @@ describe("ReservationRow", () => {
   it("deletes only after confirmation", async () => {
     const user = userEvent.setup();
     const onChanged = vi.fn();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
     render(<ReservationRow r={row()} onChanged={onChanged} />);
 
-    // Details are open by default — Delete reservation button is already visible
-    // first click: user cancels the confirm -> no request
     await user.click(screen.getByRole("button", { name: "Delete reservation" }));
+    const dialog = screen.getByRole("dialog", { name: "Delete reservation?" });
+    expect(within(dialog).getByText(/destructive operation/i)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog", { name: "Delete reservation?" })).not.toBeInTheDocument();
     expect(adminFetch).not.toHaveBeenCalled();
 
-    // second click: user confirms -> DELETE
     await user.click(screen.getByRole("button", { name: "Delete reservation" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Delete reservation?" })).getByRole("button", { name: "Delete reservation" }));
     expect(adminFetch).toHaveBeenCalledWith(
       "/api/admin/reservations/id-1",
       expect.objectContaining({ method: "DELETE" }),
     );
     expect(onChanged).toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it.each(["seated", "completed"] as const)("disables edit and delete once a reservation is %s", async (status) => {

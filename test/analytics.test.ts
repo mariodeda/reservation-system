@@ -184,7 +184,7 @@ describe("GET /api/admin/analytics", () => {
     expect(dinner).toMatchObject({ offering: "main", reservations: 1, covers: 5 });
   });
 
-  it("normalizes analytics service buckets to schedule labels before aggregating", async () => {
+  it("normalizes service ids by label and preserves external providers as graph buckets", async () => {
     const s = store.getStore().forTenant(tenantId);
     const originalConfig = await s.getConfig();
     await s.saveConfig({
@@ -202,6 +202,7 @@ describe("GET /api/admin/analytics", () => {
     });
     try {
       await seed([
+        { date: "2026-06-12", time: "13:00", service: "lunch", partySize: 2, status: "completed" },
         { date: "2026-06-12", time: "13:30", service: "service-1783269105477", partySize: 6, status: "completed" },
         { date: "2026-06-12", time: "20:00", service: "dish", source: "dish", partySize: 4, status: "completed" },
       ]);
@@ -209,14 +210,14 @@ describe("GET /api/admin/analytics", () => {
       const res = await analyticsRoute.GET(adminReq("/api/admin/analytics?period=30d"));
       const { byDayService, byService } = await res.json();
       const dayLunch = byDayService.find((d: { serviceLabel?: string }) => d.serviceLabel === "Lunch");
-      const dayDinner = byDayService.find((d: { serviceLabel?: string }) => d.serviceLabel === "Dinner");
+      const dayDish = byDayService.find((d: { serviceLabel?: string }) => d.serviceLabel === "DISH");
       const serviceLabels = byService.map((row: { serviceLabel?: string; service: string }) => row.serviceLabel ?? row.service);
 
-      expect(dayLunch).toMatchObject({ service: "service-1783269105477", reservations: 1, covers: 6, serviceLabel: "Lunch" });
-      expect(dayDinner).toMatchObject({ service: "service-1783269141735", reservations: 1, covers: 4, serviceLabel: "Dinner" });
+      expect(dayLunch).toMatchObject({ service: "lunch", reservations: 2, covers: 8, serviceLabel: "Lunch" });
+      expect(dayDish).toMatchObject({ service: "external:dish", reservations: 1, covers: 4, serviceLabel: "DISH" });
       expect(serviceLabels).toContain("Lunch");
-      expect(serviceLabels).toContain("Dinner");
-      expect(serviceLabels).not.toContain("dish");
+      expect(serviceLabels).toContain("DISH");
+      expect(serviceLabels.filter((label: string) => label === "Lunch")).toHaveLength(1);
       expect(serviceLabels).not.toContain("service-1783269105477");
       expect(serviceLabels).not.toContain("service-1783269141735");
     } finally {

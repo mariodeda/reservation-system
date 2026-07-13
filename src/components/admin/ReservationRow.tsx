@@ -18,6 +18,7 @@ import { adminFetch, adminJson, toast } from "./api";
 import Tooltip from "@/components/ui/Tooltip";
 import { externalReservationLabel, isExternalReservationSource } from "@/lib/reservations/external-sources";
 import { serviceLabelFromOfferings } from "./service-labels";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const field =
   "bg-surface-container-high border border-outline-variant/30 rounded-lg px-2 py-1.5 text-sm w-full focus:border-primary outline-none";
@@ -41,6 +42,7 @@ export default function ReservationRow({
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(r.status !== "completed" && r.status !== "cancelled");
   const [editing, setEditing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(!!r.feedbackSentAt);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
   const externalPlatform = r.external ?? (isExternalReservationSource(r.source)
@@ -85,12 +87,12 @@ export default function ReservationRow({
   }
 
   async function remove() {
-    if (!confirm(am.row.deleteConfirm(r.name))) return;
     setBusy(true);
     try {
       const res = await adminFetch(`/api/admin/reservations/${r.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       toast(am.row.deleted);
+      setDeleteOpen(false);
       onChanged();
     } catch {
       toast(am.row.deleteError, "error");
@@ -115,6 +117,7 @@ export default function ReservationRow({
   }, [r.status]);
 
   return (
+    <>
     <div className={`rounded-xl border p-3 sm:p-4 ${cardTone} ${dimmed ? "opacity-60" : ""}`}>
       <div className="flex flex-col items-stretch gap-3 md:flex-row">
         {/* Time / service col */}
@@ -253,7 +256,7 @@ export default function ReservationRow({
                   {am.row.edit}
                 </button>
                 <button
-                  onClick={remove}
+                  onClick={() => setDeleteOpen(true)}
                   disabled={!canEditOrDelete}
                   className="h-9 rounded-lg border border-rose-500/40 px-3 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 disabled:border-outline-variant/30 disabled:text-on-surface-variant/40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                 >
@@ -379,6 +382,22 @@ export default function ReservationRow({
         )}
       </div>
     </div>
+    {deleteOpen && (
+      <ConfirmDialog
+        open={deleteOpen}
+        title={am.row.deleteDialogTitle}
+        body={am.row.deleteDialogBody(r.name)}
+        warning={am.row.deleteDialogWarning}
+        confirmLabel={am.row.deleteDialogAction}
+        cancelLabel={am.row.cancel}
+        busyLabel={am.row.saving}
+        destructive
+        busy={busy}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={remove}
+      />
+    )}
+    </>
   );
 }
 

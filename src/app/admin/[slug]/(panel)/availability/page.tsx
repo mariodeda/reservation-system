@@ -13,6 +13,7 @@ import { getOfferings } from "@/lib/reservations/offerings";
 import { SERVICE_NAME_POOL, serviceNameFor } from "@/lib/reservations/service-catalog";
 import { adminFetch, adminJson, toast } from "@/components/admin/api";
 import Tooltip from "@/components/ui/Tooltip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { am } from "@/i18n";
 
 const defaultService = (): ServiceWindow => ({
@@ -574,6 +575,7 @@ function OfferingsBar({
   onRename: (id: string, label: string) => void;
   onRemove: (id: string) => void;
 }) {
+  const [removeOpen, setRemoveOpen] = useState(false);
   if (offerings.length <= 1) {
     const only = offerings[0];
     return (
@@ -636,16 +638,26 @@ function OfferingsBar({
           />
         </label>
         <button
-          onClick={() => {
-            if (confirm(am.availability.removeOfferingConfirm(active.label))) {
-              onRemove(active.id);
-            }
-          }}
+          onClick={() => setRemoveOpen(true)}
           className="text-rose-400 hover:text-rose-300 text-sm h-9 px-2"
         >
           {am.availability.removeOffering}
         </button>
       </div>
+      <ConfirmDialog
+        open={removeOpen}
+        title={am.availability.removeOfferingDialogTitle}
+        body={am.availability.removeOfferingConfirm(active.label)}
+        warning={am.availability.removeOfferingDialogWarning}
+        confirmLabel={am.availability.removeOffering}
+        cancelLabel={am.row.cancel}
+        destructive
+        onCancel={() => setRemoveOpen(false)}
+        onConfirm={() => {
+          setRemoveOpen(false);
+          onRemove(active.id);
+        }}
+      />
     </section>
   );
 }
