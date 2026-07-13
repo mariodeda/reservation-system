@@ -194,15 +194,91 @@ describe("POST /api/reservations", () => {
     expect((await listed.json()).reservations[0]).toMatchObject({ reservationOrigin: "instagram" });
   });
 
+  it("logs reservation origin context and a redacted booking body for public bookings", async () => {
+    const body = {
+      ...valid(),
+      name: "Private Guest",
+      email: "private@example.com",
+      phone: "+390000000",
+      notes: "private note",
+      reservationOrigin: "facebook",
+      reservationOriginContext: "external",
+      unexpectedDebugField: "kept out of the main shape",
+    };
+    const res = await routes.book.POST(req("/api/reservations", { method: "POST", body }));
+    expect(res.status).toBe(201);
+
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const [event] = await listAppEvents({ tenantId, event: "public.booking.created" });
+    expect(event.metadata).toMatchObject({
+      reservationOrigin: "facebook",
+      reservationOriginState: "valid",
+      reservationOriginContext: "external",
+      reservationOriginContextState: "valid",
+      redactedRequestBody: {
+        date: "2026-06-12",
+        time: "12:30",
+        service: "lunch",
+        partySize: 2,
+        name: "[redacted]",
+        email: "[redacted]",
+        phone: "[redacted]",
+        notes: "[redacted]",
+        reservationOrigin: "facebook",
+        reservationOriginState: "valid",
+        reservationOriginContext: "external",
+        reservationOriginContextState: "valid",
+        honeypotFilled: false,
+        submitTimingState: "valid_number",
+        extraKeys: ["unexpectedDebugField"],
+      },
+    });
+    expect(JSON.stringify(event.metadata)).not.toContain("Private Guest");
+    expect(JSON.stringify(event.metadata)).not.toContain("private@example.com");
+    expect(JSON.stringify(event.metadata)).not.toContain("private note");
+  });
+
   it("ignores invalid reservation origin metadata without rejecting the booking", async () => {
     const res = await routes.book.POST(req("/api/reservations", {
       method: "POST",
-      body: { ...valid(), reservationOrigin: "raw-referrer-url" },
+      body: { ...valid(), reservationOrigin: "raw-referrer-url", reservationOriginContext: "raw-context" },
     }));
     expect(res.status).toBe(201);
 
     const [stored] = await routes.store.getStore().forTenant(tenantId).listReservations({ date: "2026-06-12" });
     expect(stored.reservationOrigin).toBeUndefined();
+
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const [event] = await listAppEvents({ tenantId, event: "public.booking.created" });
+    expect(event.metadata).toMatchObject({
+      reservationOriginState: "invalid",
+      reservationOriginContextState: "invalid",
+      redactedRequestBody: {
+        reservationOriginState: "invalid",
+        reservationOriginContextState: "invalid",
+      },
+    });
+    expect(JSON.stringify(event.metadata)).not.toContain("raw-referrer-url");
+    expect(JSON.stringify(event.metadata)).not.toContain("raw-context");
+  });
+
+  it("accepts context-only attribution diagnostics without a reservation origin", async () => {
+    const res = await routes.book.POST(req("/api/reservations", {
+      method: "POST",
+      body: { ...valid(), reservationOriginContext: "same_site" },
+    }));
+    expect(res.status).toBe(201);
+
+    const [stored] = await routes.store.getStore().forTenant(tenantId).listReservations({ date: "2026-06-12" });
+    expect(stored.reservationOrigin).toBeUndefined();
+
+    const { listAppEvents } = await import("@/lib/observability/app-event-store");
+    const [event] = await listAppEvents({ tenantId, event: "public.booking.created" });
+    expect(event.metadata).toMatchObject({
+      reservationOriginState: "absent",
+      reservationOriginContext: "same_site",
+      reservationOriginContextState: "valid",
+    });
   });
 
   it("does not send confirmation wording while autoConfirm=false leaves booking pending", async () => {

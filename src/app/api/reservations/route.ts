@@ -11,7 +11,12 @@ import { emitReservation } from "@/lib/reservations/events";
 import { createAndEmitTenantNotification } from "@/lib/reservations/notifications";
 import { requiresManualConfirmationForParty } from "@/lib/reservations/booking-policy";
 import { reservationEmailServiceLabel } from "@/lib/reservations/reservation-email-label";
-import { sanitizeReservationOrigin } from "@/lib/reservations/reservation-origin";
+import {
+  reservationOriginContextInputState,
+  reservationOriginInputState,
+  sanitizeReservationOrigin,
+  sanitizeReservationOriginContext,
+} from "@/lib/reservations/reservation-origin";
 import { log } from "@/lib/observability/logger";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
@@ -29,6 +34,54 @@ const fakeOk = () => NextResponse.json({ ok: true, reference: "000000", emailSen
 
 /** Max active future reservations allowed per contact (email or phone). */
 const MAX_ACTIVE_PER_CONTACT = 2;
+
+const BOOKING_BODY_KEYS = new Set([
+  "_hp",
+  "_t",
+  "date",
+  "time",
+  "offering",
+  "service",
+  "partySize",
+  "name",
+  "email",
+  "phone",
+  "occasion",
+  "notes",
+  "reservationOrigin",
+  "reservationOriginContext",
+]);
+
+function present(value: unknown): boolean {
+  return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function submitTimingState(value: unknown): "absent" | "valid_number" | "invalid" {
+  if (value === undefined) return "absent";
+  return Number.isFinite(Number(value)) ? "valid_number" : "invalid";
+}
+
+function redactedBookingBody(body: Record<string, unknown>) {
+  return {
+    date: cap(body.date, 10),
+    time: cap(body.time, 5),
+    offering: body.offering ? cap(body.offering, 40) : undefined,
+    service: cap(body.service, 40),
+    partySize: Number.isFinite(Number(body.partySize)) ? Math.trunc(Number(body.partySize)) : undefined,
+    name: present(body.name) ? "[redacted]" : undefined,
+    email: present(body.email) ? "[redacted]" : undefined,
+    phone: present(body.phone) ? "[redacted]" : undefined,
+    occasion: present(body.occasion) ? "[redacted]" : undefined,
+    notes: present(body.notes) ? "[redacted]" : undefined,
+    reservationOrigin: sanitizeReservationOrigin(body.reservationOrigin),
+    reservationOriginState: reservationOriginInputState(body.reservationOrigin),
+    reservationOriginContext: sanitizeReservationOriginContext(body.reservationOriginContext),
+    reservationOriginContextState: reservationOriginContextInputState(body.reservationOriginContext),
+    honeypotFilled: present(body._hp),
+    submitTimingState: submitTimingState(body._t),
+    extraKeys: Object.keys(body).filter((key) => !BOOKING_BODY_KEYS.has(key)).sort().slice(0, 20),
+  };
+}
 
 /** CORS preflight for cross-origin marketing sites. */
 export async function OPTIONS(req: NextRequest) {
@@ -78,12 +131,14 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Request too large." }, { status: 413 });
   }
 
-  let body: Partial<NewReservationInput> & { _hp?: string; _t?: number; reservationOrigin?: unknown };
+  let body: Partial<NewReservationInput> & { _hp?: string; _t?: number; reservationOrigin?: unknown; reservationOriginContext?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
+  const bodyDiagnostics = redactedBookingBody(body as Record<string, unknown>);
+  const reservationOriginContext = sanitizeReservationOriginContext(body.reservationOriginContext);
 
   // Honeypot: invisible field that only bots fill in — checked before rate limit
   // so bot traffic does not consume quota for real users on the same IP.
@@ -93,6 +148,7 @@ async function handle(req: NextRequest) {
       event: "public.booking.fake_success.honeypot",
       status: 201,
       reason: "honeypot",
+      metadata: { redactedRequestBody: bodyDiagnostics },
     }));
     return fakeOk();
   }
@@ -113,7 +169,10 @@ async function handle(req: NextRequest) {
       event: `public.booking.fake_success.${reason}`,
       status: 201,
       reason,
-      metadata: { elapsedMs: Number.isFinite(elapsed) ? elapsed : undefined },
+      metadata: {
+        elapsedMs: Number.isFinite(elapsed) ? elapsed : undefined,
+        redactedRequestBody: bodyDiagnostics,
+      },
     }));
     return fakeOk();
   }
@@ -125,6 +184,7 @@ async function handle(req: NextRequest) {
       event: "public.booking.rate_limited.ip",
       status: 429,
       reason: "ip",
+      metadata: { redactedRequestBody: bodyDiagnostics },
     }));
     return NextResponse.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
   }
@@ -166,6 +226,7 @@ async function handle(req: NextRequest) {
         event: "public.booking.rate_limited.email",
         status: 429,
         reason: "email",
+        metadata: { redactedRequestBody: bodyDiagnostics },
       }));
       return NextResponse.json({ error: "Too many bookings from this email address. Please contact us directly." }, { status: 429 });
     }
@@ -175,6 +236,7 @@ async function handle(req: NextRequest) {
         event: "public.booking.rate_limited.phone",
         status: 429,
         reason: "phone",
+        metadata: { redactedRequestBody: bodyDiagnostics },
       }));
       return NextResponse.json({ error: "Too many bookings from this phone number. Please contact us directly." }, { status: 429 });
     }
@@ -189,7 +251,7 @@ async function handle(req: NextRequest) {
         event: "public.booking.rejected.max_active_contact",
         status: 409,
         reason: "max_active_contact",
-        metadata: { activeCount: activeByContact },
+        metadata: { activeCount: activeByContact, redactedRequestBody: bodyDiagnostics },
       }));
       return NextResponse.json(
         { error: "You already have the maximum number of active reservations. Please contact us to make changes." },
@@ -228,7 +290,13 @@ async function handle(req: NextRequest) {
         event: "public.booking.rejected.unavailable",
         status: 409,
         reason: result.error ?? "unavailable",
-        metadata: { date: input.date, time: input.time, service: input.service, offering: inputOffering },
+        metadata: {
+          date: input.date,
+          time: input.time,
+          service: input.service,
+          offering: inputOffering,
+          redactedRequestBody: bodyDiagnostics,
+        },
       }));
       return NextResponse.json({ error: result.error ?? "Unavailable." }, { status: 409 });
     }
@@ -298,6 +366,10 @@ async function handle(req: NextRequest) {
         partySize: result.reservation.partySize,
         status: result.reservation.status,
         reservationOrigin: result.reservation.reservationOrigin,
+        reservationOriginState: bodyDiagnostics.reservationOriginState,
+        reservationOriginContext,
+        reservationOriginContextState: bodyDiagnostics.reservationOriginContextState,
+        redactedRequestBody: bodyDiagnostics,
         manualConfirmationRequired,
         maxPartySize: config.maxPartySize,
         emailSent: email.sent,
@@ -316,6 +388,12 @@ async function handle(req: NextRequest) {
       durationMs: elapsedMs(obs),
       reservationId: result.reservation.id,
       reference,
+      metadata: {
+        reservationOrigin: result.reservation.reservationOrigin,
+        reservationOriginState: bodyDiagnostics.reservationOriginState,
+        reservationOriginContext,
+        reservationOriginContextState: bodyDiagnostics.reservationOriginContextState,
+      },
     });
 
     return NextResponse.json(
