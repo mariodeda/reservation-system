@@ -302,6 +302,87 @@ describe("ReservationRow", () => {
     expect(screen.getByText(/Confirmation: SMTP authentication failed/)).toBeInTheDocument();
   });
 
+  it("lets staff retry a failed booking email for a future internal reservation", async () => {
+    const user = userEvent.setup();
+    const onChanged = vi.fn();
+    render(
+      <ReservationRow
+        r={row({
+          date: "2099-07-01",
+          status: "confirmed",
+          emails: {
+            bookingConfirmation: {
+              status: "failed",
+              reason: "smtp_error",
+              error: "SMTP authentication failed",
+              at: "2026-07-01T10:00:00Z",
+              attempts: 1,
+            },
+          },
+        })}
+        onChanged={onChanged}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retry booking email" }));
+
+    expect(adminFetch).toHaveBeenCalledWith(
+      "/api/admin/reservations/id-1/emails",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ type: "bookingConfirmation" }),
+      }),
+    );
+    expect(toast).toHaveBeenCalledWith("Booking email sent");
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("does not show booking email retry after the reservation time has passed", () => {
+    render(
+      <ReservationRow
+        r={row({
+          date: "2000-01-01",
+          status: "confirmed",
+          emails: {
+            bookingConfirmation: {
+              status: "failed",
+              error: "SMTP authentication failed",
+              at: "2026-07-01T10:00:00Z",
+              attempts: 1,
+            },
+          },
+        })}
+        onChanged={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Retry booking email" })).not.toBeInTheDocument();
+  });
+
+  it("does not show booking email retry for external reservations", () => {
+    render(
+      <ReservationRow
+        r={row({
+          date: "2099-07-01",
+          source: "dish",
+          status: "confirmed",
+          external: { provider: "dish", label: "DISH", externalId: "dish-1" },
+          emails: {
+            bookingConfirmation: {
+              status: "failed",
+              error: "SMTP authentication failed",
+              at: "2026-07-01T10:00:00Z",
+              attempts: 1,
+            },
+          },
+        })}
+        onChanged={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Retry booking email" })).not.toBeInTheDocument();
+  });
+
   it("lets staff send a review email only from a completed reservation row", async () => {
     const user = userEvent.setup();
     render(<ReservationRow r={row({ status: "completed", feedbackSentAt: null })} onChanged={() => {}} />);

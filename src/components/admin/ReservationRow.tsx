@@ -45,6 +45,7 @@ export default function ReservationRow({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(!!r.feedbackSentAt);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [bookingEmailBusy, setBookingEmailBusy] = useState(false);
   const externalPlatform = r.external ?? (isExternalReservationSource(r.source)
     ? { provider: r.source, label: externalReservationLabel(r.source), externalId: "" }
     : undefined);
@@ -86,6 +87,25 @@ export default function ReservationRow({
     }
   }
 
+  async function retryBookingEmail() {
+    setBookingEmailBusy(true);
+    try {
+      const res = await adminFetch(`/api/admin/reservations/${r.id}/emails`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "bookingConfirmation" }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || am.email.retryBookingError);
+      toast(am.email.retryBookingSent);
+      onChanged();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : am.email.retryBookingError, "error");
+    } finally {
+      setBookingEmailBusy(false);
+    }
+  }
+
   async function remove() {
     setBusy(true);
     try {
@@ -111,6 +131,12 @@ export default function ReservationRow({
       ? "border-rose-400/30 bg-rose-400/10"
       : "border-outline-variant/30 bg-surface-container";
   const quickActions = QUICK_ACTIONS[r.status];
+  const canRetryBookingEmail = !externalReadOnly &&
+    hasBookingConfirmationFailure(r.emails) &&
+    !hasBookingTimePassed(r) &&
+    r.status !== "cancelled" &&
+    r.status !== "no_show" &&
+    r.status !== "completed";
 
   useEffect(() => {
     if (r.status === "completed" || r.status === "cancelled") setOpen(false);
@@ -247,6 +273,15 @@ export default function ReservationRow({
                       {feedbackBusy ? am.feedback.sending : am.feedback.send}
                     </button>
                   )
+                )}
+                {canRetryBookingEmail && (
+                  <button
+                    onClick={retryBookingEmail}
+                    disabled={bookingEmailBusy}
+                    className="h-9 rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 text-xs font-semibold text-amber-300 hover:bg-amber-400/15 disabled:opacity-50"
+                  >
+                    {bookingEmailBusy ? am.email.retryBookingSending : am.email.retryBooking}
+                  </button>
                 )}
                 <button
                   onClick={() => { if (canEditOrDelete) setEditing(true); }}
@@ -902,6 +937,11 @@ function hasEmailFailure(emails?: Partial<Record<EmailType, EmailStatus>>): bool
 
 function hasBookingConfirmationFailure(emails?: Partial<Record<EmailType, EmailStatus>>): boolean {
   return emails?.bookingConfirmation?.status === "failed";
+}
+
+function hasBookingTimePassed(r: AdminReservation): boolean {
+  const start = new Date(`${r.date}T${r.time}:00`);
+  return Number.isFinite(start.getTime()) ? start.getTime() <= Date.now() : false;
 }
 
 function isUnreachableEmailStatus(s?: EmailStatus): boolean {

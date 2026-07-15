@@ -28,6 +28,7 @@ let routes: {
   todayControls: typeof import("@/app/api/admin/today-booking-controls/route");
   adminRes: typeof import("@/app/api/admin/reservations/route");
   adminResId: typeof import("@/app/api/admin/reservations/[id]/route");
+  adminResEmails: typeof import("@/app/api/admin/reservations/[id]/emails/route");
   adminNotifications: typeof import("@/app/api/admin/notifications/route");
   adminNotificationId: typeof import("@/app/api/admin/notifications/[id]/route");
   proxy: typeof import("@/proxy");
@@ -86,6 +87,7 @@ beforeAll(async () => {
     todayControls: await import("@/app/api/admin/today-booking-controls/route"),
     adminRes: await import("@/app/api/admin/reservations/route"),
     adminResId: await import("@/app/api/admin/reservations/[id]/route"),
+    adminResEmails: await import("@/app/api/admin/reservations/[id]/emails/route"),
     adminNotifications: await import("@/app/api/admin/notifications/route"),
     adminNotificationId: await import("@/app/api/admin/notifications/[id]/route"),
     proxy: await import("@/proxy"),
@@ -466,6 +468,115 @@ describe("POST /api/reservations", () => {
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(res.status).toBe(200);
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed booking confirmation email for a future internal reservation", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    const reservation = await store.createReservation({
+      date: "2026-06-12",
+      time: "12:30",
+      service: "lunch",
+      partySize: 2,
+      name: "Retry Guest",
+      email: "retry@example.com",
+      phone: "123456",
+      source: "web",
+      status: "confirmed",
+    });
+    const { recordEmailAttempt } = await import("@/lib/reservations/email-log-store");
+    await recordEmailAttempt({
+      tenantId,
+      reservationId: reservation.id,
+      type: "bookingConfirmation",
+      status: "failed",
+      reason: "smtp_error",
+      error: "SMTP failed",
+      toEmail: reservation.email,
+    });
+    sendConfirmationEmail.mockClear();
+
+    const res = await routes.adminResEmails.POST(
+      adminReq(`/api/admin/reservations/${reservation.id}/emails`, {
+        method: "POST",
+        body: { type: "bookingConfirmation" },
+      }),
+      { params: Promise.resolve({ id: reservation.id }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, emailSent: true });
+    expect(sendConfirmationEmail).toHaveBeenCalledOnce();
+    const [sentReservation] = sendConfirmationEmail.mock.calls[0] as unknown[];
+    expect(sentReservation).toMatchObject({ id: reservation.id });
+  });
+
+  it("does not retry booking confirmation emails for external reservations", async () => {
+    const reservation = await routes.store.getStore().forTenant(tenantId).createReservation({
+      date: "2026-06-12",
+      time: "12:30",
+      service: "lunch",
+      partySize: 2,
+      name: "DISH Guest",
+      email: "dish@example.com",
+      phone: "123456",
+      source: "dish",
+      status: "confirmed",
+    });
+    const { recordEmailAttempt } = await import("@/lib/reservations/email-log-store");
+    await recordEmailAttempt({
+      tenantId,
+      reservationId: reservation.id,
+      type: "bookingConfirmation",
+      status: "failed",
+      error: "SMTP failed",
+    });
+    sendConfirmationEmail.mockClear();
+
+    const res = await routes.adminResEmails.POST(
+      adminReq(`/api/admin/reservations/${reservation.id}/emails`, {
+        method: "POST",
+        body: { type: "bookingConfirmation" },
+      }),
+      { params: Promise.resolve({ id: reservation.id }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(sendConfirmationEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not retry booking confirmation emails after the reservation time has passed", async () => {
+    const reservation = await routes.store.getStore().forTenant(tenantId).createReservation({
+      date: "2026-06-11",
+      time: "08:30",
+      service: "lunch",
+      partySize: 2,
+      name: "Past Guest",
+      email: "past@example.com",
+      phone: "123456",
+      source: "web",
+      status: "confirmed",
+    });
+    const { recordEmailAttempt } = await import("@/lib/reservations/email-log-store");
+    await recordEmailAttempt({
+      tenantId,
+      reservationId: reservation.id,
+      type: "bookingConfirmation",
+      status: "failed",
+      error: "SMTP failed",
+    });
+    sendConfirmationEmail.mockClear();
+
+    const res = await routes.adminResEmails.POST(
+      adminReq(`/api/admin/reservations/${reservation.id}/emails`, {
+        method: "POST",
+        body: { type: "bookingConfirmation" },
+      }),
+      { params: Promise.resolve({ id: reservation.id }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "Booking time has already passed." });
     expect(sendConfirmationEmail).not.toHaveBeenCalled();
   });
 
