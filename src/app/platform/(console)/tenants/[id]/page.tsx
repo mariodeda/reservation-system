@@ -216,6 +216,7 @@ export default function TenantDetail() {
   const id = String(useParams().id);
   const [view, setView] = useState<TenantView | null>(null);
   const [f, setF] = useState<Form | null>(null);
+  const [settingsBaseline, setSettingsBaseline] = useState<Form | null>(null);
   const [busy, setBusy] = useState(false);
   const [newHost, setNewHost] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -247,7 +248,9 @@ export default function TenantDetail() {
     try {
       const d = await platformJson<{ tenant: TenantView }>(`/api/platform/tenants/${id}`);
       setView(d.tenant);
-      setF(toForm(d.tenant));
+      const nextForm = toForm(d.tenant);
+      setF(nextForm);
+      setSettingsBaseline(nextForm);
     } catch {
       toast(am.platform.tenant.couldNotLoad, "error");
     }
@@ -276,7 +279,7 @@ export default function TenantDetail() {
   }, [id]);
   useEffect(() => { loadDish(); }, [loadDish]);
 
-  const settingsDirty = view && f ? !sameForm(f, toForm(view)) : false;
+  const settingsDirty = f && settingsBaseline ? !sameForm(f, settingsBaseline) : false;
   const hostDirty = newHost.trim() !== "";
   const passwordDirty = newPass !== "";
   const theForkDirty = !sameForm(tfForm, theForkToForm(theFork));
@@ -352,9 +355,17 @@ export default function TenantDetail() {
       const res = await platformFetch(`/api/platform/tenants/${id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ settings }),
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || am.platform.tenant.requestFailed);
+      const data = await res.json().catch(() => ({})) as { tenant?: TenantView; error?: string };
+      if (!res.ok) throw new Error(data.error || am.platform.tenant.requestFailed);
+      if (data.tenant) {
+        setView(data.tenant);
+        const nextForm = toForm(data.tenant);
+        setF(nextForm);
+        setSettingsBaseline(nextForm);
+      } else {
+        await load();
+      }
       toast(am.platform.tenant.saved);
-      await load();
     } catch (e) {
       toast(e instanceof Error ? e.message : am.platform.tenant.couldNotSave, "error");
     } finally {
@@ -550,11 +561,11 @@ export default function TenantDetail() {
       const message = `TheFork sync complete: ${d.result.imported} imported, ${d.result.updated} updated, ${d.result.skipped} skipped, ${d.result.errors} errors.`;
       setTfSyncStatus(message);
       toast(message);
-      await loadTheFork();
     } catch (err) {
       setTfSyncStatus(err instanceof Error ? err.message : "TheFork sync failed.");
       toast(err instanceof Error ? err.message : "TheFork sync failed.", "error");
     } finally {
+      await loadTheFork();
       setTfBusy(null);
     }
   }
@@ -587,11 +598,11 @@ export default function TenantDetail() {
       const message = `First sync complete (${d.range.startDate} to ${d.range.endDate}): ${d.result.imported} imported, ${d.result.skipped} already present/skipped, ${d.result.errors} errors.`;
       setTfSyncStatus(message);
       toast(message);
-      await loadTheFork();
     } catch (err) {
       setTfSyncStatus(err instanceof Error ? err.message : "TheFork first sync failed.");
       toast(err instanceof Error ? err.message : "TheFork first sync failed.", "error");
     } finally {
+      await loadTheFork();
       setTfBusy(null);
     }
   }
@@ -648,11 +659,11 @@ export default function TenantDetail() {
       const message = `DISH sync complete: ${d.result.imported} imported, ${d.result.updated} updated, ${d.result.skipped} skipped, ${d.result.errors} errors.`;
       setDishSyncStatus(message);
       toast(message);
-      await loadDish();
     } catch (err) {
       setDishSyncStatus(err instanceof Error ? err.message : "DISH sync failed.");
       toast(err instanceof Error ? err.message : "DISH sync failed.", "error");
     } finally {
+      await loadDish();
       setDishBusy(null);
     }
   }
@@ -713,11 +724,11 @@ export default function TenantDetail() {
       const message = `DISH 60-day sync complete (${totalStartDate} to ${totalEndDate}) in ${batches} batches: ${totals.imported} imported, ${totals.skipped} already present/skipped, ${totals.errors} errors.`;
       setDishSyncStatus(message);
       toast(message);
-      await loadDish();
     } catch (err) {
       setDishSyncStatus(err instanceof Error ? err.message : "DISH 60-day sync failed.");
       toast(err instanceof Error ? err.message : "DISH 60-day sync failed.", "error");
     } finally {
+      await loadDish();
       setDishBusy(null);
     }
   }

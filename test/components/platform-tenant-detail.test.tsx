@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { platformJson, platformFetch, toast, push } = vi.hoisted(() => ({
@@ -120,6 +120,40 @@ describe("TenantDetail", () => {
     window.dispatchEvent(unload);
 
     expect(unload.defaultPrevented).toBe(true);
+  });
+
+  it("clears the unsaved-change guard after saving normalized tenant settings", async () => {
+    const user = userEvent.setup();
+    const updatedTenant = {
+      ...tenant,
+      settings: {
+        ...tenant.settings,
+        name: "Changed Osteria",
+      },
+    };
+    platformFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, tenant: updatedTenant }),
+    });
+
+    render(<TenantDetail />);
+
+    const name = await screen.findByLabelText("Nome visualizzato");
+    await user.clear(name);
+    await user.type(name, "Changed Osteria");
+
+    const dirtyUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(dirtyUnload);
+    expect(dirtyUnload.defaultPrevented).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Salva impostazioni" }));
+
+    await waitFor(() => expect(name).toHaveValue("Changed Osteria"));
+    await waitFor(() => expect(window.__platformUnsavedChanges).toBe(false));
+
+    const cleanUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(cleanUnload);
+    expect(cleanUnload.defaultPrevented).toBe(false);
   });
 
   it("starts impersonation from the tenant detail action bar", async () => {

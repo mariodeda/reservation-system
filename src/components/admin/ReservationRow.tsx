@@ -74,35 +74,52 @@ export default function ReservationRow({
 
   async function requestFeedback() {
     setFeedbackBusy(true);
+    let refreshAfterResponse = false;
     try {
       const res = await adminFetch(`/api/admin/reservations/${r.id}/feedback`, { method: "POST" });
+      refreshAfterResponse = true;
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error || "Failed");
-      setFeedbackSent(true);
-      toast(am.feedback.sent);
+      if (!res.ok) throw new Error(d.error || am.feedback.sendError);
+      if (d.alreadySent) {
+        setFeedbackSent(true);
+        toast(am.feedback.alreadySent);
+      } else if (d.emailSent) {
+        setFeedbackSent(true);
+        toast(am.feedback.sent);
+      } else {
+        setFeedbackSent(false);
+        toast(d.error || am.feedback.sendError, "error");
+      }
     } catch (err) {
       toast(err instanceof Error ? err.message : am.feedback.sendError, "error");
     } finally {
       setFeedbackBusy(false);
+      if (refreshAfterResponse) onChanged();
     }
   }
 
   async function retryBookingEmail() {
     setBookingEmailBusy(true);
+    let refreshAfterResponse = false;
     try {
       const res = await adminFetch(`/api/admin/reservations/${r.id}/emails`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "bookingConfirmation" }),
       });
+      refreshAfterResponse = true;
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || am.email.retryBookingError);
-      toast(am.email.retryBookingSent);
-      onChanged();
+      if (d.emailSent) {
+        toast(am.email.retryBookingSent);
+      } else {
+        toast(d.error || am.email.retryBookingError, "error");
+      }
     } catch (err) {
       toast(err instanceof Error ? err.message : am.email.retryBookingError, "error");
     } finally {
       setBookingEmailBusy(false);
+      if (refreshAfterResponse) onChanged();
     }
   }
 

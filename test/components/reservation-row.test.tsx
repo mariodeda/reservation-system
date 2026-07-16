@@ -305,6 +305,10 @@ describe("ReservationRow", () => {
   it("lets staff retry a failed booking email for a future internal reservation", async () => {
     const user = userEvent.setup();
     const onChanged = vi.fn();
+    adminFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, emailSent: true }),
+    });
     render(
       <ReservationRow
         r={row({
@@ -334,6 +338,37 @@ describe("ReservationRow", () => {
       }),
     );
     expect(toast).toHaveBeenCalledWith("Booking email sent");
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("refreshes the card status when booking email retry returns a handled failure", async () => {
+    const user = userEvent.setup();
+    const onChanged = vi.fn();
+    adminFetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: "SMTP still failing", emailSent: false }),
+    });
+    render(
+      <ReservationRow
+        r={row({
+          date: "2099-07-01",
+          status: "confirmed",
+          emails: {
+            bookingConfirmation: {
+              status: "failed",
+              error: "SMTP authentication failed",
+              at: "2026-07-01T10:00:00Z",
+              attempts: 1,
+            },
+          },
+        })}
+        onChanged={onChanged}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retry booking email" }));
+
+    expect(toast).toHaveBeenCalledWith("SMTP still failing", "error");
     expect(onChanged).toHaveBeenCalled();
   });
 
@@ -385,7 +420,12 @@ describe("ReservationRow", () => {
 
   it("lets staff send a review email only from a completed reservation row", async () => {
     const user = userEvent.setup();
-    render(<ReservationRow r={row({ status: "completed", feedbackSentAt: null })} onChanged={() => {}} />);
+    const onChanged = vi.fn();
+    adminFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, emailSent: true }),
+    });
+    render(<ReservationRow r={row({ status: "completed", feedbackSentAt: null })} onChanged={onChanged} />);
 
     await user.click(screen.getByRole("button", { name: /Expand/ }));
     await user.click(screen.getByRole("button", { name: "Send review email" }));
@@ -395,7 +435,25 @@ describe("ReservationRow", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(toast).toHaveBeenCalledWith("Review email sent");
+    expect(onChanged).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Feedback request already sent" })).toBeDisabled();
+  });
+
+  it("refreshes the card status and does not mark feedback sent when feedback email returns unsent", async () => {
+    const user = userEvent.setup();
+    const onChanged = vi.fn();
+    adminFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, emailSent: false }),
+    });
+    render(<ReservationRow r={row({ status: "completed", feedbackSentAt: null })} onChanged={onChanged} />);
+
+    await user.click(screen.getByRole("button", { name: /Expand/ }));
+    await user.click(screen.getByRole("button", { name: "Send review email" }));
+
+    expect(toast).toHaveBeenCalledWith("Could not send review email.", "error");
+    expect(onChanged).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Send review email" })).toBeInTheDocument();
   });
 
   it("shows a disabled already-sent review email button when feedback was sent before", async () => {
