@@ -175,7 +175,12 @@ describe("sendConfirmationEmail (per-tenant SMTP)", () => {
     sendMail.mockResolvedValueOnce({ messageId: "x" });
     const r = await sendConfirmationEmail(reservation(), tenant({ smtp }), "Dinner");
     expect(r).toEqual({ sent: true });
-    expect(createTransport.mock.calls.at(-1)?.[0]).toMatchObject({ host: "smtp.acme.com", port: 587 });
+    expect(createTransport.mock.calls.at(-1)?.[0]).toMatchObject({
+      host: "smtp.acme.com",
+      port: 587,
+      disableFileAccess: true,
+      disableUrlAccess: true,
+    });
     const arg = sendMail.mock.calls[0][0];
     expect(arg.to).toBe("jane@example.com");
     expect(arg.subject).toContain("Friday, June 12, 2026");

@@ -15,7 +15,7 @@
   "dependencies": {
     "mysql2": "^3.22.5",
     "next": "16.2.9",
-    "nodemailer": "^8.0.11",
+    "nodemailer": "^9.0.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -32,9 +32,14 @@
     "jsdom": "^29.1.1",
     "mysql-memory-server": "^1.14.1",
     "playwright-core": "^1.61.0",
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.20",
     "tailwindcss": "^3.4.17",
     "typescript": "^5",
     "vitest": "^3.2.6"
+  },
+  "overrides": {
+    "adm-zip": "0.6.0",
+    "esbuild": "0.28.1",
+    "postcss": "$postcss"
   }
 }
