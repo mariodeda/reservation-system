@@ -22,8 +22,6 @@ export function smtpTransport(smtp: TenantSmtp) {
     connectionTimeout: 8000,
     greetingTimeout: 8000,
     socketTimeout: 10000,
-    disableFileAccess: true,
-    disableUrlAccess: true,
   });
 }
 
