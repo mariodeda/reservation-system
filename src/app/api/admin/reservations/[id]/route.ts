@@ -7,6 +7,7 @@ import { sendFeedbackRequestForReservation } from "@/lib/reservations/feedback-a
 import { sendCancellationEmail, sendConfirmationEmail } from "@/lib/reservations/email";
 import { emitReservation } from "@/lib/reservations/events";
 import { reservationEmailServiceLabel } from "@/lib/reservations/reservation-email-label";
+import { reservationServiceDisplayLabel } from "@/lib/reservations/reservation-service-label";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { requestContext } from "@/lib/observability/request-context";
 import { observeAdminRoute } from "@/lib/observability/route-events";
@@ -127,6 +128,8 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
   // Re-read so the response reflects the table assignment too.
   const fresh = assigningTable ? await store.getReservation(id) : final;
   const reservation = fresh ?? final;
+  const notificationConfig = await store.getConfig();
+  const serviceLabel = reservationServiceDisplayLabel(reservation, notificationConfig, admin.tenant.name);
 
   // Auto-send feedback email when status transitions to "completed" and has an email.
   // Fire-and-forget — don't block or fail the status update if email fails.
@@ -135,12 +138,11 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
       .catch((err) => console.error("[feedback] auto-send failed:", err));
   }
   if (patch.status === "confirmed" && existing.status === "pending" && !isExternalReservationSource(existing.source)) {
-    const config = await store.getConfig();
-    const emailLabel = reservationEmailServiceLabel(reservation, admin.tenant, config);
-    await sendConfirmationEmail(reservation, admin.tenant, emailLabel, config);
+    const emailLabel = reservationEmailServiceLabel(reservation, admin.tenant, notificationConfig);
+    await sendConfirmationEmail(reservation, admin.tenant, emailLabel, notificationConfig);
   }
   if (patch.status === "cancelled" && existing.status !== "cancelled" && !isExternalReservationSource(existing.source)) {
-    sendCancellationEmail(reservation, admin.tenant)
+    sendCancellationEmail(reservation, admin.tenant, serviceLabel, notificationConfig)
       .catch((err) => console.error("[email] cancellation send failed:", err));
   }
 
@@ -153,6 +155,7 @@ async function patchReservation(req: NextRequest, ctx: { params: Promise<{ id: s
     date: reservation.date,
     time: reservation.time,
     service: reservation.service,
+    serviceLabel,
     offering: reservation.offering ?? "main",
     status: reservation.status,
     source: externalLocalTablePatch ? "admin" : reservation.source,
@@ -196,6 +199,7 @@ async function deleteReservation(req: NextRequest, ctx: { params: Promise<{ id: 
   const ok = await store.deleteReservation(id);
   if (!ok) return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (existing) {
+    const serviceLabel = reservationServiceDisplayLabel(existing, await store.getConfig(), admin.tenant.name);
     emitReservation({
       type: "reservation.updated",
       tenantId: admin.tenant.id,
@@ -205,6 +209,7 @@ async function deleteReservation(req: NextRequest, ctx: { params: Promise<{ id: 
       date: existing.date,
       time: existing.time,
       service: existing.service,
+      serviceLabel,
       offering: existing.offering ?? "main",
       status: "cancelled",
       source: existing.source,

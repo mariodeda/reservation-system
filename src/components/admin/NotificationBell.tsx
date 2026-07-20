@@ -77,6 +77,10 @@ function statusBadgeClass(status: ReservationNotification["status"] | undefined)
   return "bg-surface-container-high text-on-surface-variant";
 }
 
+function serviceDisplay(n: ReservationNotification): string {
+  return n.serviceLabel || n.service;
+}
+
 function reservationHref(slug: string, n: ReservationNotification) {
   const params = new URLSearchParams({ date: n.date, reservation: n.id });
   return `/admin/${slug}/reservations?${params.toString()}`;
@@ -138,7 +142,7 @@ function ReservationToast({ n, slug, onDismiss }: ToastProps) {
                   </span>
                 </Tooltip>
                 <p className="text-xs text-on-surface-variant mt-0.5">
-                  {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
+                  {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {serviceDisplay(n)}
                 </p>
               </div>
             </div>
@@ -366,7 +370,7 @@ export function NotificationBell({
                         <span className="text-[10px] text-on-surface-variant/50 shrink-0">{timeAgo(n.receivedAt)}</span>
                       </div>
                       <p className="text-xs text-on-surface-variant mt-0.5">
-                        {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
+                        {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {serviceDisplay(n)}
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadgeClass(n.source)}`}>
@@ -549,7 +553,7 @@ export function ManualConfirmationBell({
                         <span className="text-[10px] text-on-surface-variant/50 shrink-0">{timeAgo(n.receivedAt)}</span>
                       </div>
                       <p className="text-xs text-on-surface-variant mt-0.5">
-                        {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {n.service}
+                        {am.notifications.guests(n.partySize)} · {formatTime(n.time)} · {serviceDisplay(n)}
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-400/15 text-on-surface">

@@ -11,6 +11,7 @@ import { emitReservation } from "@/lib/reservations/events";
 import { createAndEmitTenantNotification } from "@/lib/reservations/notifications";
 import { requiresManualConfirmationForParty } from "@/lib/reservations/booking-policy";
 import { reservationEmailServiceLabel } from "@/lib/reservations/reservation-email-label";
+import { reservationServiceDisplayLabel } from "@/lib/reservations/reservation-service-label";
 import {
   reservationOriginContextInputState,
   reservationOriginInputState,
@@ -302,6 +303,7 @@ async function handle(req: NextRequest) {
     }
 
     const emailLabel = reservationEmailServiceLabel(result.reservation, tenant, config);
+    const serviceLabel = reservationServiceDisplayLabel(result.reservation, config, tenant.name);
     const email = result.reservation.status === "confirmed"
       ? await sendConfirmationEmail(result.reservation, tenant, emailLabel, config)
       : { sent: false };
@@ -325,6 +327,7 @@ async function handle(req: NextRequest) {
             date: result.reservation.date,
             time: result.reservation.time,
             service: result.reservation.service,
+            serviceLabel,
             offering: result.reservation.offering ?? "main",
             status: result.reservation.status,
             source: "web",
@@ -345,6 +348,7 @@ async function handle(req: NextRequest) {
       date: result.reservation.date,
       time: result.reservation.time,
       service: result.reservation.service,
+      serviceLabel,
       offering: result.reservation.offering ?? "main",
       status: result.reservation.status,
       source: "web",

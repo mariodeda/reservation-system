@@ -11,6 +11,7 @@ export interface ReservationEvent {
   date: string;
   time: string;
   service: string;
+  serviceLabel?: string;
   offering: string;
   status: ReservationStatus;
   source: "web" | "admin" | "thefork" | "dish";
@@ -23,10 +24,12 @@ class ReservationBus extends EventEmitter {}
 export const reservationBus = new ReservationBus();
 reservationBus.setMaxListeners(500);
 
-export function emitReservation(event: ReservationEvent, opts: { notify?: boolean } = {}): void {
+export async function emitReservation(event: ReservationEvent, opts: { notify?: boolean } = {}): Promise<void> {
   reservationBus.emit(event.type, event);
   if (opts.notify === false) return;
-  notifyReservationEvent(event).catch((err) => {
+  try {
+    await notifyReservationEvent(event);
+  } catch (err) {
     console.error("[notifications] reservation notification failed:", err);
-  });
+  }
 }

@@ -4,8 +4,8 @@ import { getOfferings, offeringOf } from "@/lib/reservations/offerings";
 import { clientIp, rateLimit } from "@/lib/reservations/rate-limit";
 import { requireTenant, resolvePublicTenant } from "@/lib/reservations/tenant-context";
 import { allowedOrigin, preflight, withCors } from "@/lib/reservations/cors";
-import { type NewReservationInput, type Reservation } from "@/lib/reservations/types";
-import { canBook as canBookReservation, normalizeEmail, normalizePhone, scheduleForDate } from "@/lib/reservations/availability";
+import { type AvailabilityConfig, type NewReservationInput, type Reservation } from "@/lib/reservations/types";
+import { canBook as canBookReservation, normalizeEmail, normalizePhone, scheduleForDate, toMinutes } from "@/lib/reservations/availability";
 import { getTableStore } from "@/lib/reservations/table-store";
 import { isExternalReservationSource } from "@/lib/reservations/external-sources";
 import { log } from "@/lib/observability/logger";
@@ -14,8 +14,9 @@ import { elapsedMs, requestContext } from "@/lib/observability/request-context";
 import { observePublicRoute } from "@/lib/observability/route-events";
 import { emitReservation } from "@/lib/reservations/events";
 import { createAndEmitTenantNotification } from "@/lib/reservations/notifications";
+import { reservationServiceDisplayLabel } from "@/lib/reservations/reservation-service-label";
 import { sendCancellationEmail } from "@/lib/reservations/email";
-import { serviceLabelsFor } from "@/lib/reservations/service-catalog";
+import { serviceLabelsFor, serviceNameFor } from "@/lib/reservations/service-catalog";
 
 export const runtime = "nodejs";
 
@@ -81,6 +82,22 @@ function publicView(
     status: r.status,
     occasion: r.occasion,
   };
+}
+
+function lookupServiceLabels(
+  config: AvailabilityConfig,
+  reservation: Pick<Reservation, "date" | "offering" | "service" | "time">,
+): { labelEn: string; labelIt: string } {
+  const schedule = scheduleForDate(config, reservation.date, reservation.offering);
+  const direct = schedule.services.find((s) => s.id === reservation.service);
+  if (direct) return serviceLabelsFor(direct);
+  const mins = toMinutes(reservation.time);
+  const inferred = Number.isFinite(mins)
+    ? schedule.services.find((s) => mins >= toMinutes(s.start) && mins <= toMinutes(s.end))
+    : undefined;
+  if (inferred) return serviceLabelsFor(inferred);
+  const fallback = serviceNameFor(reservation.service, reservation.service);
+  return { labelEn: fallback.en, labelIt: fallback.it };
 }
 
 function contactBody(body: Record<string, unknown>) {
@@ -181,10 +198,7 @@ async function handle(req: NextRequest) {
         ? Object.fromEntries(offerings.map((o) => [o.id, o.label]))
         : null;
     const serviceLabelsByKey = Object.fromEntries(
-      reservations.map((r) => {
-        const service = scheduleForDate(config, r.date, r.offering).services.find((s) => s.id === r.service);
-        return [`${offeringOf(r.offering)}:${r.date}:${r.service}`, service ? serviceLabelsFor(service) : undefined];
-      }).filter((entry): entry is [string, { labelEn: string; labelIt: string }] => Boolean(entry[1])),
+      reservations.map((r) => [`${offeringOf(r.offering)}:${r.date}:${r.service}`, lookupServiceLabels(config, r)]),
     );
 
     // Slim public view: no internal/admin fields exposed
@@ -326,6 +340,7 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
     if (action === "cancel") {
       const updated = await store.updateReservation(reservation.id, { status: "cancelled" });
       if (updated) {
+        const serviceLabel = reservationServiceDisplayLabel(updated, config, tenant.name);
         emitReservation({
           type: "reservation.updated",
           tenantId: tenant.id,
@@ -335,6 +350,7 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
           date: updated.date,
           time: updated.time,
           service: updated.service,
+          serviceLabel,
           offering: updated.offering ?? "main",
           status: updated.status,
           source: "web",
@@ -357,13 +373,14 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
               date: updated.date,
               time: updated.time,
               service: updated.service,
+              serviceLabel,
               offering: updated.offering ?? "main",
               status: updated.status,
               source: "web",
             },
           },
         });
-        await sendCancellationEmail(updated, tenant, undefined, config);
+        await sendCancellationEmail(updated, tenant, serviceLabel, config);
       }
       await recordAppEvent(eventFromRequest(obs, {
         level: "info",
@@ -372,9 +389,8 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
         reservationId: reservation.id,
         reference: referenceOf(reservation.id),
       }));
-      const service = updated ? scheduleForDate(config, updated.date, updated.offering).services.find((s) => s.id === updated.service) : undefined;
-      const serviceLabelsByKey = updated && service
-        ? { [`${offeringOf(updated.offering)}:${updated.date}:${updated.service}`]: serviceLabelsFor(service) }
+      const serviceLabelsByKey = updated
+        ? { [`${offeringOf(updated.offering)}:${updated.date}:${updated.service}`]: lookupServiceLabels(config, updated) }
         : undefined;
       return NextResponse.json({ ok: true, reservation: updated ? publicView(updated, offeringLabelById, serviceLabelsByKey) : null });
     }
@@ -441,9 +457,8 @@ async function mutate(req: NextRequest, action: "modify" | "cancel") {
         partySize: next.partySize,
       },
     }));
-    const service = updated ? scheduleForDate(config, updated.date, updated.offering).services.find((s) => s.id === updated.service) : undefined;
-    const serviceLabelsByKey = updated && service
-      ? { [`${offeringOf(updated.offering)}:${updated.date}:${updated.service}`]: serviceLabelsFor(service) }
+    const serviceLabelsByKey = updated
+      ? { [`${offeringOf(updated.offering)}:${updated.date}:${updated.service}`]: lookupServiceLabels(config, updated) }
       : undefined;
     return NextResponse.json({ ok: true, reservation: updated ? publicView(updated, offeringLabelById, serviceLabelsByKey) : null });
   } catch (err) {

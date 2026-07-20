@@ -10,6 +10,7 @@ import type {
 } from "@/lib/reservations/types";
 import { RESERVATION_STATUSES } from "@/lib/reservations/types";
 import { emitReservation } from "@/lib/reservations/events";
+import { reservationServiceDisplayLabel } from "@/lib/reservations/reservation-service-label";
 import { eventFromRequest, recordAppEvent } from "@/lib/observability/app-event-store";
 import { elapsedMs, requestContext } from "@/lib/observability/request-context";
 import { observeAdminRoute } from "@/lib/observability/route-events";
@@ -107,6 +108,7 @@ async function createReservation(req: NextRequest) {
     );
   }
   const store = getStore().forTenant(ctx.tenant.id);
+  const config = await store.getConfig();
   const reservation = await store.createReservation({
     date: String(body.date),
     time: String(body.time),
@@ -125,6 +127,7 @@ async function createReservation(req: NextRequest) {
       ? (body.status as ReservationStatus)
       : "confirmed",
   });
+  const serviceLabel = reservationServiceDisplayLabel(reservation, config, ctx.tenant.name);
   emitReservation({
     type: "reservation.created",
     tenantId: ctx.tenant.id,
@@ -134,6 +137,7 @@ async function createReservation(req: NextRequest) {
     date: reservation.date,
     time: reservation.time,
     service: reservation.service,
+    serviceLabel,
     offering: reservation.offering ?? "main",
     status: reservation.status,
     source: "admin",

@@ -3,6 +3,7 @@ import { DishClient, parseDishReservationDetail, parseDishReservationList, type 
 import { getDishIntegration, listEnabledDishIntegrations, markDishSyncResult, type DishIntegration } from "./dish-store";
 import { emitReservation } from "./events";
 import { getOffering } from "./offerings";
+import { reservationServiceDisplayLabel } from "./reservation-service-label";
 import { getStore } from "./store";
 import { getTenantStore } from "./tenant-store";
 import {
@@ -213,7 +214,8 @@ async function importDishItem(
   });
 
   if (outcome !== "skipped" && opts.emitEvents !== false) {
-    emitReservation({
+    const serviceLabel = reservationServiceDisplayLabel(reservation, config);
+    await emitReservation({
       type: outcome === "created" ? "reservation.created" : "reservation.updated",
       tenantId: integration.tenantId,
       id: reservation.id,
@@ -222,6 +224,7 @@ async function importDishItem(
       date: reservation.date,
       time: reservation.time,
       service: reservation.service,
+      serviceLabel,
       offering: reservation.offering,
       status: reservation.status,
       source: "dish",

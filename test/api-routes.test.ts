@@ -1127,7 +1127,36 @@ describe("public reservation self-service", () => {
     const stored = (await routes.store.getStore().forTenant(tenantId).findByContact(guest().email, guest().phone))[0];
     expect(stored.status).toBe("cancelled");
     expect(sendCancellationEmail).toHaveBeenCalledOnce();
-    expect(sendCancellationEmail).toHaveBeenCalledWith(expect.objectContaining({ id: stored.id, status: "cancelled" }), expect.anything(), undefined, expect.anything());
+    expect(sendCancellationEmail).toHaveBeenCalledWith(expect.objectContaining({ id: stored.id, status: "cancelled" }), expect.anything(), "Lunch", expect.anything());
+  });
+
+  it("resolves public lookup labels for historical generated service ids by time window", async () => {
+    const store = routes.store.getStore().forTenant(tenantId);
+    await store.createReservation({
+      date: "2026-06-12",
+      time: "12:30",
+      service: "service-1783269105477",
+      partySize: 2,
+      name: "Generated Service Guest",
+      email: "generated-service@example.com",
+      phone: "555000111",
+      source: "web",
+      status: "confirmed",
+    });
+
+    const res = await routes.lookup.POST(req("/api/reservations/lookup", {
+      method: "POST",
+      body: { email: "generated-service@example.com", phone: "555000111" },
+    }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.reservations).toHaveLength(1);
+    expect(json.reservations[0]).toMatchObject({
+      service: "service-1783269105477",
+      serviceLabelEn: "Lunch",
+      serviceLabelIt: "Pranzo",
+    });
   });
 
   it("rate-limits repeated cancellation attempts by normalized contact and reference", async () => {
@@ -1640,6 +1669,22 @@ describe("admin reservations routes", () => {
     expect(delAgain.status).toBe(404);
   });
 
+  it("PATCH cancellation sends cancellation email with resolved service label", async () => {
+    const created = (await (await routes.adminRes.POST(adminReq("/api/admin/reservations", {
+      method: "POST",
+      body: { date: "2026-06-12", time: "20:00", service: "dinner", name: "Cancel Me", partySize: 2, email: "cancel@example.com" },
+    }))).json()).reservation;
+
+    const cancelled = await routes.adminResId.PATCH(
+      adminReq(`/api/admin/reservations/${created.id}`, { method: "PATCH", body: { status: "cancelled" } }),
+      { params: Promise.resolve({ id: created.id }) },
+    );
+
+    expect(cancelled.status).toBe(200);
+    expect(sendCancellationEmail).toHaveBeenCalledOnce();
+    expect(sendCancellationEmail).toHaveBeenCalledWith(expect.objectContaining({ id: created.id, status: "cancelled" }), expect.anything(), "Dinner", expect.anything());
+  });
+
   it("lists and marks tenant notifications as read through the admin API", async () => {
     const created = await routes.notificationStore.createTenantNotification({
       tenantId,
@@ -1670,6 +1715,12 @@ describe("admin reservations routes", () => {
     expect(listedJson.notifications[0]).toMatchObject({
       id: created.notification.id,
       tenantId,
+      metadata: {
+        reservation: {
+          service: "dinner",
+          serviceLabel: "Dinner",
+        },
+      },
     });
 
     const read = await routes.adminNotificationId.PATCH(

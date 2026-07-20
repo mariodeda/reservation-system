@@ -100,6 +100,7 @@ export async function notifyReservationEvent(
         date: event.date,
         time: event.time,
         service: event.service,
+        serviceLabel: event.serviceLabel,
         offering: event.offering,
         status: event.status,
         source: event.source,

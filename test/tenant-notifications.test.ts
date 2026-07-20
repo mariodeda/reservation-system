@@ -175,6 +175,30 @@ describe("tenant notifications", () => {
     });
   });
 
+  it("persists resolved service labels on reservation notification metadata", async () => {
+    const notice = await notifications.notifyReservationEvent({
+      type: "reservation.created",
+      tenantId: "tenant-a",
+      id: "res-labelled",
+      name: "Jane",
+      partySize: 2,
+      date: "2026-07-10",
+      time: "20:00",
+      service: "service-1783269141735",
+      serviceLabel: "Dinner",
+      offering: "main",
+      status: "confirmed",
+      source: "web",
+    });
+
+    expect(notice?.metadata).toMatchObject({
+      reservation: {
+        service: "service-1783269141735",
+        serviceLabel: "Dinner",
+      },
+    });
+  });
+
   it("creates dedicated manual-confirmation notifications for over-max internal bookings", async () => {
     const notice = await notifications.createAndEmitTenantNotification({
       tenantId: "tenant-a",

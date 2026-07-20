@@ -128,6 +128,23 @@ describe("useReservationEvents", () => {
     });
   });
 
+  it("preserves resolved service labels while keeping the raw service id", () => {
+    const { result } = renderHook(() => useReservationEvents());
+    const source = FakeEventSource.instances[0];
+
+    act(() => {
+      source.emit("notification.created", notificationPayload({
+        service: "service-1783269141735",
+        serviceLabel: "Dinner",
+      }));
+    });
+
+    expect(result.current.notifications[0]).toMatchObject({
+      service: "service-1783269141735",
+      serviceLabel: "Dinner",
+    });
+  });
+
   it("ignores legacy local reservation update events", () => {
     const dispatched = vi.fn();
     window.addEventListener("reservation:new", dispatched);

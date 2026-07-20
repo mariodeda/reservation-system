@@ -1,6 +1,7 @@
 import { generateSlots, scheduleForDate, toMinutes } from "./availability";
 import { fetchTheForkCustomer, fetchTheForkReservation, fetchTheForkReservationIds, type TheForkReservationDetail } from "./thefork-client";
 import { getOffering } from "./offerings";
+import { reservationServiceDisplayLabel } from "./reservation-service-label";
 import { getStore } from "./store";
 import type { AvailabilityConfig, Reservation, ReservationStatus, ServiceId } from "./types";
 import {
@@ -203,7 +204,8 @@ export async function importTheForkReservation(
   });
 
   if (outcome !== "skipped" && opts.emitEvents !== false) {
-    emitReservation({
+    const serviceLabel = reservationServiceDisplayLabel(reservation, config);
+    await emitReservation({
       type: outcome === "created" ? "reservation.created" : "reservation.updated",
       tenantId: integration.tenantId,
       id: reservation.id,
@@ -212,6 +214,7 @@ export async function importTheForkReservation(
       date: reservation.date,
       time: reservation.time,
       service: reservation.service,
+      serviceLabel,
       offering: reservation.offering,
       status: reservation.status,
       source: "thefork",

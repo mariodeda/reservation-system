@@ -72,6 +72,7 @@ function fromTenantNotification(n: TenantNotificationPayload, live = false): Res
     date: String(reservation.date ?? ""),
     time: String(reservation.time ?? "00:00"),
     service: String(reservation.service ?? ""),
+    serviceLabel: reservation.serviceLabel ? String(reservation.serviceLabel) : undefined,
     offering: String(reservation.offering ?? "main"),
     status: reservationStatus(reservation.status),
     source,

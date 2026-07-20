@@ -13,6 +13,7 @@ const reservationEvents = vi.hoisted(() => ({
     date: string;
     time: string;
     service: string;
+    serviceLabel?: string;
     partySize: number;
     name: string;
     type?: "reservation.created" | "reservation.updated" | "reservation.manual_confirmation_required";
@@ -277,6 +278,31 @@ describe("AdminShell", () => {
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(screen.queryByText("Jane")).not.toBeInTheDocument();
     expect(screen.getByText("No unread notifications")).toBeInTheDocument();
+  });
+
+  it("shows resolved service labels instead of generated service ids in notifications", async () => {
+    const user = userEvent.setup();
+    reservationEvents.notifications = [{
+      id: "res-1",
+      notificationId: "reservation.created:res-1:1:0",
+      date: "2026-07-01",
+      time: "19:30",
+      service: "service-1783269141735",
+      serviceLabel: "Dinner",
+      partySize: 6,
+      name: "Jane",
+      source: "dish",
+      status: "completed",
+      receivedAt: Date.now(),
+      read: false,
+    }];
+
+    render(<AdminShell slug="acme" brandName="O"><span /></AdminShell>);
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+
+    expect(screen.getByText(/6 guests · 7:30 pm · Dinner/)).toBeInTheDocument();
+    expect(screen.queryByText(/service-1783269141735/)).not.toBeInTheDocument();
   });
 
   it("labels TheFork update notifications with provider and status", async () => {
