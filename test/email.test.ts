@@ -329,6 +329,12 @@ describe("sendFeedbackRequestEmail (per-tenant SMTP)", () => {
     expect(createTransport).not.toHaveBeenCalled();
   });
 
+  it("skips external imported reservations", async () => {
+    const r = await sendFeedbackRequestEmail(done({ source: "dish" }), tenant({ smtp }));
+    expect(r).toEqual({ sent: false, skipped: true, reason: "external_source" });
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
   it("skips when no SMTP is configured", async () => {
     const r = await sendFeedbackRequestEmail(done(), tenant());
     expect(r).toEqual({ sent: false, skipped: true, reason: "no_smtp" });

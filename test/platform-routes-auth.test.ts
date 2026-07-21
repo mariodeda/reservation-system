@@ -13,6 +13,10 @@ vi.mock("@/lib/reservations/reminder-automation", () => ({
 vi.mock("@/lib/reservations/dish-sync", () => ({
   runDishSyncCron: async () => [],
 }));
+const withSchedulerJobLock = vi.hoisted(() => vi.fn(async (_job: string, fn: () => Promise<unknown>) => fn()));
+vi.mock("@/lib/reservations/internal-scheduler", () => ({
+  withSchedulerJobLock,
+}));
 
 // No MySQL configured -> platform mutations would 401 before ever hitting a store.
 let tenants: typeof import("@/app/api/platform/tenants/route");
@@ -178,6 +182,16 @@ describe("platform routes reject unauthenticated callers (401)", () => {
       headers: { authorization: "Bearer cron-secret" },
     }));
     expect(res.status).toBe(200);
+  });
+  it("external cron POST returns 202 when scheduler lock is busy", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    withSchedulerJobLock.mockResolvedValueOnce(undefined);
+    const res = await feedbackCron.POST(new NextRequest("http://platform.local/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+    expect(res.status).toBe(202);
+    expect(await res.json()).toMatchObject({ ok: true, skipped: true, reason: "scheduler_busy" });
   });
   it("bounce ingest POST", async () => {
     expect((await bounces.POST(req("/api/platform/bounces", "POST"))).status).toBe(401);

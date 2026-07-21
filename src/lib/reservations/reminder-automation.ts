@@ -8,6 +8,7 @@ import type { AvailabilityConfig, Reservation } from "./types";
 import { getStore } from "./store";
 import { isExternalReservationSource } from "./external-sources";
 import { localizedServiceLabel } from "./service-catalog";
+import { AUTOMATED_EMAIL_CONCURRENCY, settleLimited } from "./automation-batch";
 
 export interface ReminderCronTenantResult {
   tenantId: string;
@@ -59,7 +60,9 @@ export async function processDueReservationReminders(
   if (!isEmailEventEnabled(tenant.settings, "reservationReminder")) return empty;
   const due = reservations.filter((r) => r.email && isReservationReminderDue(r, tenant.settings));
   if (!due.length) return empty;
-  const results = await Promise.allSettled(due.map((r) => sendReminderForReservation(r, tenant, config)));
+  const results = await settleLimited(due, AUTOMATED_EMAIL_CONCURRENCY, (r) =>
+    sendReminderForReservation(r, tenant, config),
+  );
   let sent = 0;
   let skipped = 0;
   let failed = 0;

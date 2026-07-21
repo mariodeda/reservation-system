@@ -480,6 +480,7 @@ async function runFeedbackSend(
   // Authoritative guard: a rating request may ONLY go to guests who showed up.
   // This is the chokepoint every send path funnels through, so no caller can
   // ever email a no-show/cancelled guest regardless of upstream checks.
+  if (isExternalReservationSource(reservation.source)) return { sent: false, skipped: true, reason: "external_source" };
   if (!hasGuestAttended(reservation)) return { sent: false, skipped: true, reason: "not_attended" };
   if (!isEmailEventEnabled(s, "feedbackRequest")) return { sent: false, skipped: true, reason: "event_disabled" };
   const smtp = s.smtp;

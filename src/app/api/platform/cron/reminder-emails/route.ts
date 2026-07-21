@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { recordAppEvent } from "@/lib/observability/app-event-store";
 import { safeError } from "@/lib/observability/logger";
 import { observeSystemRoute } from "@/lib/observability/route-events";
+import { withSchedulerJobLock } from "@/lib/reservations/internal-scheduler";
 import { runDueReservationReminderCron } from "@/lib/reservations/reminder-automation";
 
 export const runtime = "nodejs";
@@ -28,7 +29,22 @@ async function runCron(req: NextRequest) {
 
   const startedAt = Date.now();
   try {
-    const results = await runDueReservationReminderCron();
+    const results = await withSchedulerJobLock("reminder-emails", runDueReservationReminderCron);
+    if (!results) {
+      await recordAppEvent({
+        level: "info",
+        event: "platform.cron.skipped",
+        surface: "system",
+        actorType: "system",
+        reason: "scheduler_busy",
+        metadata: {
+          job: "reminder-emails",
+          trigger: "external",
+          durationMs: Date.now() - startedAt,
+        },
+      });
+      return NextResponse.json({ ok: true, skipped: true, reason: "scheduler_busy" }, { status: 202 });
+    }
     const totals = results.reduce(
       (acc, result) => {
         acc.processed += result.processed;

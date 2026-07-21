@@ -4,6 +4,8 @@ import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import type { Reservation } from "@/lib/reservations/types";
 import type { Tenant } from "@/lib/reservations/tenant";
+import { AUTOMATED_EMAIL_CONCURRENCY } from "@/lib/reservations/automation-batch";
+import { FEEDBACK_AUTOMATION_LOOKBACK_DAYS } from "@/lib/reservations/feedback-automation";
 
 // Mock email so tests never touch SMTP.
 const sendFeedbackRequestEmail = vi.hoisted(() => vi.fn(async () => ({ sent: true })));
@@ -550,6 +552,173 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
   });
 
+  it("does not send feedback requests for external reservations", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackAutoSendEnabled: true,
+      feedbackRequestDelayHours: 0,
+      reviewUrl: "https://g.page/r/fb-test/review",
+    });
+    const s = store.getStore().forTenant(tenantId);
+    for (const source of ["dish", "thefork"] as const) {
+      const r = await s.createReservation({
+        date: "2026-06-12", time: "12:00", service: source, partySize: 2,
+        name: `External ${source}`, email: `${source}@x.io`, phone: source, source,
+      });
+      await s.updateReservation(r.id, { status: "completed" });
+    }
+
+    const cronRes = await feedbackCronRoute.POST(req("/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+
+    expect(cronRes.status).toBe(200);
+    expect(await cronRes.json()).toMatchObject({ ok: true, tenants: 0, processed: 0, sent: 0, failed: 0 });
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
+
+  it("only auto-sends feedback for completed internal reservations in the last 7 tenant-local days", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackAutoSendEnabled: true,
+      feedbackRequestDelayHours: 0,
+      reviewUrl: "https://g.page/r/fb-test/review",
+    });
+    const s = store.getStore().forTenant(tenantId);
+    const old = await s.createReservation({
+      date: "2026-06-05", time: "12:00", service: "lunch", partySize: 2,
+      name: "Old Internal", email: "old-internal@x.io", phone: "old",
+    });
+    const recent = await s.createReservation({
+      date: "2026-06-06", time: "12:00", service: "lunch", partySize: 2,
+      name: "Recent Internal", email: "recent-internal@x.io", phone: "recent",
+    });
+    await s.updateReservation(old.id, { status: "completed" });
+    await s.updateReservation(recent.id, { status: "completed" });
+
+    const cronRes = await feedbackCronRoute.POST(req("/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+
+    expect(cronRes.status).toBe(200);
+    expect(await cronRes.json()).toMatchObject({ ok: true, processed: 1, sent: 1, failed: 0 });
+    expect(sendFeedbackRequestEmail).toHaveBeenCalledOnce();
+    expect(sendFeedbackRequestEmail).toHaveBeenCalledWith(expect.objectContaining({ id: recent.id }), expect.anything());
+    expect(FEEDBACK_AUTOMATION_LOOKBACK_DAYS).toBe(7);
+  });
+
+  it("checks feedback eligibility before calling the SMTP sender", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-12T13:00:00Z"));
+    const { sendFeedbackRequestForReservation } = await import("@/lib/reservations/feedback-automation");
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    const eligibleSettings = {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackAutoSendEnabled: true,
+      feedbackRequestDelayHours: 24,
+      reviewUrl: "https://g.page/r/fb-test/review",
+    };
+    const s = store.getStore().forTenant(tenantId);
+    const completed = await s.createReservation({
+      date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+      name: "Guard Guest", email: "guard@x.io", phone: "1",
+    });
+    const dueTooLate = await s.updateReservation(completed.id, { status: "completed" });
+    const noEmail = { ...dueTooLate, id: randomUUID(), email: "" };
+    const notAttended = { ...dueTooLate, id: randomUUID(), status: "confirmed" as const };
+    const external = { ...dueTooLate, id: randomUUID(), source: "dish" as const };
+    const noReviewTenant = { ...tenant, settings: { ...eligibleSettings, reviewUrl: "" } };
+    const dueTenant = { ...tenant, settings: { ...eligibleSettings, feedbackRequestDelayHours: 0 } };
+
+    await expect(sendFeedbackRequestForReservation(noEmail, dueTenant)).resolves.toMatchObject({ sent: false, skipped: true });
+    await expect(sendFeedbackRequestForReservation(notAttended, dueTenant)).resolves.toMatchObject({ sent: false, skipped: true });
+    await expect(sendFeedbackRequestForReservation(external, dueTenant)).resolves.toMatchObject({ sent: false, skipped: true });
+    await expect(sendFeedbackRequestForReservation(dueTooLate, noReviewTenant)).resolves.toMatchObject({ sent: false, skipped: true });
+    await expect(sendFeedbackRequestForReservation(dueTooLate, { ...tenant, settings: eligibleSettings })).resolves.toMatchObject({ sent: false, skipped: true });
+
+    expect(sendFeedbackRequestEmail).not.toHaveBeenCalled();
+  });
+
+  it("limits concurrent automated feedback request sends", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-13T13:00:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      feedbackEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true },
+      feedbackRequestDelayHours: 0,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    for (let i = 0; i < AUTOMATED_EMAIL_CONCURRENCY + 4; i += 1) {
+      const r = await s.createReservation({
+        date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+        name: `Feedback Burst ${i}`, email: `feedback-burst-${i}@x.io`, phone: `${i}`,
+      });
+      await s.updateReservation(r.id, { status: "completed" });
+    }
+
+    let active = 0;
+    let maxActive = 0;
+    sendFeedbackRequestEmail.mockImplementation((async (reservation: Reservation, tenant: Tenant) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active -= 1;
+      await emailLogStore.recordEmailAttempt({
+        tenantId: tenant.id,
+        reservationId: reservation.id,
+        type: "feedbackRequest",
+        status: "sent",
+        toEmail: reservation.email,
+      });
+      return { sent: true };
+    }) as never);
+
+    const cronRes = await feedbackCronRoute.POST(req("/api/platform/cron/feedback-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+
+    expect(cronRes.status).toBe(200);
+    expect(await cronRes.json()).toMatchObject({
+      ok: true,
+      processed: AUTOMATED_EMAIL_CONCURRENCY + 4,
+      sent: AUTOMATED_EMAIL_CONCURRENCY + 4,
+      failed: 0,
+    });
+    expect(maxActive).toBeLessThanOrEqual(AUTOMATED_EMAIL_CONCURRENCY);
+  });
+
   it("sends due reservation reminders from the platform cron once", async () => {
     vi.stubEnv("CRON_SECRET", "cron-secret");
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -592,6 +761,59 @@ describe("PATCH /api/admin/reservations/[id] feedback automation", () => {
     expect(second.status).toBe(200);
     expect(await second.json()).toMatchObject({ ok: true, processed: 1, sent: 0, failed: 0 });
     expect(sendReservationReminderEmail).toHaveBeenCalledOnce();
+  });
+
+  it("limits concurrent automated reservation reminder sends", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-12T10:30:00Z"));
+    const { getTenantStore } = await import("@/lib/reservations/tenant-store");
+    const tenant = (await getTenantStore().getById(tenantId))!;
+    await getTenantStore().updateSettings(tenantId, {
+      ...tenant.settings,
+      timezone: "UTC",
+      emailEnabled: true,
+      emailEvents: { bookingConfirmation: true, feedbackRequest: true, reservationReminder: true, cancellationConfirmation: true },
+      reminderLeadHours: 2,
+    });
+    const s = store.getStore().forTenant(tenantId);
+    for (let i = 0; i < AUTOMATED_EMAIL_CONCURRENCY + 4; i += 1) {
+      await s.createReservation({
+        date: "2026-06-12", time: "12:00", service: "lunch", partySize: 2,
+        name: `Reminder Burst ${i}`, email: `reminder-burst-${i}@x.io`, phone: `${i}`, status: "confirmed",
+      });
+    }
+
+    let active = 0;
+    let maxActive = 0;
+    sendReservationReminderEmail.mockImplementation((async (reservation: Reservation, tenant: Tenant) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active -= 1;
+      await emailLogStore.recordEmailAttempt({
+        tenantId: tenant.id,
+        reservationId: reservation.id,
+        type: "reservationReminder",
+        status: "sent",
+        toEmail: reservation.email,
+      });
+      return { sent: true };
+    }) as never);
+
+    const cronRes = await reminderCronRoute.POST(req("/api/platform/cron/reminder-emails", {
+      method: "POST",
+      headers: { authorization: "Bearer cron-secret" },
+    }));
+
+    expect(cronRes.status).toBe(200);
+    expect(await cronRes.json()).toMatchObject({
+      ok: true,
+      processed: AUTOMATED_EMAIL_CONCURRENCY + 4,
+      sent: AUTOMATED_EMAIL_CONCURRENCY + 4,
+      failed: 0,
+    });
+    expect(maxActive).toBeLessThanOrEqual(AUTOMATED_EMAIL_CONCURRENCY);
   });
 });
 

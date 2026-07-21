@@ -7,6 +7,36 @@ import { getTenantStore } from "./tenant-store";
 import type { Reservation } from "./types";
 import { recordAppEvent } from "@/lib/observability/app-event-store";
 import { isExternalReservationSource } from "./external-sources";
+import { AUTOMATED_EMAIL_CONCURRENCY, settleLimited } from "./automation-batch";
+
+export const FEEDBACK_AUTOMATION_LOOKBACK_DAYS = 7;
+
+function localDateInTimezone(timezone: string, now: Date): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    if (byType.year && byType.month && byType.day) return `${byType.year}-${byType.month}-${byType.day}`;
+  } catch {
+    // Fall through to UTC for invalid legacy timezone data.
+  }
+  return now.toISOString().slice(0, 10);
+}
+
+export function feedbackAutomationCutoffDate(
+  timezone: string,
+  now = new Date(),
+  lookbackDays = FEEDBACK_AUTOMATION_LOOKBACK_DAYS,
+): string {
+  const localDate = localDateInTimezone(timezone, now);
+  const [year, month, day] = localDate.split("-").map(Number);
+  const cutoff = new Date(Date.UTC(year, month - 1, day - Math.max(0, Math.trunc(lookbackDays))));
+  return cutoff.toISOString().slice(0, 10);
+}
 
 export async function sendFeedbackRequestForReservation(
   reservation: Reservation,
@@ -58,7 +88,9 @@ export async function processDueFeedbackRequests(
   }
   const due = reservations.filter((r) => hasGuestAttended(r) && r.email && isFeedbackRequestDue(r, tenant.settings));
   if (!due.length) return empty;
-  const results = await Promise.allSettled(due.map((r) => sendFeedbackRequestForReservation(r, tenant)));
+  const results = await settleLimited(due, AUTOMATED_EMAIL_CONCURRENCY, (r) =>
+    sendFeedbackRequestForReservation(r, tenant),
+  );
   let sent = 0;
   let skipped = 0;
   let failed = 0;
@@ -95,7 +127,11 @@ export async function runDueFeedbackRequestCron(): Promise<FeedbackCronTenantRes
     ) {
       continue;
     }
-    const candidates = await listFeedbackRequestCandidates(tenant.id);
+    const candidates = await listFeedbackRequestCandidates(
+      tenant.id,
+      500,
+      feedbackAutomationCutoffDate(tenant.settings.timezone),
+    );
     const summary = await processDueFeedbackRequests(candidates, tenant);
     if (summary.processed > 0 || summary.failed > 0) {
       results.push({

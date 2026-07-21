@@ -75,9 +75,14 @@ function toReservation(r: ResRow): Reservation {
   };
 }
 
-export async function listFeedbackRequestCandidates(tenantId: string, limit = 500): Promise<Reservation[]> {
+export async function listFeedbackRequestCandidates(
+  tenantId: string,
+  limit = 500,
+  fromDate?: string,
+): Promise<Reservation[]> {
   await ensureSchema();
   const safeLimit = Math.min(1000, Math.max(1, Math.trunc(limit)));
+  const dateFilter = /^\d{4}-\d{2}-\d{2}$/.test(fromDate ?? "") ? fromDate : undefined;
   const [rows] = await getPool().query<ResRow[]>(
     `SELECT ${RES_COLUMNS}
        FROM reservations r
@@ -85,6 +90,7 @@ export async function listFeedbackRequestCandidates(tenantId: string, limit = 50
         AND r.status = 'completed'
         AND COALESCE(r.email, '') <> ''
         AND r.source NOT IN ('thefork', 'dish')
+        ${dateFilter ? "AND r.`date` >= ?" : ""}
         AND NOT EXISTS (
           SELECT 1
             FROM reservation_emails e
@@ -94,7 +100,7 @@ export async function listFeedbackRequestCandidates(tenantId: string, limit = 50
         )
       ORDER BY r.\`date\`, r.\`time\`
       LIMIT ?`,
-    [tenantId, safeLimit],
+    dateFilter ? [tenantId, dateFilter, safeLimit] : [tenantId, safeLimit],
   );
   return rows.map(toReservation);
 }

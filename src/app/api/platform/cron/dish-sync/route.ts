@@ -4,6 +4,7 @@ import { recordAppEvent } from "@/lib/observability/app-event-store";
 import { safeError } from "@/lib/observability/logger";
 import { observeSystemRoute } from "@/lib/observability/route-events";
 import { runDishSyncCron } from "@/lib/reservations/dish-sync";
+import { withSchedulerJobLock } from "@/lib/reservations/internal-scheduler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,22 @@ async function runCron(req: NextRequest) {
 
   const startedAt = Date.now();
   try {
-    const results = await runDishSyncCron();
+    const results = await withSchedulerJobLock("dish-sync", runDishSyncCron);
+    if (!results) {
+      await recordAppEvent({
+        level: "info",
+        event: "platform.cron.skipped",
+        surface: "system",
+        actorType: "system",
+        reason: "scheduler_busy",
+        metadata: {
+          job: "dish-sync",
+          trigger: "external",
+          durationMs: Date.now() - startedAt,
+        },
+      });
+      return NextResponse.json({ ok: true, skipped: true, reason: "scheduler_busy" }, { status: 202 });
+    }
     const totals = results.reduce(
       (acc, result) => {
         acc.imported += result.imported;

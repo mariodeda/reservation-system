@@ -141,8 +141,10 @@ async function listCronRuns(req: NextRequest) {
       .filter((event) => (
         event.event === "platform.cron.completed" ||
         event.event === "platform.cron.failed" ||
+        event.event === "platform.cron.skipped" ||
         event.event === "internal_scheduler.job_completed" ||
-        event.event === "internal_scheduler.job_failed"
+        event.event === "internal_scheduler.job_failed" ||
+        event.event === "internal_scheduler.job_skipped"
       ))
       .map(toRun)
       .filter(Boolean) as CronRun[];

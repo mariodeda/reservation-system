@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { recordAppEvent } from "@/lib/observability/app-event-store";
 import { safeError } from "@/lib/observability/logger";
 import { observeSystemRoute } from "@/lib/observability/route-events";
+import { withSchedulerJobLock } from "@/lib/reservations/internal-scheduler";
 import { runSmtpHealthChecks } from "@/lib/reservations/smtp-health";
 
 export const runtime = "nodejs";
@@ -27,7 +28,22 @@ async function runCron(req: NextRequest) {
   }
   const startedAt = Date.now();
   try {
-    const results = await runSmtpHealthChecks();
+    const results = await withSchedulerJobLock("smtp-health", runSmtpHealthChecks);
+    if (!results) {
+      await recordAppEvent({
+        level: "info",
+        event: "platform.cron.skipped",
+        surface: "system",
+        actorType: "system",
+        reason: "scheduler_busy",
+        metadata: {
+          job: "smtp-health",
+          trigger: "external",
+          durationMs: Date.now() - startedAt,
+        },
+      });
+      return NextResponse.json({ ok: true, skipped: true, reason: "scheduler_busy" }, { status: 202 });
+    }
     const failed = results.filter((result) => result.status === "failed").length;
     const notConfigured = results.filter((result) => result.status === "not_configured").length;
     const ok = results.filter((result) => result.status === "ok").length;

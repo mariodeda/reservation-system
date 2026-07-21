@@ -1,5 +1,21 @@
 // Set locale to English for all component tests so English string matchers keep working.
-export {};
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
+
+beforeAll(() => {
+  vi.useRealTimers();
+});
+
+beforeEach(() => {
+  vi.useRealTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
 const existingLocalStorage = localStorageDescriptor && "value" in localStorageDescriptor

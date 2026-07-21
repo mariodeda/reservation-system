@@ -24,6 +24,7 @@ interface LockRow extends RowDataPacket {
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
+const GLOBAL_LOCK = "reservation-system:scheduler";
 
 async function withNamedLock<T>(name: string, fn: () => Promise<T>): Promise<T | undefined> {
   let conn: PoolConnection | undefined;
@@ -41,9 +42,13 @@ async function withNamedLock<T>(name: string, fn: () => Promise<T>): Promise<T |
   }
 }
 
+export async function withSchedulerJobLock<T>(jobName: string, fn: () => Promise<T>): Promise<T | undefined> {
+  return withNamedLock(GLOBAL_LOCK, () => withNamedLock(`reservation-system:${jobName}`, fn));
+}
+
 async function runJob(job: InternalJob) {
-  await withNamedLock(`reservation-system:${job.name}`, async () => {
-    const startedAt = Date.now();
+  const startedAt = Date.now();
+  const ran = await withSchedulerJobLock(job.name, async () => {
     try {
       await job.run();
       await recordAppEvent({
@@ -70,7 +75,21 @@ async function runJob(job: InternalJob) {
         },
       });
     }
+    return true;
   });
+  if (ran !== true) {
+    await recordAppEvent({
+      level: "info",
+      event: "internal_scheduler.job_skipped",
+      surface: "system",
+      actorType: "system",
+      reason: "scheduler_busy",
+      metadata: {
+        job: job.name,
+        durationMs: Date.now() - startedAt,
+      },
+    });
+  }
 }
 
 function scheduleJob(job: InternalJob): NodeJS.Timeout[] {
